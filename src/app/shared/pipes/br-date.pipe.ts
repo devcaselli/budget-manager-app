@@ -6,6 +6,7 @@ const formatter = new Intl.DateTimeFormat('pt-BR', {
 
 @Pipe({
   name: 'brDate',
+  pure: true,
 })
 export class BrDatePipe implements PipeTransform {
   transform(value: string | null): string {

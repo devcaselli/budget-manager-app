@@ -7,6 +7,7 @@ const formatter = new Intl.NumberFormat('pt-BR', {
 
 @Pipe({
   name: 'brlCurrency',
+  pure: true,
 })
 export class BrlCurrencyPipe implements PipeTransform {
   transform(value: number): string {

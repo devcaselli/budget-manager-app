@@ -41,8 +41,9 @@ export class WalletFormComponent {
 
   constructor() {
     effect(() => {
-      this.resetCount();
-      this.resetForm();
+      if (this.resetCount() > 0) {
+        this.resetForm();
+      }
     });
   }
 
