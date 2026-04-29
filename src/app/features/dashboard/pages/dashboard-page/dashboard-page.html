@@ -2,7 +2,7 @@
   <div class="dashboard__header">
     <app-page-header
       title="Dashboard financeiro"
-      subtitle="Visao da wallet ativa com bullets carregados da API."
+      subtitle="Visao da wallet ativa com bullets e expenses carregados da API."
       icon="monitoring"
     />
 
@@ -12,7 +12,7 @@
     </button>
   </div>
 
-  <div class="grid gap-4 md:grid-cols-3">
+  <div class="grid gap-4 md:grid-cols-4">
     @for (card of summaryCards(); track card.label) {
       <mat-card appearance="outlined" class="summary-card">
         <mat-card-content>
@@ -35,10 +35,10 @@
       </div>
     </div>
 
-    @if (errorMessage()) {
+    @if (bulletErrorMessage()) {
       <div class="dashboard__alert" role="alert">
         <mat-icon aria-hidden="true">error</mat-icon>
-        <span>{{ errorMessage() }}</span>
+        <span>{{ bulletErrorMessage() }}</span>
       </div>
     }
 
@@ -63,6 +63,47 @@
           <mat-icon aria-hidden="true">track_changes</mat-icon>
           <strong>Nenhum bullet cadastrado</strong>
           <span>Os bullets da wallet ativa aparecem aqui.</span>
+        </div>
+      }
+    </div>
+  </section>
+
+  <section class="dashboard__panel">
+    <div class="dashboard__panel-header">
+      <div>
+        <h2>Expenses da wallet</h2>
+        <p>{{ wallet()?.description || 'Nenhuma wallet selecionada' }}</p>
+      </div>
+    </div>
+
+    @if (expenseErrorMessage()) {
+      <div class="dashboard__alert" role="alert">
+        <mat-icon aria-hidden="true">error</mat-icon>
+        <span>{{ expenseErrorMessage() }}</span>
+      </div>
+    }
+
+    @if (isLoadingExpenses()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+
+    <div class="bullet-list">
+      @for (expense of expenseUsages(); track expense.id) {
+        <article class="bullet-list__item">
+          <div class="budget-list__row">
+            <div>
+              <strong>{{ expense.name }}</strong>
+              <small>{{ expense.purchaseDate }} · {{ expense.remaining }} em aberto</small>
+            </div>
+            <span>{{ expense.paid }} / {{ expense.cost }}</span>
+          </div>
+          <mat-progress-bar mode="determinate" [value]="expense.progress" />
+        </article>
+      } @empty {
+        <div class="bullet-list__empty">
+          <mat-icon aria-hidden="true">receipt_long</mat-icon>
+          <strong>Nenhuma expense cadastrada</strong>
+          <span>As expenses da wallet ativa aparecem aqui.</span>
         </div>
       }
     </div>

@@ -14,9 +14,10 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
 
 import { BulletService } from '@features/bullet/services/bullet.service';
+import { ExpenseService } from '@features/expense/services/expense.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
 
-import { BulletBudget, SummaryCard } from '../../models/dashboard.models';
+import { BulletBudget, ExpenseUsage, SummaryCard } from '../../models/dashboard.models';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -33,16 +34,24 @@ import { BulletBudget, SummaryCard } from '../../models/dashboard.models';
 })
 export class DashboardPage {
   private readonly bulletService = inject(BulletService);
+  private readonly expenseService = inject(ExpenseService);
   private readonly walletService = inject(WalletService);
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
+  private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
 
   protected readonly isLoadingBullets = toSignal(this.bulletService.loading$, {
     initialValue: false,
   });
-  protected readonly errorMessage = toSignal(this.bulletService.error$, {
+  protected readonly isLoadingExpenses = toSignal(this.expenseService.loading$, {
+    initialValue: false,
+  });
+  protected readonly bulletErrorMessage = toSignal(this.bulletService.error$, {
+    initialValue: null,
+  });
+  protected readonly expenseErrorMessage = toSignal(this.expenseService.error$, {
     initialValue: null,
   });
 
@@ -84,10 +93,25 @@ export class DashboardPage {
     };
   });
 
+  private readonly openExpensesCard = computed<SummaryCard>(() => {
+    const remaining = this.expenses().reduce(
+      (total, expense) => total + Number(expense.remaining),
+      0,
+    );
+
+    return {
+      label: 'Em aberto nas expenses',
+      value: this.formatCurrency(remaining),
+      icon: 'receipt_long',
+      helper: `${this.expenses().length} expense(s)`,
+    };
+  });
+
   protected readonly summaryCards = computed<readonly SummaryCard[]>(() => [
     this.balanceCard(),
     this.allocatedCard(),
     this.bulletRemainingCard(),
+    this.openExpensesCard(),
   ]);
 
   protected readonly bulletBudgets = computed<readonly BulletBudget[]>(() =>
@@ -108,15 +132,38 @@ export class DashboardPage {
     }),
   );
 
+  protected readonly expenseUsages = computed<readonly ExpenseUsage[]>(() =>
+    this.expenses().map((expense) => {
+      const cost = Number(expense.cost);
+      const remaining = Number(expense.remaining);
+      const paid = Math.max(cost - remaining, 0);
+      const progress = cost > 0 ? Math.min((paid / cost) * 100, 100) : 0;
+
+      return {
+        id: expense.id,
+        name: expense.name,
+        paid: this.formatCurrency(paid),
+        cost: this.formatCurrency(cost),
+        remaining: this.formatCurrency(remaining),
+        purchaseDate: this.formatDate(expense.purchaseDate),
+        progress,
+      };
+    }),
+  );
+
   constructor() {
     effect(() => {
       const walletId = this.selectedWallet()?.id ?? null;
       this.bulletService.loadByWalletId(walletId);
+      this.expenseService.loadByWalletId(walletId);
     });
   }
 
   protected refreshDashboard(): void {
-    this.bulletService.loadByWalletId(this.selectedWallet()?.id ?? null);
+    const walletId = this.selectedWallet()?.id ?? null;
+
+    this.bulletService.loadByWalletId(walletId);
+    this.expenseService.loadByWalletId(walletId);
     this.walletService.loadWallets();
   }
 
@@ -125,5 +172,9 @@ export class DashboardPage {
       style: 'currency',
       currency: 'BRL',
     }).format(value);
+  }
+
+  private formatDate(value: string): string {
+    return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(value));
   }
 }

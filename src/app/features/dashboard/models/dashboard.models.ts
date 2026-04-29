@@ -13,3 +13,13 @@ export interface BulletBudget {
   readonly progress: number;
   readonly remaining: string;
 }
+
+export interface ExpenseUsage {
+  readonly id: string;
+  readonly name: string;
+  readonly paid: string;
+  readonly cost: string;
+  readonly remaining: string;
+  readonly purchaseDate: string;
+  readonly progress: number;
+}

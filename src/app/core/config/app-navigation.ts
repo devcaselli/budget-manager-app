@@ -17,4 +17,9 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
     route: '/bullets',
     icon: 'track_changes',
   },
+  {
+    label: 'Expenses',
+    route: '/expenses',
+    icon: 'receipt_long',
+  },
 ];
