@@ -1,0 +1,101 @@
+<section class="bullet-page">
+  <div class="bullet-page__header">
+    <app-page-header
+      title="Bullets"
+      subtitle="Crie e gerencie os bullets da wallet ativa."
+      icon="track_changes"
+    />
+
+    <button mat-stroked-button type="button" (click)="refreshBullets()" [disabled]="isLoading()">
+      <mat-icon aria-hidden="true">refresh</mat-icon>
+      Atualizar
+    </button>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="bullet-page__alert" role="alert">
+      <mat-icon aria-hidden="true">error</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="bullet-page__content">
+    <mat-card appearance="outlined" class="bullet-form-card">
+      <mat-card-header>
+        <mat-card-title>Novo bullet</mat-card-title>
+        <mat-card-subtitle>{{ wallet()?.description || 'Selecione uma wallet' }}</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <form class="bullet-form" [formGroup]="form" (ngSubmit)="createBullet()">
+          <mat-form-field appearance="outline">
+            <mat-label>Descricao</mat-label>
+            <input matInput formControlName="description" placeholder="Ex.: Alimentacao" />
+            @if (form.controls.description.touched && form.controls.description.invalid) {
+              <mat-error>Informe uma descricao.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Orcamento</mat-label>
+            <input matInput type="number" min="0.01" step="0.01" formControlName="budget" />
+            @if (form.controls.budget.touched && form.controls.budget.invalid) {
+              <mat-error>Informe um valor maior que zero.</mat-error>
+            }
+          </mat-form-field>
+
+          <button mat-flat-button type="submit" [disabled]="!wallet() || isSaving()">
+            <mat-icon aria-hidden="true">add</mat-icon>
+            Criar bullet
+          </button>
+        </form>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="bullet-list-card">
+      <mat-card-header>
+        <mat-card-title>Bullets cadastrados</mat-card-title>
+        <mat-card-subtitle>{{ bulletItems().length }} bullet(s) encontrados</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        @if (isLoading()) {
+          <mat-progress-bar mode="indeterminate" />
+        }
+
+        <div class="bullet-list">
+          @for (bullet of bulletItems(); track bullet.id) {
+            <article class="bullet-list__item">
+              <div class="bullet-list__row">
+                <div>
+                  <strong>{{ bullet.description }}</strong>
+                  <small>{{ bullet.used }} usado de {{ bullet.budget }}</small>
+                </div>
+
+                <span>{{ bullet.remaining }} disponivel</span>
+
+                <button
+                  mat-icon-button
+                  type="button"
+                  aria-label="Excluir bullet"
+                  [disabled]="deletingBulletId() === bullet.id"
+                  (click)="deleteBullet(bullet.id)"
+                >
+                  <mat-icon aria-hidden="true">delete</mat-icon>
+                </button>
+              </div>
+
+              <mat-progress-bar mode="determinate" [value]="bullet.progress" />
+            </article>
+          } @empty {
+            <div class="bullet-list__empty">
+              <mat-icon aria-hidden="true">track_changes</mat-icon>
+              <strong>Nenhum bullet cadastrado</strong>
+              <span>Crie o primeiro bullet para a wallet ativa.</span>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</section>

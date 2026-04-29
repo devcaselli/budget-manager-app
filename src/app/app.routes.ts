@@ -23,6 +23,14 @@ export const routes: Routes = [
     title: 'Wallets | Budget Manager',
   },
   {
+    path: 'bullets',
+    loadComponent: () =>
+      import('@features/bullet/pages/bullet-page/bullet-page').then(
+        (component) => component.BulletPage,
+      ),
+    title: 'Bullets | Budget Manager',
+  },
+  {
     path: '**',
     redirectTo: 'dashboard',
   },

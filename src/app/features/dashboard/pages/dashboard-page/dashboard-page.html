@@ -2,13 +2,13 @@
   <div class="dashboard__header">
     <app-page-header
       title="Dashboard financeiro"
-      subtitle="Visao consolidada para acompanhar saldo, receitas, despesas e limites de orcamento."
+      subtitle="Visao da wallet ativa com bullets carregados da API."
       icon="monitoring"
     />
 
-    <button mat-flat-button type="button" disabled>
-      <mat-icon aria-hidden="true">file_download</mat-icon>
-      Exportar
+    <button mat-stroked-button type="button" (click)="refreshDashboard()">
+      <mat-icon aria-hidden="true">refresh</mat-icon>
+      Atualizar
     </button>
   </div>
 
@@ -30,24 +30,40 @@
   <section class="dashboard__panel">
     <div class="dashboard__panel-header">
       <div>
-        <h2>Orcamentos do mes</h2>
-        <p>Acompanhe categorias perto do limite antes do fechamento.</p>
+        <h2>Bullets da wallet</h2>
+        <p>{{ wallet()?.description || 'Nenhuma wallet selecionada' }}</p>
       </div>
-      <button mat-stroked-button type="button" disabled>
-        <mat-icon aria-hidden="true">tune</mat-icon>
-        Ajustar limites
-      </button>
     </div>
 
-    <div class="budget-list">
-      @for (category of budgetCategories; track category.name) {
-        <article class="budget-list__item">
+    @if (errorMessage()) {
+      <div class="dashboard__alert" role="alert">
+        <mat-icon aria-hidden="true">error</mat-icon>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    @if (isLoadingBullets()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+
+    <div class="bullet-list">
+      @for (bullet of bulletBudgets(); track bullet.id) {
+        <article class="bullet-list__item">
           <div class="budget-list__row">
-            <strong>{{ category.name }}</strong>
-            <span>{{ category.spent }} / {{ category.limit }}</span>
+            <div>
+              <strong>{{ bullet.name }}</strong>
+              <small>{{ bullet.remaining }} disponivel</small>
+            </div>
+            <span>{{ bullet.spent }} / {{ bullet.limit }}</span>
           </div>
-          <mat-progress-bar mode="determinate" [value]="category.progress" />
+          <mat-progress-bar mode="determinate" [value]="bullet.progress" />
         </article>
+      } @empty {
+        <div class="bullet-list__empty">
+          <mat-icon aria-hidden="true">track_changes</mat-icon>
+          <strong>Nenhum bullet cadastrado</strong>
+          <span>Os bullets da wallet ativa aparecem aqui.</span>
+        </div>
       }
     </div>
   </section>

@@ -5,9 +5,11 @@ export interface SummaryCard {
   readonly helper: string;
 }
 
-export interface BudgetCategory {
+export interface BulletBudget {
+  readonly id: string;
   readonly name: string;
   readonly spent: string;
   readonly limit: string;
   readonly progress: number;
+  readonly remaining: string;
 }

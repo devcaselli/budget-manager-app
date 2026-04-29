@@ -12,4 +12,9 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
     route: '/wallets',
     icon: 'account_balance_wallet',
   },
+  {
+    label: 'Bullets',
+    route: '/bullets',
+    icon: 'track_changes',
+  },
 ];
