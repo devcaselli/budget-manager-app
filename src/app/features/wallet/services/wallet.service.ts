@@ -1,6 +1,16 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { BehaviorSubject, catchError, defer, EMPTY, finalize, Observable, tap } from 'rxjs';
+import {
+  BehaviorSubject,
+  catchError,
+  EMPTY,
+  finalize,
+  Observable,
+  ReplaySubject,
+  Subject,
+  switchMap,
+  tap,
+} from 'rxjs';
 
 import { environment } from '@environments/environment';
 
@@ -18,6 +28,8 @@ export class WalletService {
   private readonly loadingSubject = new BehaviorSubject(false);
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
+  private readonly loadWalletsTrigger$ = new Subject<void>();
+  private readonly selectWalletTrigger$ = new Subject<Wallet>();
   private activeLoadingRequests = 0;
 
   readonly wallets$ = this.walletsSubject.asObservable();
@@ -25,6 +37,50 @@ export class WalletService {
   readonly loading$ = this.loadingSubject.asObservable();
   readonly saving$ = this.savingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
+
+  constructor() {
+    this.loadWalletsTrigger$
+      .pipe(
+        tap(() => {
+          this.startLoading();
+          this.errorSubject.next(null);
+        }),
+        switchMap(() =>
+          this.findAll().pipe(
+            tap((wallets) => {
+              this.walletsSubject.next(wallets);
+              this.syncSelectedWallet(wallets);
+            }),
+            catchError(() => {
+              this.errorSubject.next('Nao foi possivel carregar as wallets.');
+              return EMPTY;
+            }),
+            finalize(() => this.stopLoading()),
+          ),
+        ),
+      )
+      .subscribe();
+
+    this.selectWalletTrigger$
+      .pipe(
+        tap((wallet) => {
+          this.selectedWalletSubject.next(wallet);
+          this.startLoading();
+          this.errorSubject.next(null);
+        }),
+        switchMap((wallet) =>
+          this.findById(wallet.id).pipe(
+            tap((details) => this.selectedWalletSubject.next(details)),
+            catchError(() => {
+              this.errorSubject.next('Nao foi possivel carregar os detalhes da wallet.');
+              return EMPTY;
+            }),
+            finalize(() => this.stopLoading()),
+          ),
+        ),
+      )
+      .subscribe();
+  }
 
   findAll(): Observable<Wallet[]> {
     return this.http.get<Wallet[]>(this.walletsUrl);
@@ -35,11 +91,14 @@ export class WalletService {
   }
 
   create(input: CreateWalletRequest): Observable<Wallet> {
-    return defer(() => {
-      this.savingSubject.next(true);
-      this.errorSubject.next(null);
+    const createdWalletSubject = new ReplaySubject<Wallet>(1);
 
-      return this.http.post<Wallet>(this.walletsUrl, input).pipe(
+    this.savingSubject.next(true);
+    this.errorSubject.next(null);
+
+    this.http
+      .post<Wallet>(this.walletsUrl, input)
+      .pipe(
         tap({
           next: (wallet) => {
             const currentWallets = this.walletsSubject.getValue();
@@ -52,27 +111,20 @@ export class WalletService {
           error: () => this.errorSubject.next('Nao foi possivel abrir a wallet.'),
         }),
         finalize(() => this.savingSubject.next(false)),
-      );
-    });
+      )
+      .subscribe({
+        next: (wallet) => {
+          createdWalletSubject.next(wallet);
+          createdWalletSubject.complete();
+        },
+        error: (error: unknown) => createdWalletSubject.error(error),
+      });
+
+    return createdWalletSubject.asObservable();
   }
 
   loadWallets(): void {
-    this.startLoading();
-    this.errorSubject.next(null);
-
-    this.findAll()
-      .pipe(
-        tap((wallets) => {
-          this.walletsSubject.next(wallets);
-          this.syncSelectedWallet(wallets);
-        }),
-        catchError(() => {
-          this.errorSubject.next('Nao foi possivel carregar as wallets.');
-          return EMPTY;
-        }),
-        finalize(() => this.stopLoading()),
-      )
-      .subscribe();
+    this.loadWalletsTrigger$.next();
   }
 
   selectWallet(wallet: Wallet): void {
@@ -80,20 +132,7 @@ export class WalletService {
       return;
     }
 
-    this.selectedWalletSubject.next(wallet);
-    this.startLoading();
-    this.errorSubject.next(null);
-
-    this.findById(wallet.id)
-      .pipe(
-        tap((details) => this.selectedWalletSubject.next(details)),
-        catchError(() => {
-          this.errorSubject.next('Nao foi possivel carregar os detalhes da wallet.');
-          return EMPTY;
-        }),
-        finalize(() => this.stopLoading()),
-      )
-      .subscribe();
+    this.selectWalletTrigger$.next(wallet);
   }
 
   private syncSelectedWallet(wallets: readonly Wallet[]): void {
