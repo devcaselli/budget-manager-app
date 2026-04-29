@@ -1,7 +1,7 @@
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { By } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
-import { Observable, of, Subject, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 
 import { WalletDetailComponent } from '../../components/wallet-detail/wallet-detail.component';
 import { WalletFormComponent } from '../../components/wallet-form/wallet-form.component';
@@ -11,8 +11,18 @@ import { WalletService } from '../../services/wallet.service';
 import { WalletPage } from './wallet-page';
 
 class WalletServiceMock {
-  findAll = vi.fn<() => Observable<Wallet[]>>();
-  findById = vi.fn<(id: string) => Observable<Wallet>>();
+  readonly walletsSubject = new BehaviorSubject<readonly Wallet[]>([]);
+  readonly selectedWalletSubject = new BehaviorSubject<Wallet | null>(null);
+  readonly loadingSubject = new BehaviorSubject(false);
+  readonly errorSubject = new BehaviorSubject<string | null>(null);
+
+  readonly wallets$ = this.walletsSubject.asObservable();
+  readonly selectedWallet$ = this.selectedWalletSubject.asObservable();
+  readonly loading$ = this.loadingSubject.asObservable();
+  readonly error$ = this.errorSubject.asObservable();
+
+  loadWallets = vi.fn<() => void>();
+  selectWallet = vi.fn<(wallet: Wallet) => void>();
   create = vi.fn<(request: CreateWalletRequest) => Observable<Wallet>>();
 }
 
@@ -46,26 +56,24 @@ describe('WalletPage', () => {
     }).compileComponents();
   });
 
-  it('should load wallets and select the first wallet with details', () => {
-    service.findAll.mockReturnValue(of([wallet]));
-    service.findById.mockReturnValue(of(walletDetails));
-
+  it('should render wallets and selected wallet from service streams', () => {
     const fixture = TestBed.createComponent(WalletPage);
+    service.walletsSubject.next([wallet]);
+    service.selectedWalletSubject.next(walletDetails);
     fixture.detectChanges();
 
+    const list = fixture.debugElement.query(By.directive(WalletListComponent))
+      .componentInstance as WalletListComponent;
     const detail = fixture.debugElement.query(By.directive(WalletDetailComponent))
       .componentInstance as WalletDetailComponent;
 
-    expect(service.findAll).toHaveBeenCalledOnce();
-    expect(service.findById).toHaveBeenCalledWith(wallet.id);
+    expect(list.wallets()).toEqual([wallet]);
     expect(detail.wallet()?.remaining).toBe(walletDetails.remaining);
   });
 
-  it('should not fetch details again when selected wallet is selected', () => {
-    service.findAll.mockReturnValue(of([wallet]));
-    service.findById.mockReturnValue(of(walletDetails));
-
+  it('should call the service when selecting a wallet', () => {
     const fixture = TestBed.createComponent(WalletPage);
+    service.walletsSubject.next([wallet]);
     fixture.detectChanges();
 
     const list = fixture.debugElement.query(By.directive(WalletListComponent))
@@ -73,7 +81,7 @@ describe('WalletPage', () => {
     list.walletSelect.emit(wallet);
     fixture.detectChanges();
 
-    expect(service.findById).toHaveBeenCalledOnce();
+    expect(service.selectWallet).toHaveBeenCalledWith(wallet);
   });
 
   it('should create a wallet and update child inputs', () => {
@@ -93,8 +101,11 @@ describe('WalletPage', () => {
       closedDate: createdWallet.closedDate,
       closed: createdWallet.closed,
     };
-    service.findAll.mockReturnValue(of([]));
-    service.create.mockReturnValue(of(createdWallet));
+    service.create.mockImplementation(() => {
+      service.walletsSubject.next([createdWallet]);
+      service.selectedWalletSubject.next(createdWallet);
+      return of(createdWallet);
+    });
 
     const fixture = TestBed.createComponent(WalletPage);
     fixture.detectChanges();
@@ -115,11 +126,9 @@ describe('WalletPage', () => {
     expect(form.resetCount()).toBe(1);
   });
 
-  it('should expose loading and error states when loading wallets fails', () => {
-    const walletsSubject = new Subject<Wallet[]>();
-    service.findAll.mockReturnValue(walletsSubject.asObservable());
-
+  it('should expose loading and error states from the service', () => {
     const fixture = TestBed.createComponent(WalletPage);
+    service.loadingSubject.next(true);
     fixture.detectChanges();
 
     const refreshButton = fixture.nativeElement.querySelector(
@@ -127,7 +136,7 @@ describe('WalletPage', () => {
     ) as HTMLButtonElement;
     expect(refreshButton.disabled).toBe(true);
 
-    walletsSubject.error(new Error('Network error'));
+    service.errorSubject.next('Nao foi possivel carregar as wallets.');
     fixture.detectChanges();
 
     const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
@@ -142,8 +151,10 @@ describe('WalletPage', () => {
       closedDate: null,
       closed: false,
     };
-    service.findAll.mockReturnValue(of([]));
-    service.create.mockReturnValue(throwError(() => new Error('Server error')));
+    service.create.mockImplementation(() => {
+      service.errorSubject.next('Nao foi possivel abrir a wallet.');
+      return throwError(() => new Error('Server error'));
+    });
 
     const fixture = TestBed.createComponent(WalletPage);
     fixture.detectChanges();

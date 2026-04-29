@@ -22,6 +22,16 @@ describe('WalletService', () => {
     httpMock.verify();
   });
 
+  it('should emit an empty wallet array as the initial state', () => {
+    let emittedWallets: readonly Wallet[] | undefined;
+
+    service.wallets$.subscribe((wallets) => {
+      emittedWallets = wallets;
+    });
+
+    expect(emittedWallets).toEqual([]);
+  });
+
   it('should return all wallets via GET /api/wallets', () => {
     const wallets: Wallet[] = [
       {
@@ -94,5 +104,120 @@ describe('WalletService', () => {
 
     const request = httpMock.expectOne('/api/wallets');
     request.flush({ message: 'Internal server error' }, { status: 500, statusText: 'Server Error' });
+  });
+
+  it('should populate wallets$ with loadWallets API response', () => {
+    const wallets: Wallet[] = [
+      {
+        id: 'wallet-1',
+        description: 'Abril 2026',
+        budget: 5000,
+        remaining: 3200,
+        startDate: '2026-04-01',
+        closedDate: null,
+        closed: false,
+      },
+    ];
+    const emittedWallets: (readonly Wallet[])[] = [];
+
+    service.wallets$.subscribe((value) => emittedWallets.push(value));
+    service.loadWallets();
+
+    const request = httpMock.expectOne('/api/wallets');
+    expect(request.request.method).toBe('GET');
+    request.flush(wallets);
+
+    expect(emittedWallets.at(-1)).toEqual(wallets);
+  });
+
+  it('should set loading$ while loadWallets is pending and unset it when finished', () => {
+    const loadingStates: boolean[] = [];
+
+    service.loading$.subscribe((value) => loadingStates.push(value));
+    service.loadWallets();
+
+    expect(loadingStates).toEqual([false, true]);
+
+    const request = httpMock.expectOne('/api/wallets');
+    request.flush([]);
+
+    expect(loadingStates).toEqual([false, true, false]);
+  });
+
+  it('should set error$ when loadWallets fails', () => {
+    const errors: (string | null)[] = [];
+
+    service.error$.subscribe((value) => errors.push(value));
+    service.loadWallets();
+
+    const request = httpMock.expectOne('/api/wallets');
+    request.flush({ message: 'Internal server error' }, { status: 500, statusText: 'Server Error' });
+
+    expect(errors.at(-1)).toBe('Nao foi possivel carregar as wallets.');
+  });
+
+  it('should populate selectedWallet$ with selectWallet API response', () => {
+    const wallet: Wallet = {
+      id: 'wallet-1',
+      description: 'Abril 2026',
+      budget: 5000,
+      remaining: 3200,
+      startDate: '2026-04-01',
+      closedDate: null,
+      closed: false,
+    };
+    const walletDetails: Wallet = {
+      ...wallet,
+      remaining: 3000,
+    };
+    const selectedWallets: (Wallet | null)[] = [];
+
+    service.selectedWallet$.subscribe((value) => selectedWallets.push(value));
+    service.selectWallet(wallet);
+
+    const request = httpMock.expectOne('/api/wallets/wallet-1');
+    expect(request.request.method).toBe('GET');
+    request.flush(walletDetails);
+
+    expect(selectedWallets.at(-1)).toEqual(walletDetails);
+  });
+
+  it('should add created wallet to the beginning of wallets$', () => {
+    const currentWallet: Wallet = {
+      id: 'wallet-1',
+      description: 'Abril 2026',
+      budget: 5000,
+      remaining: 3200,
+      startDate: '2026-04-01',
+      closedDate: null,
+      closed: false,
+    };
+    const createdWallet: Wallet = {
+      id: 'wallet-2',
+      description: 'Maio 2026',
+      budget: 3000,
+      remaining: 3000,
+      startDate: '2026-05-01',
+      closedDate: null,
+      closed: false,
+    };
+    const input: CreateWalletRequest = {
+      description: createdWallet.description,
+      budget: createdWallet.budget,
+      startDate: createdWallet.startDate,
+      closedDate: createdWallet.closedDate,
+      closed: createdWallet.closed,
+    };
+    const emittedWallets: (readonly Wallet[])[] = [];
+
+    service.wallets$.subscribe((value) => emittedWallets.push(value));
+    service.loadWallets();
+    httpMock.expectOne('/api/wallets').flush([currentWallet]);
+
+    service.create(input).subscribe();
+    const request = httpMock.expectOne('/api/wallets');
+    request.flush(createdWallet);
+
+    expect(emittedWallets.at(-1)).toEqual([createdWallet, currentWallet]);
   });
 });

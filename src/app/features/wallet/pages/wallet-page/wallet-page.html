@@ -6,7 +6,7 @@
       icon="account_balance_wallet"
     />
 
-    <button mat-stroked-button type="button" (click)="loadWallets()" [disabled]="isLoading()">
+    <button mat-stroked-button type="button" (click)="refreshWallets()" [disabled]="isLoading()">
       <mat-icon aria-hidden="true">refresh</mat-icon>
       Atualizar
     </button>
@@ -33,6 +33,6 @@
       (walletSelect)="selectWallet($event)"
     />
 
-    <app-wallet-detail [wallet]="selectedWallet()" [isLoading]="isLoadingDetails()" />
+    <app-wallet-detail [wallet]="selectedWallet()" [isLoading]="isLoading()" />
   </div>
 </section>

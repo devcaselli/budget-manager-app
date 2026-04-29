@@ -13,7 +13,7 @@
   </div>
 
   <div class="grid gap-4 md:grid-cols-3">
-    @for (card of summaryCards; track card.label) {
+    @for (card of summaryCards(); track card.label) {
       <mat-card appearance="outlined" class="summary-card">
         <mat-card-content>
           <div class="summary-card__topline">

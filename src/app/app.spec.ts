@@ -2,13 +2,19 @@ import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 
+import { WalletService } from '@features/wallet/services/wallet.service';
+
 import { App } from './app';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideNoopAnimations(), provideRouter([])],
+      providers: [
+        provideNoopAnimations(),
+        provideRouter([]),
+        { provide: WalletService, useValue: { loadWallets: vi.fn() } },
+      ],
     }).compileComponents();
   });
 

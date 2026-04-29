@@ -1,10 +1,13 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
+
+import { WalletService } from '@features/wallet/services/wallet.service';
 
 import { BudgetCategory, SummaryCard } from '../../models/dashboard.models';
 
@@ -22,26 +25,26 @@ import { BudgetCategory, SummaryCard } from '../../models/dashboard.models';
   styleUrl: './dashboard-page.scss',
 })
 export class DashboardPage {
-  protected readonly summaryCards: readonly SummaryCard[] = [
-    {
+  private readonly walletService = inject(WalletService);
+  private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
+    initialValue: null,
+  });
+
+  protected readonly balanceCard = computed<SummaryCard>(() => {
+    const wallet = this.selectedWallet();
+
+    return {
       label: 'Saldo atual',
-      value: 'R$ 8.420,00',
+      value: this.formatCurrency(wallet?.remaining ?? 0),
       icon: 'savings',
-      helper: '+12% vs. mes anterior',
-    },
-    {
-      label: 'Receitas',
-      value: 'R$ 12.300,00',
-      icon: 'trending_up',
-      helper: '3 fontes ativas',
-    },
-    {
-      label: 'Despesas',
-      value: 'R$ 3.880,00',
-      icon: 'receipt_long',
-      helper: '68 lancamentos',
-    },
-  ];
+      helper: wallet?.description || '-',
+    };
+  });
+
+  protected readonly summaryCards = computed<readonly SummaryCard[]>(() => [
+    this.balanceCard(),
+    // TODO: adicionar cards reais de receitas e despesas quando essas features existirem.
+  ]);
 
   protected readonly budgetCategories: readonly BudgetCategory[] = [
     {
@@ -63,4 +66,11 @@ export class DashboardPage {
       progress: 59,
     },
   ];
+
+  private formatCurrency(value: number): string {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  }
 }
