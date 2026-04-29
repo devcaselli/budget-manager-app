@@ -1,0 +1,54 @@
+<section class="dashboard">
+  <div class="dashboard__header">
+    <app-page-header
+      title="Dashboard financeiro"
+      subtitle="Visao consolidada para acompanhar saldo, receitas, despesas e limites de orcamento."
+      icon="monitoring"
+    />
+
+    <button mat-flat-button type="button">
+      <mat-icon aria-hidden="true">file_download</mat-icon>
+      Exportar
+    </button>
+  </div>
+
+  <div class="grid gap-4 md:grid-cols-3">
+    @for (card of summaryCards; track card.label) {
+      <mat-card appearance="outlined" class="summary-card">
+        <mat-card-content>
+          <div class="summary-card__topline">
+            <span>{{ card.label }}</span>
+            <mat-icon aria-hidden="true">{{ card.icon }}</mat-icon>
+          </div>
+          <strong>{{ card.value }}</strong>
+          <small>{{ card.helper }}</small>
+        </mat-card-content>
+      </mat-card>
+    }
+  </div>
+
+  <section class="dashboard__panel">
+    <div class="dashboard__panel-header">
+      <div>
+        <h2>Orcamentos do mes</h2>
+        <p>Acompanhe categorias perto do limite antes do fechamento.</p>
+      </div>
+      <button mat-stroked-button type="button">
+        <mat-icon aria-hidden="true">tune</mat-icon>
+        Ajustar limites
+      </button>
+    </div>
+
+    <div class="budget-list">
+      @for (category of budgetCategories; track category.name) {
+        <article class="budget-list__item">
+          <div class="budget-list__row">
+            <strong>{{ category.name }}</strong>
+            <span>{{ category.spent }} / {{ category.limit }}</span>
+          </div>
+          <mat-progress-bar mode="determinate" [value]="category.progress" />
+        </article>
+      }
+    </div>
+  </section>
+</section>

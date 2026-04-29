@@ -1,0 +1,14 @@
+<header class="page-header">
+  @if (icon()) {
+    <span class="page-header__icon" aria-hidden="true">
+      <mat-icon>{{ icon() }}</mat-icon>
+    </span>
+  }
+
+  <div>
+    <h1>{{ title() }}</h1>
+    @if (subtitle()) {
+      <p>{{ subtitle() }}</p>
+    }
+  </div>
+</header>

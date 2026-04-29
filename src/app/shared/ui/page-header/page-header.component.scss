@@ -1,0 +1,29 @@
+.page-header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.page-header__icon {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 2vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+p {
+  max-width: 42rem;
+  margin: 0.25rem 0 0;
+  color: var(--mat-sys-on-surface-variant);
+}
