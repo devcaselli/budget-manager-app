@@ -19,6 +19,13 @@
     </div>
   }
 
+  @if (paymentErrorMessage()) {
+    <div class="expense-page__alert" role="alert">
+      <mat-icon aria-hidden="true">error</mat-icon>
+      <span>{{ paymentErrorMessage() }}</span>
+    </div>
+  }
+
   <div class="expense-page__content">
     <mat-card appearance="outlined" class="expense-form-card">
       <mat-card-header>
@@ -79,15 +86,27 @@
 
                 <span>{{ expense.remaining }} em aberto</span>
 
-                <button
-                  mat-icon-button
-                  type="button"
-                  aria-label="Excluir expense"
-                  [disabled]="deletingExpenseId() === expense.id"
-                  (click)="deleteExpense(expense.id)"
-                >
-                  <mat-icon aria-hidden="true">delete</mat-icon>
-                </button>
+                <div class="expense-list__actions">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    aria-label="Pagar expense"
+                    [disabled]="expense.remainingValue <= 0 || bulletOptions().length === 0 || isPaying()"
+                    (click)="openPaymentDialog(expense)"
+                  >
+                    <mat-icon aria-hidden="true">payments</mat-icon>
+                  </button>
+
+                  <button
+                    mat-icon-button
+                    type="button"
+                    aria-label="Excluir expense"
+                    [disabled]="deletingExpenseId() === expense.id"
+                    (click)="deleteExpense(expense.id)"
+                  >
+                    <mat-icon aria-hidden="true">delete</mat-icon>
+                  </button>
+                </div>
               </div>
 
               <mat-progress-bar mode="determinate" [value]="expense.progress" />

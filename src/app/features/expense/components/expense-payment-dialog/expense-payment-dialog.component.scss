@@ -1,0 +1,15 @@
+.payment-dialog__summary {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+
+  span {
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.payment-dialog__form {
+  display: grid;
+  gap: 1rem;
+  min-width: min(26rem, 72vw);
+}

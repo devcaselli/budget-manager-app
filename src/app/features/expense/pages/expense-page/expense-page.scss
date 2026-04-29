@@ -77,6 +77,12 @@
   }
 }
 
+.expense-list__actions {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
 .expense-list__empty {
   display: grid;
   gap: 0.5rem;

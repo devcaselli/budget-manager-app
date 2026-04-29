@@ -1,0 +1,45 @@
+<h2 mat-dialog-title>Pagar expense</h2>
+
+<mat-dialog-content>
+  <div class="payment-dialog__summary">
+    <strong>{{ data.expense.name }}</strong>
+    <span>{{ data.expense.remaining }} em aberto</span>
+  </div>
+
+  <form class="payment-dialog__form" [formGroup]="form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline">
+      <mat-label>Bullet</mat-label>
+      <mat-select formControlName="bulletId">
+        @for (bullet of data.bullets; track bullet.id) {
+          <mat-option [value]="bullet.id">
+            {{ bullet.description }} · {{ bullet.remaining }} disponivel
+          </mat-option>
+        }
+      </mat-select>
+      @if (form.controls.bulletId.touched && form.controls.bulletId.invalid) {
+        <mat-error>Selecione um bullet.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Valor</mat-label>
+      <input matInput type="number" min="0.01" step="0.01" formControlName="amount" />
+      @if (form.controls.amount.touched && form.controls.amount.invalid) {
+        <mat-error>Informe um valor valido.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Descricao</mat-label>
+      <textarea matInput rows="3" formControlName="details"></textarea>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" mat-dialog-close>Cancelar</button>
+  <button mat-flat-button type="button" (click)="submit()">
+    <mat-icon aria-hidden="true">payments</mat-icon>
+    Pagar
+  </button>
+</mat-dialog-actions>
