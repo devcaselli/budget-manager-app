@@ -43,6 +43,29 @@
       }
 
       <span class="shell__toolbar-title">{{ appName }}</span>
+
+      <div class="shell__wallet-summary" aria-label="Wallet ativa">
+        <mat-icon aria-hidden="true">account_balance_wallet</mat-icon>
+
+        @if (selectedWallet(); as wallet) {
+          <div class="shell__wallet-copy">
+            <strong>{{ wallet.description || 'Wallet sem descricao' }}</strong>
+            <span>
+              {{ wallet.remaining | brlCurrency }} disponivel
+              <span aria-hidden="true">·</span>
+              {{ wallet.startDate | brDate }}
+              <span aria-hidden="true">·</span>
+              {{ wallet.closedDate | brDate }}
+            </span>
+          </div>
+        } @else {
+          <div class="shell__wallet-copy">
+            <strong>Nenhuma wallet ativa</strong>
+            <span>Selecione uma wallet para contextualizar os dados</span>
+          </div>
+        }
+      </div>
+
       <span class="shell__toolbar-spacer"></span>
       <button mat-stroked-button type="button" disabled>
         <mat-icon aria-hidden="true">add</mat-icon>

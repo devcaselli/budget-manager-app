@@ -1,0 +1,124 @@
+<section class="payment-page">
+  <div class="payment-page__header">
+    <app-page-header
+      title="Payments"
+      subtitle="Registre pagamentos e acompanhe o historico da wallet ativa."
+      icon="payments"
+    />
+
+    <button mat-stroked-button type="button" (click)="refreshPayments()" [disabled]="isLoading()">
+      <mat-icon aria-hidden="true">refresh</mat-icon>
+      Atualizar
+    </button>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="payment-page__alert" role="alert">
+      <mat-icon aria-hidden="true">error</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="payment-page__content">
+    <mat-card appearance="outlined" class="payment-form-card">
+      <mat-card-header>
+        <mat-card-title>Novo pagamento</mat-card-title>
+        <mat-card-subtitle>{{ wallet()?.description || 'Selecione uma wallet' }}</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <form class="payment-form" [formGroup]="form" (ngSubmit)="payExpense()">
+          <mat-form-field appearance="outline">
+            <mat-label>Expense</mat-label>
+            <mat-select formControlName="expenseId">
+              @for (expense of expenseOptions(); track expense.id) {
+                <mat-option [value]="expense.id">
+                  {{ expense.name }} · {{ expense.remaining }} em aberto
+                </mat-option>
+              }
+            </mat-select>
+            @if (form.controls.expenseId.touched && form.controls.expenseId.invalid) {
+              <mat-error>Selecione uma expense.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Bullet</mat-label>
+            <mat-select formControlName="bulletId">
+              @for (bullet of bulletOptions(); track bullet.id) {
+                <mat-option [value]="bullet.id">
+                  {{ bullet.description }} · {{ bullet.remaining }} disponivel
+                </mat-option>
+              }
+            </mat-select>
+            @if (form.controls.bulletId.touched && form.controls.bulletId.invalid) {
+              <mat-error>Selecione um bullet.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Valor</mat-label>
+            <input matInput type="number" min="0.01" step="0.01" formControlName="amount" />
+            @if (form.controls.amount.touched && form.controls.amount.invalid) {
+              <mat-error>Informe um valor maior que zero.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Descricao</mat-label>
+            <textarea matInput rows="3" formControlName="details"></textarea>
+          </mat-form-field>
+
+          <button mat-flat-button type="submit" [disabled]="!wallet() || isPaying()">
+            <mat-icon aria-hidden="true">payments</mat-icon>
+            Registrar pagamento
+          </button>
+        </form>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="payment-list-card">
+      <mat-card-header>
+        <mat-card-title>Pagamentos registrados</mat-card-title>
+        <mat-card-subtitle>{{ paymentItems().length }} pagamento(s) encontrados</mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        @if (isLoading()) {
+          <mat-progress-bar mode="indeterminate" />
+        }
+
+        <div class="payment-list">
+          @for (payment of paymentItems(); track payment.id) {
+            <article class="payment-list__item">
+              <div class="payment-list__row">
+                <div>
+                  <strong>{{ payment.amount }}</strong>
+                  <small>{{ payment.paymentDate }} · {{ payment.details }}</small>
+                </div>
+
+                <span>Expense {{ payment.expenseId }}</span>
+
+                <button
+                  mat-icon-button
+                  type="button"
+                  aria-label="Excluir pagamento"
+                  [disabled]="!canDeletePayments"
+                  (click)="deletePayment()"
+                >
+                  <mat-icon aria-hidden="true">delete</mat-icon>
+                </button>
+              </div>
+            </article>
+          } @empty {
+            <div class="payment-list__empty">
+              <mat-icon aria-hidden="true">payments</mat-icon>
+              <strong>Nenhum pagamento registrado</strong>
+              <span>Os pagamentos da wallet ativa aparecem aqui.</span>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</section>

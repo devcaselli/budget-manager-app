@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 
 import { WalletService } from '@features/wallet/services/wallet.service';
 
@@ -13,7 +14,13 @@ describe('App', () => {
       providers: [
         provideNoopAnimations(),
         provideRouter([]),
-        { provide: WalletService, useValue: { loadWallets: vi.fn() } },
+        {
+          provide: WalletService,
+          useValue: {
+            loadWallets: vi.fn(),
+            selectedWallet$: of(null),
+          },
+        },
       ],
     }).compileComponents();
   });

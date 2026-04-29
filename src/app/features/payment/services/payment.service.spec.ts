@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { PayExpenseRequest } from '../models/payment';
+import { PagedPaymentResponse, PayExpenseRequest, Payment } from '../models/payment';
 import { PaymentService } from './payment.service';
 
 describe('PaymentService', () => {
@@ -19,7 +19,30 @@ describe('PaymentService', () => {
   });
 
   afterEach(() => {
-    httpMock.verify();
+    httpMock.verify({ ignoreCancelled: true });
+  });
+
+  it('should return payments by wallet id via GET /api/payments/wallet/:walletId', () => {
+    const response = pagedResponse([payment]);
+
+    service.findByWalletId('wallet-1').subscribe((result) => expect(result).toEqual(response));
+
+    const request = httpMock.expectOne('/api/payments/wallet/wallet-1?page=0&size=100');
+    expect(request.request.method).toBe('GET');
+    request.flush(response);
+  });
+
+  it('should populate payments$ with loadByWalletId API response', () => {
+    const emittedPayments: (readonly Payment[])[] = [];
+
+    service.payments$.subscribe((value) => emittedPayments.push(value));
+    service.loadByWalletId('wallet-1');
+
+    const request = httpMock.expectOne('/api/payments/wallet/wallet-1?page=0&size=100');
+    expect(request.request.method).toBe('GET');
+    request.flush(pagedResponse([payment]));
+
+    expect(emittedPayments.at(-1)).toEqual([payment]);
   });
 
   it('should pay an expense via POST /api/pay?walletId=:walletId', () => {
@@ -74,3 +97,24 @@ describe('PaymentService', () => {
     expect(errors.at(-1)).toBe('Nao foi possivel registrar o pagamento.');
   });
 });
+
+const payment: Payment = {
+  id: 'payment-1',
+  amount: 120,
+  currency: 'BRL',
+  paymentDate: '2026-04-29T12:00:00.000Z',
+  details: 'Parcela mercado',
+  expenseId: 'expense-1',
+  walletId: 'wallet-1',
+  bulletId: 'bullet-1',
+};
+
+function pagedResponse(content: readonly Payment[]): PagedPaymentResponse {
+  return {
+    content,
+    page: 0,
+    size: 100,
+    totalElements: content.length,
+    totalPages: content.length > 0 ? 1 : 0,
+  };
+}

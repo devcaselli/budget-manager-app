@@ -39,6 +39,14 @@ export const routes: Routes = [
     title: 'Expenses | Budget Manager',
   },
   {
+    path: 'payments',
+    loadComponent: () =>
+      import('@features/payment/pages/payment-page/payment-page').then(
+        (component) => component.PaymentPage,
+      ),
+    title: 'Payments | Budget Manager',
+  },
+  {
     path: '**',
     redirectTo: 'dashboard',
   },

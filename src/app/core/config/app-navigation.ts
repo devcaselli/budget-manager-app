@@ -22,4 +22,9 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
     route: '/expenses',
     icon: 'receipt_long',
   },
+  {
+    label: 'Payments',
+    route: '/payments',
+    icon: 'payments',
+  },
 ];

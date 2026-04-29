@@ -54,10 +54,51 @@
 
 .shell__toolbar-title {
   overflow: hidden;
+  flex: 0 0 auto;
   font-size: 1rem;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.shell__wallet-summary {
+  display: flex;
+  min-width: 0;
+  max-width: min(34rem, 48vw);
+  gap: 0.625rem;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 0.5rem;
+  background: var(--mat-sys-surface-container-low);
+
+  mat-icon {
+    flex: 0 0 auto;
+    color: var(--mat-sys-primary);
+  }
+}
+
+.shell__wallet-copy {
+  display: grid;
+  min-width: 0;
+  line-height: 1.2;
+
+  strong,
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  span {
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.75rem;
+  }
 }
 
 .shell__toolbar-spacer {
@@ -73,5 +114,29 @@
 @media (min-width: 768px) {
   .shell__main {
     padding: 2rem;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell__toolbar {
+    min-height: 4.5rem;
+    flex-wrap: wrap;
+    align-content: center;
+  }
+
+  .shell__wallet-summary {
+    order: 3;
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .shell__toolbar-title {
+    max-width: 9rem;
+  }
+
+  .shell__toolbar button[mat-stroked-button] {
+    display: none;
   }
 }
