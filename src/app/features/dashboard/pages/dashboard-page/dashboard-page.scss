@@ -47,19 +47,19 @@
   border: 1px solid var(--mat-sys-outline-variant);
   border-radius: 0.5rem;
   background: var(--mat-sys-surface);
-}
 
-h2,
-p {
-  margin: 0;
-}
+  h2,
+  p {
+    margin: 0;
+  }
 
-h2 {
-  font-size: 1.125rem;
-}
+  h2 {
+    font-size: 1.125rem;
+  }
 
-p {
-  color: var(--mat-sys-on-surface-variant);
+  p {
+    color: var(--mat-sys-on-surface-variant);
+  }
 }
 
 .budget-list {

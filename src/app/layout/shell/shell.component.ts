@@ -1,5 +1,5 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
-import { Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,9 +9,11 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { APP_NAVIGATION } from '@core/config/app-navigation';
+import { APP_NAME } from '@core/config/app-config';
 
 @Component({
   selector: 'app-shell',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatButtonModule,
     MatIconModule,
@@ -29,6 +31,7 @@ export class ShellComponent {
   private readonly breakpointObserver = inject(BreakpointObserver);
 
   protected readonly isHandset = signal(false);
+  protected readonly appName = APP_NAME;
   protected readonly navItems = APP_NAVIGATION;
 
   constructor() {

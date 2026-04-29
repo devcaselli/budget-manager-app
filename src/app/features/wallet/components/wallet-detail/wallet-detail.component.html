@@ -1,0 +1,68 @@
+<mat-card appearance="outlined" class="wallet-details-card">
+  <mat-card-header>
+    <mat-card-title>Wallet selecionada</mat-card-title>
+    <mat-card-subtitle>Detalhes carregados da API para a wallet ativa.</mat-card-subtitle>
+  </mat-card-header>
+
+  <mat-card-content>
+    @if (isLoading()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+
+    @if (wallet(); as selectedWallet) {
+      @if (usage(); as selectedUsage) {
+        <div class="wallet-details">
+          <div class="wallet-details__title-row">
+            <div>
+              <h2>{{ selectedWallet.description || 'Wallet sem descricao' }}</h2>
+              <p>{{ selectedWallet.closed ? 'Fechada' : 'Aberta' }}</p>
+            </div>
+            <span class="wallet-details__badge">{{ selectedWallet.id }}</span>
+          </div>
+
+          <div class="wallet-details__metrics">
+            <div>
+              <span>Orcamento</span>
+              <strong>{{ selectedUsage.budget | brlCurrency }}</strong>
+            </div>
+            <div>
+              <span>Disponivel</span>
+              <strong>{{ selectedUsage.remaining | brlCurrency }}</strong>
+            </div>
+            <div>
+              <span>Comprometido</span>
+              <strong>{{ selectedUsage.committed | brlCurrency }}</strong>
+            </div>
+          </div>
+
+          <div class="wallet-details__usage">
+            <div>
+              <strong>{{ selectedUsage.percent | number: '1.0-0' }}%</strong>
+              <span>do orcamento comprometido</span>
+            </div>
+            <mat-progress-bar mode="determinate" [value]="selectedUsage.percent" />
+          </div>
+
+          <mat-divider />
+
+          <dl class="wallet-details__dates">
+            <div>
+              <dt>Inicio</dt>
+              <dd>{{ selectedWallet.startDate | brDate }}</dd>
+            </div>
+            <div>
+              <dt>Fechamento</dt>
+              <dd>{{ selectedWallet.closedDate | brDate }}</dd>
+            </div>
+          </dl>
+        </div>
+      }
+    } @else {
+      <div class="wallet-details__empty">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        <strong>Selecione uma wallet</strong>
+        <span>Os dados completos aparecem aqui.</span>
+      </div>
+    }
+  </mat-card-content>
+</mat-card>

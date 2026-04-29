@@ -1,0 +1,42 @@
+<mat-card appearance="outlined" class="wallet-form-card">
+  <mat-card-header>
+    <mat-card-title>Nova wallet</mat-card-title>
+    <mat-card-subtitle>Defina o orcamento inicial e o periodo de uso.</mat-card-subtitle>
+  </mat-card-header>
+
+  <mat-card-content>
+    <form class="wallet-form" [formGroup]="form" (ngSubmit)="submit()">
+      <mat-form-field appearance="outline">
+        <mat-label>Descricao</mat-label>
+        <input matInput formControlName="description" placeholder="Ex.: Abril 2026" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Orcamento</mat-label>
+        <input matInput type="number" min="0.01" step="0.01" formControlName="budget" />
+        @if (form.controls.budget.touched && form.controls.budget.invalid) {
+          <mat-error>Informe um valor maior que zero.</mat-error>
+        }
+      </mat-form-field>
+
+      <div class="wallet-form__dates">
+        <mat-form-field appearance="outline">
+          <mat-label>Inicio</mat-label>
+          <input matInput type="date" formControlName="startDate" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Fechamento</mat-label>
+          <input matInput type="date" formControlName="closedDate" />
+        </mat-form-field>
+      </div>
+
+      <mat-checkbox formControlName="closed">Criar como fechada</mat-checkbox>
+
+      <button mat-flat-button type="submit" [disabled]="isSaving()">
+        <mat-icon aria-hidden="true">add</mat-icon>
+        Abrir wallet
+      </button>
+    </form>
+  </mat-card-content>
+</mat-card>

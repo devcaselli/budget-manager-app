@@ -1,0 +1,122 @@
+.wallet-details {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.wallet-details__title-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  h2,
+  p {
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  p {
+    margin-top: 0.25rem;
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.wallet-details__badge {
+  max-width: 14rem;
+  overflow: hidden;
+  padding: 0.25rem 0.5rem;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wallet-details__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+
+  div {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.875rem;
+    border-radius: 0.5rem;
+    background: var(--mat-sys-surface-container-low);
+  }
+
+  span {
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.8125rem;
+  }
+}
+
+.wallet-details__usage {
+  display: grid;
+  gap: 0.75rem;
+
+  div {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  span {
+    color: var(--mat-sys-on-surface-variant);
+  }
+}
+
+.wallet-details__dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0;
+
+  div {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  dt,
+  dd {
+    margin: 0;
+  }
+
+  dt {
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.8125rem;
+  }
+}
+
+.wallet-details__empty {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  padding: 2rem 1rem;
+  border: 1px dashed var(--mat-sys-outline-variant);
+  border-radius: 0.5rem;
+  color: var(--mat-sys-on-surface-variant);
+  text-align: center;
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+  }
+}
+
+@media (max-width: 640px) {
+  .wallet-details__title-row,
+  .wallet-details__usage div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .wallet-details__metrics,
+  .wallet-details__dates {
+    grid-template-columns: 1fr;
+  }
+}

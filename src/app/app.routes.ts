@@ -15,6 +15,14 @@ export const routes: Routes = [
     title: 'Dashboard | Budget Manager',
   },
   {
+    path: 'wallets',
+    loadComponent: () =>
+      import('@features/wallet/pages/wallet-page/wallet-page').then(
+        (component) => component.WalletPage,
+      ),
+    title: 'Wallets | Budget Manager',
+  },
+  {
     path: '**',
     redirectTo: 'dashboard',
   },

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -6,22 +6,11 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
 
-interface SummaryCard {
-  readonly label: string;
-  readonly value: string;
-  readonly icon: string;
-  readonly helper: string;
-}
-
-interface BudgetCategory {
-  readonly name: string;
-  readonly spent: string;
-  readonly limit: string;
-  readonly progress: number;
-}
+import { BudgetCategory, SummaryCard } from '../../models/dashboard.models';
 
 @Component({
   selector: 'app-dashboard-page',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     MatButtonModule,
     MatCardModule,

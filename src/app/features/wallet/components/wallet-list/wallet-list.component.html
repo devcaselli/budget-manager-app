@@ -1,0 +1,38 @@
+<section class="wallet-list-panel" aria-label="Lista de wallets">
+  <div class="wallet-list-panel__header">
+    <div>
+      <h2>Wallets abertas</h2>
+      <p>{{ wallets().length }} wallet(s) encontradas</p>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  <div class="wallet-list">
+    @for (wallet of wallets(); track wallet.id) {
+      <button
+        class="wallet-list__item"
+        type="button"
+        [class.wallet-list__item--selected]="isSelected(wallet)"
+        (click)="walletSelect.emit(wallet)"
+      >
+        <span>
+          <strong>{{ wallet.description || 'Wallet sem descricao' }}</strong>
+          <small>{{ wallet.startDate | brDate }} - {{ wallet.closedDate | brDate }}</small>
+        </span>
+        <span class="wallet-list__amounts">
+          <strong>{{ wallet.remaining | brlCurrency }}</strong>
+          <small>de {{ wallet.budget | brlCurrency }}</small>
+        </span>
+      </button>
+    } @empty {
+      <div class="wallet-list__empty">
+        <mat-icon aria-hidden="true">account_balance_wallet</mat-icon>
+        <strong>Nenhuma wallet cadastrada</strong>
+        <span>Use o formulario para abrir a primeira wallet.</span>
+      </div>
+    }
+  </div>
+</section>

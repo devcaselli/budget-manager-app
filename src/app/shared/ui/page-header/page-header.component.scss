@@ -15,15 +15,17 @@
   color: var(--mat-sys-on-primary-container);
 }
 
-h1 {
-  margin: 0;
-  font-size: clamp(1.75rem, 2vw, 2.25rem);
-  font-weight: 700;
-  letter-spacing: 0;
-}
+.page-header {
+  h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 2vw, 2.25rem);
+    font-weight: 700;
+    letter-spacing: 0;
+  }
 
-p {
-  max-width: 42rem;
-  margin: 0.25rem 0 0;
-  color: var(--mat-sys-on-surface-variant);
+  p {
+    max-width: 42rem;
+    margin: 0.25rem 0 0;
+    color: var(--mat-sys-on-surface-variant);
+  }
 }

@@ -7,4 +7,9 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
     icon: 'dashboard',
     exact: true,
   },
+  {
+    label: 'Wallets',
+    route: '/wallets',
+    icon: 'account_balance_wallet',
+  },
 ];

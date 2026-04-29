@@ -1,0 +1,38 @@
+<section class="wallet-page">
+  <div class="wallet-page__header">
+    <app-page-header
+      title="Wallets"
+      subtitle="Abra uma wallet, acompanhe o saldo disponivel e consulte os detalhes da carteira selecionada."
+      icon="account_balance_wallet"
+    />
+
+    <button mat-stroked-button type="button" (click)="loadWallets()" [disabled]="isLoading()">
+      <mat-icon aria-hidden="true">refresh</mat-icon>
+      Atualizar
+    </button>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="wallet-page__alert" role="alert">
+      <mat-icon aria-hidden="true">error</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="wallet-page__content">
+    <app-wallet-form
+      [isSaving]="isSaving()"
+      [resetCount]="formResetCount()"
+      (walletCreate)="createWallet($event)"
+    />
+
+    <app-wallet-list
+      [wallets]="wallets()"
+      [selectedWalletId]="selectedWallet()?.id ?? null"
+      [isLoading]="isLoading()"
+      (walletSelect)="selectWallet($event)"
+    />
+
+    <app-wallet-detail [wallet]="selectedWallet()" [isLoading]="isLoadingDetails()" />
+  </div>
+</section>
