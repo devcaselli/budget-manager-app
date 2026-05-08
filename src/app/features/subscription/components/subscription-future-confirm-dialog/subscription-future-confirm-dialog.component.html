@@ -1,0 +1,32 @@
+<div class="sfcd-head" mat-dialog-title>
+  <div>
+    <h2 class="sfcd-title">Future <em>subscription?</em></h2>
+    <p class="sfcd-subtitle">Review production lock</p>
+  </div>
+  <button class="sfcd-close" type="button" (click)="cancel()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="sfcd-body">
+  <p class="sfcd-message">
+    You are about to create
+    <strong>{{ data.description }}</strong>
+    with effective month
+    <strong>{{ data.effectiveMonth }}</strong>.
+  </p>
+  <p class="sfcd-message">
+    If this subscription is created as
+    <strong>PRODUCTION</strong>,
+    it cannot be deleted while its effective month is in the future.
+    Use <strong>PREVIEW</strong> if you need to keep deletion available.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions class="sfcd-actions" align="end">
+  <button class="sfcd-cancel-btn" type="button" (click)="cancel()">Cancel</button>
+  <button class="sfcd-confirm-btn" type="button" (click)="confirm()">
+    <mat-icon aria-hidden="true">event_available</mat-icon>
+    Create subscription
+  </button>
+</mat-dialog-actions>

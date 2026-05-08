@@ -1,8 +1,13 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject } from 'rxjs';
 
+import {
+  SubscriptionFutureConfirmDialogComponent,
+  SubscriptionFutureConfirmDialogData,
+} from '../../components/subscription-future-confirm-dialog/subscription-future-confirm-dialog.component';
 import {
   Subscription,
   SubscriptionFlag,
@@ -41,6 +46,7 @@ type SubscriptionFilter = 'all' | 'production' | 'preview';
 })
 export class SubscriptionPage {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly dialog = inject(MatDialog);
   private readonly formBuilder = inject(FormBuilder);
   private readonly subscriptionService = inject(SubscriptionService);
 
@@ -136,17 +142,36 @@ export class SubscriptionPage {
       return;
     }
 
-    this.subscriptionService
-      .create({
-        description: value.description.trim(),
-        amount: value.amount,
-        currency: value.currency.toUpperCase(),
-        effectiveMonth: value.effectiveMonth,
+    const request = {
+      description: value.description.trim(),
+      amount: value.amount,
+      currency: value.currency.toUpperCase(),
+      effectiveMonth: value.effectiveMonth,
+      state: value.state,
+      flag: value.specialSubscription ? 'SUBSCRIPTION_DELETE_IGNORE_DATE_VALIDATION' as const : 'NONE' as const,
+    };
+
+    if (!value.specialSubscription && this.isFutureMonth(value.effectiveMonth)) {
+      const data: SubscriptionFutureConfirmDialogData = {
+        description: request.description || 'subscription',
+        effectiveMonth: this.formatMonth(value.effectiveMonth),
         state: value.state,
-        flag: value.specialSubscription ? 'SUBSCRIPTION_DELETE_IGNORE_DATE_VALIDATION' : 'NONE',
-      })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: () => this.resetForm(), error: () => undefined });
+      };
+
+      this.dialog
+        .open<SubscriptionFutureConfirmDialogComponent, SubscriptionFutureConfirmDialogData, boolean>(
+          SubscriptionFutureConfirmDialogComponent,
+          { width: '30rem', maxWidth: 'calc(100vw - 2rem)', data },
+        )
+        .afterClosed()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe((confirmed) => {
+          if (confirmed) this.createSubscription(request);
+        });
+      return;
+    }
+
+    this.createSubscription(request);
   }
 
   protected editSubscription(sub: SubscriptionListItem): void {
@@ -250,5 +275,23 @@ export class SubscriptionPage {
 
   private currentMonth(): string {
     return new Date().toISOString().slice(0, 7);
+  }
+
+  private isFutureMonth(value: string): boolean {
+    return value > this.currentMonth();
+  }
+
+  private createSubscription(input: {
+    readonly description: string;
+    readonly amount: number;
+    readonly currency: string;
+    readonly effectiveMonth: string;
+    readonly state: SubscriptionState;
+    readonly flag: SubscriptionFlag;
+  }): void {
+    this.subscriptionService
+      .create(input)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: () => this.resetForm(), error: () => undefined });
   }
 }

@@ -1,0 +1,122 @@
+.sfcd-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--ew-line);
+
+  &[mat-dialog-title] {
+    margin: 0;
+    padding: 26px 28px 18px;
+  }
+}
+
+.sfcd-title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ew-ink);
+
+  em {
+    font-style: italic;
+    color: var(--ew-acc);
+    font-weight: 300;
+  }
+}
+
+.sfcd-subtitle {
+  margin: 8px 0 0;
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  color: var(--ew-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.sfcd-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  display: grid;
+  place-items: center;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    color: var(--ew-ink);
+    border-color: var(--ew-ink-3);
+  }
+}
+
+.sfcd-body {
+  display: grid;
+  gap: 14px;
+  padding: 24px 28px;
+}
+
+.sfcd-message {
+  margin: 0;
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  line-height: 1.6;
+
+  strong {
+    color: var(--ew-ink);
+    font-weight: 600;
+  }
+}
+
+.sfcd-actions {
+  gap: 10px;
+  padding: 18px 28px 24px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.sfcd-cancel-btn,
+.sfcd-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sfcd-cancel-btn {
+  color: var(--ew-ink-2);
+  border: 1px solid transparent;
+
+  &:hover {
+    color: var(--ew-ink);
+    border-color: var(--ew-line-2);
+  }
+}
+
+.sfcd-confirm-btn {
+  background: var(--ew-acc);
+  color: #1c1814;
+  border: 1px solid var(--ew-acc);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    background: var(--ew-acc-2);
+    border-color: var(--ew-acc-2);
+  }
+}

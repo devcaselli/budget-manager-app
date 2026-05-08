@@ -144,6 +144,15 @@
               formControlName="description"
               placeholder="e.g. Netflix"
             />
+            @if (form.controls.description.touched && form.controls.description.invalid) {
+              <p class="sub-field-error">
+                @if (form.controls.description.hasError('required')) {
+                  Description is required.
+                } @else {
+                  Description must be 120 characters or fewer.
+                }
+              </p>
+            }
           </div>
 
           <div class="ew-row-form">
@@ -158,6 +167,9 @@
                 formControlName="amount"
                 placeholder="R$ 0.00"
               />
+              @if (form.controls.amount.touched && form.controls.amount.invalid) {
+                <p class="sub-field-error">Monthly amount must be greater than zero.</p>
+              }
             </div>
             <div class="ew-field">
               <label for="sp-currency">Currency</label>

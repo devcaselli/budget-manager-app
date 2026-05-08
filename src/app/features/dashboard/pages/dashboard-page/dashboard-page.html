@@ -47,7 +47,7 @@
   <!-- ── Charts row ──────────────────────────────────────────────── -->
   <div class="ew-row">
     <!-- Spending line chart -->
-    <div class="ew-panel">
+    <div class="ew-panel dashboard-tooltip-panel">
       <div class="ew-panel-head">
         <div>
           <h3>Spending <em>over time</em></h3>
@@ -230,28 +230,35 @@
       </div>
     </div>
 
-    <!-- Heatmap -->
-    <div class="ew-panel">
+    <!-- Subscriptions by month -->
+    <div class="ew-panel dashboard-tooltip-panel">
       <div class="ew-panel-head">
         <div>
-          <h3>Activity heatmap</h3>
-          <p>{{ heatmapYear() }} · transactions</p>
+          <h3>Subscriptions</h3>
+          <p>Total vs active · active value</p>
+        </div>
+        <div class="dashboard-legend-mini" aria-hidden="true">
+          <span><i></i>Total</span>
+          <span><i></i>Active</span>
         </div>
       </div>
       <div class="ew-panel-body">
-        <div class="ew-heat" aria-hidden="true">
-          @for (cell of heatmapCells(); track $index) {
-            <i [class]="cell.className">
-              @if (cell.label) {
-                <span class="dashboard-inline-tooltip dashboard-inline-tooltip--heat">
-                  {{ cell.label }}
-                </span>
-              }
-            </i>
+        <div class="ew-bars-v dashboard-subscription-bars">
+          @for (bar of subscriptionBars(); track bar.label; let last = $last) {
+            <div class="ew-bars-v-col" [class.ew-bars-v-col--dim]="last">
+              <div class="dashboard-grouped-bars">
+                <div class="ew-bars-v-bar dashboard-subscription-total-bar" [style.height]="bar.totalHeight"></div>
+                <div class="ew-bars-v-bar dashboard-subscription-active-bar" [style.height]="bar.activeHeight"></div>
+              </div>
+              <div class="dashboard-inline-tooltip dashboard-inline-tooltip--wide">
+                <b>{{ bar.label | uppercase }}</b>
+                <span>Total · {{ bar.totalCount }}</span>
+                <span>Active · {{ bar.activeCount }}</span>
+                <span>Active value · {{ bar.activeAmount | brlCurrency }}</span>
+              </div>
+              <span>{{ bar.label }}</span>
+            </div>
           }
-        </div>
-        <div class="dashboard-heat-labels">
-          <span>Jan</span><span>Apr</span><span>Jul</span><span>Oct</span><span>Dec</span>
         </div>
       </div>
     </div>
@@ -283,6 +290,34 @@
             </div>
           }
         }
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Activity row ─────────────────────────────────────────────── -->
+  <div class="dashboard-activity-row">
+    <div class="ew-panel dashboard-tooltip-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Activity heatmap</h3>
+          <p>{{ heatmapYear() }} · transactions</p>
+        </div>
+      </div>
+      <div class="ew-panel-body">
+        <div class="ew-heat dashboard-heatmap-large" aria-hidden="true">
+          @for (cell of heatmapCells(); track $index) {
+            <i [class]="cell.className">
+              @if (cell.label) {
+                <span class="dashboard-inline-tooltip dashboard-inline-tooltip--heat">
+                  {{ cell.label }}
+                </span>
+              }
+            </i>
+          }
+        </div>
+        <div class="dashboard-heat-labels">
+          <span>Jan</span><span>Apr</span><span>Jul</span><span>Oct</span><span>Dec</span>
+        </div>
       </div>
     </div>
   </div>

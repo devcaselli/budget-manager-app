@@ -12,6 +12,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { ExpenseService } from '@features/expense/services/expense.service';
+import { SubscriptionService } from '@features/subscription/services/subscription.service';
+import { Subscription } from '@features/subscription/models/subscription';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
@@ -36,6 +38,15 @@ interface MonthBar {
   readonly label: string;
   readonly height: string;
   readonly total: number;
+}
+
+interface SubscriptionMonthBar {
+  readonly label: string;
+  readonly totalCount: number;
+  readonly activeCount: number;
+  readonly activeAmount: number;
+  readonly totalHeight: string;
+  readonly activeHeight: string;
 }
 
 interface SpendingPoint extends MonthBar {
@@ -68,6 +79,7 @@ const MONTHS_IN_SERIES = 12;
 export class DashboardPage implements OnInit {
   private readonly bulletService = inject(BulletService);
   private readonly expenseService = inject(ExpenseService);
+  private readonly subscriptionService = inject(SubscriptionService);
   private readonly walletService = inject(WalletService);
 
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
@@ -75,6 +87,9 @@ export class DashboardPage implements OnInit {
   });
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
+  private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {
+    initialValue: [],
+  });
 
   protected readonly isLoadingExpenses = toSignal(this.expenseService.loading$, {
     initialValue: false,
@@ -121,6 +136,44 @@ export class DashboardPage implements OnInit {
   protected readonly monthBars = computed<readonly MonthBar[]>(() =>
     this.spendingPoints().map(({ label, total, height }) => ({ label, total, height })),
   );
+
+  protected readonly subscriptionBars = computed<readonly SubscriptionMonthBar[]>(() => {
+    const months = this.lastTwelveMonths();
+    const bars = months.map((month) => {
+      const subscriptions = this.subscriptions();
+      const totalCount = subscriptions.filter((subscription) =>
+        this.isSubscriptionInMonth(subscription, month.key),
+      ).length;
+      const activeCount = subscriptions.filter((subscription) =>
+        this.isSubscriptionActiveInMonth(subscription, month.key),
+      ).length;
+      const activeAmount = subscriptions.reduce(
+        (sum, subscription) =>
+          sum + (this.isSubscriptionActiveInMonth(subscription, month.key)
+            ? this.subscriptionAmountForMonth(subscription, month.key)
+            : 0),
+        0,
+      );
+
+      return {
+        label: month.label,
+        totalCount,
+        activeCount,
+        activeAmount,
+      };
+    });
+    const max = Math.max(...bars.flatMap((bar) => [bar.totalCount, bar.activeCount]), 0);
+
+    return bars.map((bar) => {
+      const totalRatio = max > 0 ? bar.totalCount / max : 0;
+      const activeRatio = max > 0 ? bar.activeCount / max : 0;
+      return {
+        ...bar,
+        totalHeight: `${Math.max(totalRatio * 100, bar.totalCount > 0 ? 4 : 0)}%`,
+        activeHeight: `${Math.max(activeRatio * 100, bar.activeCount > 0 ? 4 : 0)}%`,
+      };
+    });
+  });
 
   protected readonly spendingLinePath = computed(() => {
     const points = this.spendingPoints();
@@ -321,6 +374,8 @@ export class DashboardPage implements OnInit {
   });
 
   constructor() {
+    this.subscriptionService.loadSubscriptions();
+
     effect(() => {
       const walletId = this.selectedWallet()?.id ?? null;
       this.bulletService.loadByWalletId(walletId);
@@ -377,6 +432,25 @@ export class DashboardPage implements OnInit {
     if (count === 2) return 'l2';
     if (count === 3) return 'l3';
     return 'l4';
+  }
+
+  private isSubscriptionInMonth(subscription: Subscription, monthKey: string): boolean {
+    if (monthKey < subscription.startMonth) return false;
+    if (subscription.endMonth && monthKey > subscription.endMonth) return false;
+    return true;
+  }
+
+  private isSubscriptionActiveInMonth(subscription: Subscription, monthKey: string): boolean {
+    if (subscription.endMonth !== null) return false;
+    return monthKey >= subscription.startMonth;
+  }
+
+  private subscriptionAmountForMonth(subscription: Subscription, monthKey: string): number {
+    const version = [...subscription.versions]
+      .filter((candidate) => candidate.effectiveMonth <= monthKey)
+      .sort((a, b) => b.effectiveMonth.localeCompare(a.effectiveMonth))[0];
+
+    return Number(version?.amount ?? 0);
   }
 
   private formatHeatmapDate(date: Date): string {
