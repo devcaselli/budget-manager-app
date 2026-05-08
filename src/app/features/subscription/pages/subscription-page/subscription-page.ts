@@ -1,18 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { BehaviorSubject } from 'rxjs';
-
-import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
 
 import {
   Subscription,
@@ -38,30 +27,13 @@ interface SubscriptionListItem {
   readonly isActive: boolean;
   readonly statusLabel: string;
   readonly versionCount: number;
-  readonly versions: readonly SubscriptionVersionListItem[];
-}
-
-interface SubscriptionVersionListItem {
-  readonly effectiveMonth: string;
-  readonly amount: string;
+  readonly versions: readonly { effectiveMonth: string; amount: string }[];
 }
 
 @Component({
   selector: 'app-subscription-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    MatButtonModule,
-    MatCardModule,
-    MatCheckboxModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressBarModule,
-    MatSelectModule,
-    MatTooltipModule,
-    PageHeaderComponent,
-    ReactiveFormsModule,
-  ],
+  imports: [ReactiveFormsModule],
   templateUrl: './subscription-page.html',
   styleUrl: './subscription-page.scss',
 })
@@ -69,6 +41,7 @@ export class SubscriptionPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly formBuilder = inject(FormBuilder);
   private readonly subscriptionService = inject(SubscriptionService);
+
   private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {
     initialValue: [],
   });
@@ -97,31 +70,28 @@ export class SubscriptionPage {
   });
 
   protected readonly subscriptionItems = computed<readonly SubscriptionListItem[]>(() =>
-    this.subscriptions().map((subscription) => this.toListItem(subscription)),
+    this.subscriptions().map((sub) => this.toListItem(sub)),
   );
 
-  protected readonly activeSubscriptions = computed(
-    () => this.subscriptionItems().filter((subscription) => subscription.isActive).length,
+  protected readonly activeCount = computed(() =>
+    this.subscriptionItems().filter((s) => s.isActive).length,
   );
-  protected readonly previewSubscriptions = computed(
-    () =>
-      this.subscriptionItems().filter(
-        (subscription) => subscription.isActive && subscription.state === 'PREVIEW',
-      ).length,
-  );
-  protected readonly monthlyTotal = computed(() =>
-    this.subscriptionItems()
-      .filter((subscription) => subscription.isActive && subscription.state === 'PRODUCTION')
-      .reduce((total, subscription) => total + subscription.amountValue, 0),
-  );
-  protected readonly formattedMonthlyTotal = computed(() => this.formatCurrency(this.monthlyTotal()));
+  protected readonly prodTotal = computed(() => {
+    const total = this.subscriptionItems()
+      .filter((s) => s.isActive && s.state === 'PRODUCTION')
+      .reduce((acc, s) => acc + s.amountValue, 0);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total);
+  });
+  protected readonly previewTotal = computed(() => {
+    const total = this.subscriptionItems()
+      .filter((s) => s.isActive && s.state === 'PREVIEW')
+      .reduce((acc, s) => acc + s.amountValue, 0);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total);
+  });
+
   protected readonly hasEditingSubscription = computed(() => this.editingSubscriptionId() !== null);
 
   constructor() {
-    this.subscriptionService.loadSubscriptions();
-  }
-
-  protected refreshSubscriptions(): void {
     this.subscriptionService.loadSubscriptions();
   }
 
@@ -131,20 +101,14 @@ export class SubscriptionPage {
       return;
     }
 
-    const editingSubscriptionId = this.editingSubscriptionId();
+    const editingId = this.editingSubscriptionId();
     const value = this.form.getRawValue();
 
-    if (editingSubscriptionId) {
+    if (editingId) {
       this.subscriptionService
-        .update(editingSubscriptionId, {
-          description: value.description.trim(),
-          newAmount: value.amount,
-        })
+        .update(editingId, { description: value.description.trim(), newAmount: value.amount })
         .pipe(takeUntilDestroyed(this.destroyRef))
-        .subscribe({
-          next: () => this.resetForm(),
-          error: () => undefined,
-        });
+        .subscribe({ next: () => this.resetForm(), error: () => undefined });
       return;
     }
 
@@ -155,24 +119,21 @@ export class SubscriptionPage {
         currency: value.currency.toUpperCase(),
         effectiveMonth: value.effectiveMonth,
         state: value.state,
-        flag: this.toFlag(value.specialSubscription),
+        flag: value.specialSubscription ? 'SUBSCRIPTION_DELETE_IGNORE_DATE_VALIDATION' : 'NONE',
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => this.resetForm(),
-        error: () => undefined,
-      });
+      .subscribe({ next: () => this.resetForm(), error: () => undefined });
   }
 
-  protected editSubscription(subscription: SubscriptionListItem): void {
-    this.editingSubscriptionId$.next(subscription.id);
+  protected editSubscription(sub: SubscriptionListItem): void {
+    this.editingSubscriptionId$.next(sub.id);
     this.form.reset({
-      description: subscription.description,
-      amount: subscription.amountValue,
-      currency: subscription.currency,
-      effectiveMonth: subscription.startMonthValue,
-      state: subscription.state,
-      specialSubscription: subscription.isSpecial,
+      description: sub.description,
+      amount: sub.amountValue,
+      currency: sub.currency,
+      effectiveMonth: sub.startMonthValue,
+      state: sub.state,
+      specialSubscription: sub.isSpecial,
     });
     this.form.controls.currency.disable();
     this.form.controls.effectiveMonth.disable();
@@ -190,66 +151,53 @@ export class SubscriptionPage {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          if (this.editingSubscriptionId() === id) {
-            this.resetForm();
-          }
+          if (this.editingSubscriptionId() === id) this.resetForm();
         },
         error: () => undefined,
       });
   }
 
-  private toListItem(subscription: Subscription): SubscriptionListItem {
-    const versions = [...subscription.versions].sort((first, second) =>
-      second.effectiveMonth.localeCompare(first.effectiveMonth),
+  protected toggleSpecial(): void {
+    const current = this.form.controls.specialSubscription.value;
+    this.form.controls.specialSubscription.setValue(!current);
+  }
+
+  private toListItem(sub: Subscription): SubscriptionListItem {
+    const versions = [...sub.versions].sort((a, b) =>
+      b.effectiveMonth.localeCompare(a.effectiveMonth),
     );
     const currentVersion = versions[0];
     const amountValue = Number(currentVersion?.amount ?? 0);
-    const isActive = subscription.endMonth === null;
+    const isActive = sub.endMonth === null;
 
     return {
-      id: subscription.id,
-      description: subscription.description,
-      currency: subscription.currency,
-      state: subscription.state,
-      stateLabel: this.formatState(subscription.state),
-      flag: subscription.flag,
-      isSpecial: subscription.flag === 'SUBSCRIPTION_DELETE_IGNORE_DATE_VALIDATION',
+      id: sub.id,
+      description: sub.description,
+      currency: sub.currency,
+      state: sub.state,
+      stateLabel: sub.state === 'PREVIEW' ? 'Preview' : 'Production',
+      flag: sub.flag,
+      isSpecial: sub.flag === 'SUBSCRIPTION_DELETE_IGNORE_DATE_VALIDATION',
       amountValue,
-      amount: this.formatCurrency(amountValue, subscription.currency),
-      startMonthValue: subscription.startMonth,
-      startMonth: this.formatMonth(subscription.startMonth),
-      endMonth: subscription.endMonth ? this.formatMonth(subscription.endMonth) : null,
+      amount: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: sub.currency }).format(amountValue),
+      startMonthValue: sub.startMonth,
+      startMonth: this.formatMonth(sub.startMonth),
+      endMonth: sub.endMonth ? this.formatMonth(sub.endMonth) : null,
       isActive,
-      statusLabel: isActive ? 'Ativa' : 'Encerrada',
+      statusLabel: isActive ? 'ACTIVE' : 'CLOSED',
       versionCount: versions.length,
-      versions: versions.map((version) => this.toVersionListItem(version, subscription.currency)),
+      versions: versions.map((v) => ({
+        effectiveMonth: this.formatMonth(v.effectiveMonth),
+        amount: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: sub.currency }).format(Number(v.amount)),
+      })),
     };
-  }
-
-  private toVersionListItem(
-    version: SubscriptionVersion,
-    currency: string,
-  ): SubscriptionVersionListItem {
-    return {
-      effectiveMonth: this.formatMonth(version.effectiveMonth),
-      amount: this.formatCurrency(Number(version.amount), currency),
-    };
-  }
-
-  private formatCurrency(value: number, currency = 'BRL'): string {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency,
-    }).format(value);
   }
 
   private formatMonth(value: string): string {
     const [year, month] = value.split('-').map(Number);
-    return new Intl.DateTimeFormat('pt-BR', {
-      month: 'short',
-      year: 'numeric',
-      timeZone: 'UTC',
-    }).format(new Date(Date.UTC(year, month - 1, 1)));
+    return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(year, month - 1, 1)),
+    );
   }
 
   private resetForm(): void {
@@ -270,13 +218,5 @@ export class SubscriptionPage {
 
   private currentMonth(): string {
     return new Date().toISOString().slice(0, 7);
-  }
-
-  private formatState(state: SubscriptionState): string {
-    return state === 'PREVIEW' ? 'Preview' : 'Production';
-  }
-
-  private toFlag(isSpecial: boolean): SubscriptionFlag {
-    return isSpecial ? 'SUBSCRIPTION_DELETE_IGNORE_DATE_VALIDATION' : 'NONE';
   }
 }

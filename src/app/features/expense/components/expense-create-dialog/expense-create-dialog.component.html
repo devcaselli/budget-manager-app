@@ -1,40 +1,62 @@
-<h2 mat-dialog-title>Nova transacao</h2>
+<div class="ecd-head" mat-dialog-title>
+  <div>
+    <h2 class="ecd-title">New <em>transaction</em></h2>
+    <p class="ecd-subtitle">Wallet · {{ data.walletDescription }}</p>
+  </div>
+  <button class="ecd-close" type="button" mat-icon-button mat-dialog-close aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
 
-<form class="expense-create-dialog__form" [formGroup]="form" (ngSubmit)="submit()">
-  <mat-dialog-content class="expense-create-dialog__content">
-    <p class="expense-create-dialog__wallet">{{ data.walletDescription }}</p>
-
+<form class="ecd-form" [formGroup]="form" (ngSubmit)="submit()">
+  <mat-dialog-content class="ecd-body">
     <mat-form-field appearance="outline">
-      <mat-label>Nome</mat-label>
-      <input #nameInput matInput formControlName="name" placeholder="Ex.: Mercado" />
+      <mat-label>Description</mat-label>
+      <input #nameInput matInput formControlName="name" placeholder="e.g. Groceries" />
       @if (form.controls.name.touched && form.controls.name.invalid) {
-        <mat-error>Informe um nome.</mat-error>
+        <mat-error>Enter a description.</mat-error>
       }
     </mat-form-field>
 
     <mat-form-field appearance="outline">
-      <mat-label>Custo</mat-label>
-      <input matInput type="number" min="0.01" step="0.01" formControlName="cost" />
+      <mat-label>Amount</mat-label>
+      <input matInput type="number" min="0.01" step="0.01" formControlName="cost" placeholder="R$ 0.00" />
       @if (form.controls.cost.touched && form.controls.cost.invalid) {
-        <mat-error>Informe um valor maior que zero.</mat-error>
+        <mat-error>Enter an amount greater than zero.</mat-error>
       }
     </mat-form-field>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Compra</mat-label>
-      <input matInput type="date" formControlName="purchaseDate" />
-    </mat-form-field>
+    <div class="ecd-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Date</mat-label>
+        <input matInput type="date" formControlName="purchaseDate" />
+      </mat-form-field>
 
-    <mat-checkbox class="expense-create-dialog__keep-open" formControlName="keepOpen">
-      Manter aberto apos cadastrar
+      @if (hasBullets) {
+        <mat-form-field appearance="outline">
+          <mat-label>Bullet</mat-label>
+          <mat-select formControlName="bulletId">
+            <mat-option value="">— none —</mat-option>
+            @for (bullet of data.bullets; track bullet.id) {
+              <mat-option [value]="bullet.id">
+                {{ bullet.description }} ({{ bullet.remaining }})
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+    </div>
+
+    <mat-checkbox class="ecd-keep-open" formControlName="keepOpen">
+      Keep modal open after saving
     </mat-checkbox>
   </mat-dialog-content>
 
-  <mat-dialog-actions class="expense-create-dialog__actions" align="end">
-    <button mat-button type="button" mat-dialog-close>Cancelar</button>
+  <mat-dialog-actions class="ecd-actions" align="end">
+    <button mat-button type="button" mat-dialog-close>Cancel</button>
     <button mat-flat-button type="submit">
       <mat-icon aria-hidden="true">add</mat-icon>
-      Criar expense
+      Create transaction
     </button>
   </mat-dialog-actions>
 </form>

@@ -8,49 +8,42 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
+import { DecimalPipe } from '@angular/common';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 
-import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
-
+import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { WalletService } from '@features/wallet/services/wallet.service';
 
 import { BulletService } from '../../services/bullet.service';
+import {
+  BulletDeleteDialogComponent,
+  BulletDeleteDialogData,
+} from '../../components/bullet-delete-dialog/bullet-delete-dialog.component';
 
 interface BulletListItem {
   readonly id: string;
   readonly description: string;
-  readonly budget: string;
-  readonly remaining: string;
-  readonly used: string;
+  readonly budget: number;
+  readonly remaining: number;
+  readonly used: number;
   readonly progress: number;
 }
 
 @Component({
   selector: 'app-bullet-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    MatButtonModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressBarModule,
-    PageHeaderComponent,
-    ReactiveFormsModule,
-  ],
+  imports: [BrlCurrencyPipe, DecimalPipe, MatIconModule, ReactiveFormsModule],
   templateUrl: './bullet-page.html',
   styleUrl: './bullet-page.scss',
 })
 export class BulletPage {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly dialog = inject(MatDialog);
   private readonly formBuilder = inject(FormBuilder);
   private readonly bulletService = inject(BulletService);
   private readonly walletService = inject(WalletService);
+
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
@@ -75,17 +68,23 @@ export class BulletPage {
       const remaining = Number(bullet.remaining);
       const used = Math.max(budget - remaining, 0);
       const progress = budget > 0 ? Math.min((used / budget) * 100, 100) : 0;
-
-      return {
-        id: bullet.id,
-        description: bullet.description,
-        budget: this.formatCurrency(budget),
-        remaining: this.formatCurrency(remaining),
-        used: this.formatCurrency(used),
-        progress,
-      };
+      return { id: bullet.id, description: bullet.description, budget, remaining, used, progress };
     }),
   );
+
+  protected readonly totalCap = computed(() =>
+    this.bullets().reduce((acc, b) => acc + Number(b.budget), 0),
+  );
+
+  protected readonly totalUsed = computed(() =>
+    this.bulletItems().reduce((acc, b) => acc + b.used, 0),
+  );
+
+  protected readonly overallPct = computed(() => {
+    const cap = this.totalCap();
+    if (cap <= 0) return 0;
+    return Math.round((this.totalUsed() / cap) * 100);
+  });
 
   constructor() {
     effect(() => {
@@ -94,26 +93,16 @@ export class BulletPage {
     });
   }
 
-  protected refreshBullets(): void {
-    this.bulletService.loadByWalletId(this.selectedWallet()?.id ?? null);
-  }
-
   protected createBullet(): void {
     const wallet = this.selectedWallet();
-
     if (!wallet || this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
     const value = this.form.getRawValue();
-
     this.bulletService
-      .create({
-        description: value.description.trim(),
-        budget: value.budget,
-        walletId: wallet.id,
-      })
+      .create({ description: value.description.trim(), budget: value.budget, walletId: wallet.id })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
@@ -124,7 +113,27 @@ export class BulletPage {
       });
   }
 
-  protected deleteBullet(id: string): void {
+  protected onDeleteClick(bullet: BulletListItem): void {
+    const wallet = this.selectedWallet();
+    const data: BulletDeleteDialogData = {
+      bulletDescription: bullet.description,
+      walletDescription: wallet?.description ?? 'wallet',
+      allocatedAmount: bullet.budget,
+    };
+
+    this.dialog
+      .open<BulletDeleteDialogComponent, BulletDeleteDialogData, boolean>(
+        BulletDeleteDialogComponent,
+        { width: '28rem', maxWidth: 'calc(100vw - 2rem)', data },
+      )
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((confirmed) => {
+        if (confirmed) this.deleteBullet(bullet.id);
+      });
+  }
+
+  private deleteBullet(id: string): void {
     this.bulletService
       .delete(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -134,17 +143,7 @@ export class BulletPage {
       });
   }
 
-  private formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  }
-
   private resetForm(): void {
-    this.form.reset({
-      description: '',
-      budget: 0,
-    });
+    this.form.reset({ description: '', budget: 0 });
   }
 }

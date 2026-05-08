@@ -1,58 +1,74 @@
-<mat-card appearance="outlined" class="wallet-form-card">
-  <mat-card-header>
-    <mat-card-title>Nova wallet</mat-card-title>
-    <mat-card-subtitle>Defina o orcamento inicial e o periodo de uso.</mat-card-subtitle>
-  </mat-card-header>
-
-  <mat-card-content>
-    <form class="wallet-form" [formGroup]="form" (ngSubmit)="submit()">
-      <mat-form-field appearance="outline">
-        <mat-label>Descricao</mat-label>
-        <input matInput formControlName="description" placeholder="Ex.: Abril 2026" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Orcamento</mat-label>
-        <input matInput type="number" min="0.01" step="0.01" formControlName="budget" />
-        @if (form.controls.budget.touched && form.controls.budget.invalid) {
-          <mat-error>Informe um valor maior que zero.</mat-error>
-        }
-      </mat-form-field>
-
-      <div class="wallet-form__dates">
-        <mat-form-field appearance="outline">
-          <mat-label>Inicio</mat-label>
-          <input matInput type="date" formControlName="startDate" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Mes efetivo</mat-label>
-          <input matInput type="month" formControlName="effectiveMonth" />
-        </mat-form-field>
+<div class="ew-panel">
+  <div class="ew-panel-head">
+    <div>
+      <h3>Open <em>new wallet</em></h3>
+      <p>Define cycle &amp; cap</p>
+    </div>
+  </div>
+  <div class="ew-panel-body">
+    <form class="ew-form" [formGroup]="form" (ngSubmit)="submit()">
+      <div class="ew-field">
+        <label for="wf-description">Description</label>
+        <input
+          id="wf-description"
+          class="ew-input"
+          formControlName="description"
+          placeholder="e.g. May expenses"
+        />
       </div>
 
-      <div class="wallet-form__dates">
-        <mat-form-field appearance="outline">
-          <mat-label>Estado</mat-label>
-          <mat-select formControlName="state">
-            <mat-option value="PRODUCTION">Production</mat-option>
-            <mat-option value="PREVIEW">Preview</mat-option>
-            <mat-option value="REVIEW">Review</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Fechamento</mat-label>
-          <input matInput type="date" formControlName="closedDate" />
-        </mat-form-field>
+      <div class="ew-field">
+        <label for="wf-budget">Budget cap</label>
+        <input
+          id="wf-budget"
+          class="ew-input"
+          type="number"
+          min="0.01"
+          step="0.01"
+          formControlName="budget"
+          placeholder="R$ 0.00"
+        />
       </div>
 
-      <mat-checkbox formControlName="closed">Criar como fechada</mat-checkbox>
+      <div class="ew-row-form">
+        <div class="ew-field">
+          <label for="wf-start">Open date</label>
+          <input id="wf-start" class="ew-input" type="date" formControlName="startDate" />
+        </div>
+        <div class="ew-field">
+          <label for="wf-effective">Effective</label>
+          <input id="wf-effective" class="ew-input" type="month" formControlName="effectiveMonth" />
+        </div>
+      </div>
 
-      <button mat-flat-button type="submit" [disabled]="isSaving()">
-        <mat-icon aria-hidden="true">add</mat-icon>
-        Abrir wallet
+      <div class="ew-row-form">
+        <div class="ew-field">
+          <label for="wf-state">State</label>
+          <select id="wf-state" class="ew-select" formControlName="state">
+            <option value="PRODUCTION">Production</option>
+            <option value="PREVIEW">Preview</option>
+            <option value="REVIEW">Review</option>
+          </select>
+        </div>
+        <div class="ew-field">
+          <label for="wf-closes">Closes</label>
+          <input id="wf-closes" class="ew-input" type="date" formControlName="closedDate" />
+        </div>
+      </div>
+
+      <button
+        class="ew-checkbox"
+        type="button"
+        [class.ew-checkbox--on]="form.controls.closed.value"
+        (click)="form.controls.closed.setValue(!form.controls.closed.value)"
+      >
+        <i></i>
+        <span>Open as closed</span>
+      </button>
+
+      <button class="ew-btn-submit" type="submit" [disabled]="isSaving()">
+        {{ isSaving() ? 'Opening...' : 'Open wallet' }}
       </button>
     </form>
-  </mat-card-content>
-</mat-card>
+  </div>
+</div>

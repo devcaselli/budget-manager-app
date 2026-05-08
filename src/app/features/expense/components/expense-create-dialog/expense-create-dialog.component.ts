@@ -16,16 +16,25 @@ import {
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { Subject } from 'rxjs';
+
+export interface ExpenseCreateDialogBullet {
+  readonly id: string;
+  readonly description: string;
+  readonly remaining: string;
+}
 
 export interface ExpenseCreateDialogData {
   readonly walletDescription: string;
+  readonly bullets?: readonly ExpenseCreateDialogBullet[];
 }
 
 export interface ExpenseCreateDialogResult {
   readonly name: string;
   readonly cost: number;
   readonly purchaseDate: string;
+  readonly bulletId?: string;
 }
 
 @Component({
@@ -38,6 +47,7 @@ export interface ExpenseCreateDialogResult {
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatSelectModule,
     ReactiveFormsModule,
   ],
   templateUrl: './expense-create-dialog.component.html',
@@ -58,8 +68,13 @@ export class ExpenseCreateDialogComponent {
     name: ['', [Validators.required, Validators.maxLength(120)]],
     cost: [0, [Validators.required, Validators.min(0.01)]],
     purchaseDate: [this.today(), Validators.required],
+    bulletId: [''],
     keepOpen: [false],
   });
+
+  protected get hasBullets(): boolean {
+    return (this.data.bullets?.length ?? 0) > 0;
+  }
 
   protected submit(): void {
     if (this.form.invalid) {
@@ -68,10 +83,11 @@ export class ExpenseCreateDialogComponent {
     }
 
     const value = this.form.getRawValue();
-    const result = {
+    const result: ExpenseCreateDialogResult = {
       name: value.name.trim(),
       cost: value.cost,
       purchaseDate: value.purchaseDate,
+      ...(value.bulletId ? { bulletId: value.bulletId } : {}),
     };
 
     if (value.keepOpen) {
@@ -88,6 +104,7 @@ export class ExpenseCreateDialogComponent {
       name: '',
       cost: 0,
       purchaseDate,
+      bulletId: '',
       keepOpen: true,
     });
     this.form.markAsPristine();

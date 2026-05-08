@@ -1,16 +1,13 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 
-import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 
-import { Wallet } from '../../models/wallet';
+import { Wallet, WalletState } from '../../models/wallet';
 
 @Component({
   selector: 'app-wallet-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BrDatePipe, BrlCurrencyPipe, MatIconModule, MatProgressBarModule],
+  imports: [BrlCurrencyPipe],
   templateUrl: './wallet-list.component.html',
   styleUrl: './wallet-list.component.scss',
 })
@@ -22,5 +19,14 @@ export class WalletListComponent {
 
   protected isSelected(wallet: Wallet): boolean {
     return this.selectedWalletId() === wallet.id;
+  }
+
+  protected walletStateClass(state: WalletState): string {
+    const map: Record<WalletState, string> = {
+      PRODUCTION: 'ew-pill--prod',
+      PREVIEW: 'ew-pill--preview',
+      REVIEW: 'ew-pill--open',
+    };
+    return map[state] ?? '';
   }
 }

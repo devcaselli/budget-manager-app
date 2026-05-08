@@ -8,15 +8,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
-
-import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
+import { DecimalPipe } from '@angular/common';
 
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { ExpenseService } from '@features/expense/services/expense.service';
@@ -39,6 +31,7 @@ interface BulletOption {
 interface PaymentListItem {
   readonly id: string;
   readonly amount: string;
+  readonly amountRaw: number;
   readonly paymentDate: string;
   readonly details: string;
   readonly expenseId: string;
@@ -48,17 +41,7 @@ interface PaymentListItem {
 @Component({
   selector: 'app-payment-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    MatButtonModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressBarModule,
-    MatSelectModule,
-    PageHeaderComponent,
-    ReactiveFormsModule,
-  ],
+  imports: [DecimalPipe, ReactiveFormsModule],
   templateUrl: './payment-page.html',
   styleUrl: './payment-page.scss',
 })
@@ -81,7 +64,6 @@ export class PaymentPage {
   protected readonly isLoading = toSignal(this.paymentService.loading$, { initialValue: false });
   protected readonly isPaying = toSignal(this.paymentService.paying$, { initialValue: false });
   protected readonly errorMessage = toSignal(this.paymentService.error$, { initialValue: null });
-  protected readonly canDeletePayments = this.paymentService.canDeletePayments;
 
   protected readonly form = this.formBuilder.nonNullable.group({
     expenseId: ['', Validators.required],
@@ -92,33 +74,41 @@ export class PaymentPage {
 
   protected readonly expenseOptions = computed<readonly ExpenseOption[]>(() =>
     this.expenses()
-      .filter((expense) => Number(expense.remaining) > 0)
-      .map((expense) => ({
-        id: expense.id,
-        name: expense.name,
-        remaining: this.formatCurrency(Number(expense.remaining)),
+      .filter((e) => Number(e.remaining) > 0)
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        remaining: this.fmt(Number(e.remaining)),
       })),
   );
 
   protected readonly bulletOptions = computed<readonly BulletOption[]>(() =>
     this.bullets()
-      .filter((bullet) => Number(bullet.remaining) > 0)
-      .map((bullet) => ({
-        id: bullet.id,
-        description: bullet.description,
-        remaining: this.formatCurrency(Number(bullet.remaining)),
+      .filter((b) => Number(b.remaining) > 0)
+      .map((b) => ({
+        id: b.id,
+        description: b.description,
+        remaining: this.fmt(Number(b.remaining)),
       })),
   );
 
   protected readonly paymentItems = computed<readonly PaymentListItem[]>(() =>
-    this.payments().map((payment) => ({
-      id: payment.id,
-      amount: this.formatCurrency(Number(payment.amount)),
-      paymentDate: this.formatDateTime(payment.paymentDate),
-      details: payment.details || '-',
-      expenseId: payment.expenseId,
-      bulletId: payment.bulletId,
+    this.payments().map((p) => ({
+      id: p.id,
+      amount: this.fmt(Number(p.amount)),
+      amountRaw: Number(p.amount),
+      paymentDate: new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }).format(new Date(p.paymentDate)),
+      details: p.details || '—',
+      expenseId: p.expenseId,
+      bulletId: p.bulletId,
     })),
+  );
+
+  protected readonly totalSettled = computed(() =>
+    this.payments().reduce((acc, p) => acc + Number(p.amount), 0),
   );
 
   constructor() {
@@ -128,20 +118,14 @@ export class PaymentPage {
     });
   }
 
-  protected refreshPayments(): void {
-    this.reloadWalletData();
-  }
-
   protected payExpense(): void {
     const wallet = this.selectedWallet();
-
     if (!wallet || this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
     const value = this.form.getRawValue();
-
     this.paymentService
       .payExpense({
         walletId: wallet.id,
@@ -166,38 +150,18 @@ export class PaymentPage {
       });
   }
 
-  protected deletePayment(): void {
-    // Prepared for DELETE /payments/{id}. Keep disabled until the backend exposes it.
-  }
-
   private reloadWalletData(): void {
     const walletId = this.selectedWallet()?.id ?? null;
-
     this.bulletService.loadByWalletId(walletId);
     this.expenseService.loadByWalletId(walletId);
     this.paymentService.loadByWalletId(walletId);
   }
 
   private resetForm(): void {
-    this.form.reset({
-      expenseId: '',
-      bulletId: '',
-      amount: 0,
-      details: '',
-    });
+    this.form.reset({ expenseId: '', bulletId: '', amount: 0, details: '' });
   }
 
-  private formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  }
-
-  private formatDateTime(value: string): string {
-    return new Intl.DateTimeFormat('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    }).format(new Date(value));
+  private fmt(value: number): string {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   }
 }

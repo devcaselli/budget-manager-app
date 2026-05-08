@@ -1,99 +1,20 @@
-.wallet-list-panel {
-  display: grid;
-  gap: 1rem;
-  min-width: 0;
-  padding: 1.25rem;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 0.5rem;
-  background: var(--mat-sys-surface);
+.wl-loading {
+  padding: 0 26px;
 }
 
-.wallet-list-panel__header {
-  h2,
-  p {
-    margin: 0;
-  }
-
-  h2 {
-    font-size: 1.125rem;
-  }
-
-  p {
-    color: var(--mat-sys-on-surface-variant);
-  }
+.wl-loading-bar {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ew-acc), transparent);
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 2px;
 }
 
-.wallet-list {
-  display: grid;
-  gap: 0.75rem;
+@keyframes shimmer {
+  0%   { opacity: 0.3; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.3; }
 }
 
-.wallet-list__item {
-  display: flex;
-  width: 100%;
-  gap: 1rem;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 0.5rem;
-  background: var(--mat-sys-surface-container-lowest);
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-
-.wallet-list__item--selected {
-  border-color: var(--mat-sys-primary);
-  background: var(--mat-sys-primary-container);
-  color: var(--mat-sys-on-primary-container);
-}
-
-.wallet-list__item span,
-.wallet-list__amounts {
-  display: grid;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.wallet-list__item small,
-.wallet-list__amounts small {
-  color: var(--mat-sys-on-surface-variant);
-  font-size: 0.8125rem;
-}
-
-.wallet-list__item--selected small {
-  color: color-mix(in srgb, var(--mat-sys-on-primary-container) 72%, transparent);
-}
-
-.wallet-list__amounts {
-  flex: 0 0 auto;
-  text-align: right;
-}
-
-.wallet-list__empty {
-  display: grid;
-  gap: 0.5rem;
-  justify-items: center;
-  padding: 2rem 1rem;
-  border: 1px dashed var(--mat-sys-outline-variant);
-  border-radius: 0.5rem;
-  color: var(--mat-sys-on-surface-variant);
-  text-align: center;
-
-  mat-icon {
-    color: var(--mat-sys-primary);
-  }
-}
-
-@media (max-width: 640px) {
-  .wallet-list__item {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .wallet-list__amounts {
-    text-align: left;
-  }
+.wl-row--selected td {
+  background: var(--ew-acc-soft);
 }

@@ -1,101 +1,112 @@
-<section class="bullet-page">
-  <div class="bullet-page__header">
-    <app-page-header
-      title="Bullets"
-      subtitle="Crie e gerencie os bullets da wallet ativa."
-      icon="track_changes"
-    />
-
-    <button mat-stroked-button type="button" (click)="refreshBullets()" [disabled]="isLoading()">
-      <mat-icon aria-hidden="true">refresh</mat-icon>
-      Atualizar
-    </button>
+<div class="bullet-page">
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">03 · Bullets</div>
+      <h1 class="ew-page-title">Slices of <em>a wallet.</em></h1>
+      <p class="ew-page-sub">
+        Allocate the wallet across categories so spending has somewhere to live.
+      </p>
+    </div>
+    <div class="ew-head-meta">
+      cap · <b class="ew-blur">{{ totalCap() | brlCurrency }}</b><br>
+      used · <b class="ew-blur">{{ totalUsed() | brlCurrency }}</b> · {{ overallPct() }}%
+    </div>
   </div>
 
   @if (errorMessage()) {
-    <div class="bullet-page__alert" role="alert">
-      <mat-icon aria-hidden="true">error</mat-icon>
-      <span>{{ errorMessage() }}</span>
-    </div>
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
   }
 
-  <div class="bullet-page__content">
-    <mat-card appearance="outlined" class="bullet-form-card">
-      <mat-card-header>
-        <mat-card-title>Novo bullet</mat-card-title>
-        <mat-card-subtitle>{{ wallet()?.description || 'Selecione uma wallet' }}</mat-card-subtitle>
-      </mat-card-header>
+  <div class="ew-row">
+    <!-- Bullet list -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Registered <em>bullets</em></h3>
+          <p>Active wallet · {{ wallet()?.description || '—' }}</p>
+        </div>
+      </div>
 
-      <mat-card-content>
-        <form class="bullet-form" [formGroup]="form" (ngSubmit)="createBullet()">
-          <mat-form-field appearance="outline">
-            <mat-label>Descricao</mat-label>
-            <input matInput formControlName="description" placeholder="Ex.: Alimentacao" />
-            @if (form.controls.description.touched && form.controls.description.invalid) {
-              <mat-error>Informe uma descricao.</mat-error>
-            }
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Orcamento</mat-label>
-            <input matInput type="number" min="0.01" step="0.01" formControlName="budget" />
-            @if (form.controls.budget.touched && form.controls.budget.invalid) {
-              <mat-error>Informe um valor maior que zero.</mat-error>
-            }
-          </mat-form-field>
-
-          <button mat-flat-button type="submit" [disabled]="!wallet() || isSaving()">
-            <mat-icon aria-hidden="true">add</mat-icon>
-            Criar bullet
-          </button>
-        </form>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card appearance="outlined" class="bullet-list-card">
-      <mat-card-header>
-        <mat-card-title>Bullets cadastrados</mat-card-title>
-        <mat-card-subtitle>{{ bulletItems().length }} bullet(s) encontrados</mat-card-subtitle>
-      </mat-card-header>
-
-      <mat-card-content>
+      <div class="bullet-list-body">
         @if (isLoading()) {
-          <mat-progress-bar mode="indeterminate" />
-        }
-
-        <div class="bullet-list">
+          <div class="ew-empty">Loading...</div>
+        } @else if (bulletItems().length === 0) {
+          <div class="ew-empty">No bullets yet</div>
+        } @else {
           @for (bullet of bulletItems(); track bullet.id) {
-            <article class="bullet-list__item">
-              <div class="bullet-list__row">
-                <div>
-                  <strong>{{ bullet.description }}</strong>
-                  <small>{{ bullet.used }} usado de {{ bullet.budget }}</small>
-                </div>
-
-                <span>{{ bullet.remaining }} disponivel</span>
-
-                <button
-                  mat-icon-button
-                  type="button"
-                  aria-label="Excluir bullet"
-                  [disabled]="deletingBulletId() === bullet.id"
-                  (click)="deleteBullet(bullet.id)"
-                >
-                  <mat-icon aria-hidden="true">delete</mat-icon>
-                </button>
+            <div class="ew-alloc">
+              <div class="ew-alloc-name">
+                {{ bullet.description }}
+                <small>category · primary</small>
               </div>
-
-              <mat-progress-bar mode="determinate" [value]="bullet.progress" />
-            </article>
-          } @empty {
-            <div class="bullet-list__empty">
-              <mat-icon aria-hidden="true">track_changes</mat-icon>
-              <strong>Nenhum bullet cadastrado</strong>
-              <span>Crie o primeiro bullet para a wallet ativa.</span>
+              <div class="ew-alloc-bar">
+                <span class="ew-alloc-pct">{{ bullet.progress | number: '1.0-0' }}%</span>
+                <div class="ew-alloc-bar-fill" [style.width]="bullet.progress + '%'"></div>
+              </div>
+              <div class="ew-alloc-nums">
+                <b class="ew-blur">{{ bullet.used | brlCurrency }}</b>
+                <small>of {{ bullet.budget | brlCurrency }}</small>
+              </div>
+              <button
+                class="bullet-delete-btn"
+                type="button"
+                aria-label="Delete bullet"
+                [disabled]="deletingBulletId() === bullet.id"
+                (click)="onDeleteClick(bullet)"
+              >
+                @if (deletingBulletId() === bullet.id) {
+                  <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+                } @else {
+                  <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                }
+              </button>
             </div>
           }
+        }
+      </div>
+    </div>
+
+    <!-- New bullet form -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>New <em>bullet</em></h3>
+          <p>Carve from cap</p>
         </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+      <div class="ew-panel-body">
+        <form class="ew-form" [formGroup]="form" (ngSubmit)="createBullet()">
+          <div class="ew-field">
+            <label for="bp-description">Description</label>
+            <input
+              id="bp-description"
+              class="ew-input"
+              formControlName="description"
+              placeholder="e.g. Groceries"
+            />
+          </div>
+          <div class="ew-field">
+            <label for="bp-budget">Cap</label>
+            <input
+              id="bp-budget"
+              class="ew-input"
+              type="number"
+              min="0.01"
+              step="0.01"
+              formControlName="budget"
+              placeholder="R$ 0.00"
+            />
+          </div>
+          <button
+            class="ew-btn-submit"
+            type="submit"
+            [disabled]="!wallet() || isSaving()"
+          >
+            {{ isSaving() ? 'Creating...' : 'Create bullet' }}
+          </button>
+        </form>
+      </div>
+    </div>
   </div>
-</section>
+</div>

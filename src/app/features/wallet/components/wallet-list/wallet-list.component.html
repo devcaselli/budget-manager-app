@@ -1,39 +1,50 @@
-<section class="wallet-list-panel" aria-label="Lista de wallets">
-  <div class="wallet-list-panel__header">
+<div class="ew-panel" aria-label="Wallet list">
+  <div class="ew-panel-head">
     <div>
-      <h2>Wallets abertas</h2>
-      <p>{{ wallets().length }} wallet(s) encontradas</p>
+      <h3>All wallets</h3>
+      <p>{{ wallets().length }} found · open</p>
     </div>
   </div>
 
   @if (isLoading()) {
-    <mat-progress-bar mode="indeterminate" />
+    <div class="wl-loading">
+      <div class="wl-loading-bar"></div>
+    </div>
   }
 
-  <div class="wallet-list">
-    @for (wallet of wallets(); track wallet.id) {
-      <button
-        class="wallet-list__item"
-        type="button"
-        [class.wallet-list__item--selected]="isSelected(wallet)"
-        (click)="walletSelect.emit(wallet)"
-      >
-        <span>
-          <strong>{{ wallet.description || 'Wallet sem descricao' }}</strong>
-          <small>{{ wallet.effectiveMonth }} · {{ wallet.state }}</small>
-          <small>{{ wallet.startDate | brDate }} - {{ wallet.closedDate | brDate }}</small>
-        </span>
-        <span class="wallet-list__amounts">
-          <strong>{{ wallet.remaining | brlCurrency }}</strong>
-          <small>de {{ wallet.budget | brlCurrency }}</small>
-        </span>
-      </button>
-    } @empty {
-      <div class="wallet-list__empty">
-        <mat-icon aria-hidden="true">account_balance_wallet</mat-icon>
-        <strong>Nenhuma wallet cadastrada</strong>
-        <span>Use o formulario para abrir a primeira wallet.</span>
-      </div>
-    }
-  </div>
-</section>
+  <table class="ew-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Cycle</th>
+        <th>State</th>
+        <th>Cap</th>
+        <th>Available</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (wallet of wallets(); track wallet.id) {
+        <tr
+          class="wl-row"
+          [class.wl-row--selected]="isSelected(wallet)"
+          (click)="walletSelect.emit(wallet)"
+          style="cursor: pointer"
+        >
+          <td>{{ wallet.description || 'Unnamed' }}</td>
+          <td>{{ wallet.effectiveMonth }}</td>
+          <td>
+            <span class="ew-pill" [class]="walletStateClass(wallet.state)">
+              {{ wallet.state }}
+            </span>
+          </td>
+          <td class="ew-blur">{{ wallet.budget | brlCurrency }}</td>
+          <td class="ew-blur">{{ wallet.remaining | brlCurrency }}</td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="5" class="ew-empty">No wallets found</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

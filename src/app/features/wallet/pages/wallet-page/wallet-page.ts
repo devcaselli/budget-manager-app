@@ -1,16 +1,15 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   inject,
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { finalize } from 'rxjs';
 
-import { PageHeaderComponent } from '@shared/ui/page-header/page-header.component';
+import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 
 import { WalletDetailComponent } from '../../components/wallet-detail/wallet-detail.component';
 import { WalletFormComponent } from '../../components/wallet-form/wallet-form.component';
@@ -21,14 +20,7 @@ import { WalletService } from '../../services/wallet.service';
 @Component({
   selector: 'app-wallet-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    MatButtonModule,
-    MatIconModule,
-    PageHeaderComponent,
-    WalletDetailComponent,
-    WalletFormComponent,
-    WalletListComponent,
-  ],
+  imports: [BrlCurrencyPipe, WalletDetailComponent, WalletFormComponent, WalletListComponent],
   templateUrl: './wallet-page.html',
   styleUrl: './wallet-page.scss',
 })
@@ -45,9 +37,9 @@ export class WalletPage {
   protected readonly isSaving = signal(false);
   protected readonly formResetCount = signal(0);
 
-  protected refreshWallets(): void {
-    this.walletService.loadWallets();
-  }
+  protected readonly totalCap = computed(() =>
+    this.wallets().reduce((acc, w) => acc + Number(w.budget), 0),
+  );
 
   protected selectWallet(wallet: Wallet): void {
     this.walletService.selectWallet(wallet);

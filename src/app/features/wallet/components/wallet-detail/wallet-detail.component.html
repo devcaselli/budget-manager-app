@@ -1,72 +1,31 @@
-<mat-card appearance="outlined" class="wallet-details-card">
-  <mat-card-header>
-    <mat-card-title>Wallet selecionada</mat-card-title>
-    <mat-card-subtitle>Detalhes carregados da API para a wallet ativa.</mat-card-subtitle>
-  </mat-card-header>
+@if (wallet(); as selectedWallet) {
+  <div class="ew-bigwallet">
+    <div class="ew-bigwallet-top">
+      <span>{{ selectedWallet.id.slice(0, 8) }} · selected</span>
+      <span>{{ selectedWallet.state | uppercase }} · {{ selectedWallet.closed ? 'closed' : 'open' }}</span>
+    </div>
 
-  <mat-card-content>
-    @if (isLoading()) {
-      <mat-progress-bar mode="indeterminate" />
-    }
+    <div class="ew-bigwallet-name">{{ selectedWallet.description || 'Unnamed' }}</div>
 
-    @if (wallet(); as selectedWallet) {
-      @if (usage(); as selectedUsage) {
-        <div class="wallet-details">
-          <div class="wallet-details__title-row">
-            <div>
-              <h2>{{ selectedWallet.description || 'Wallet sem descricao' }}</h2>
-              <p>{{ selectedWallet.state }} · {{ selectedWallet.closed ? 'Fechada' : 'Aberta' }}</p>
-            </div>
-            <span class="wallet-details__badge">{{ selectedWallet.id }}</span>
-          </div>
+    <div class="ew-bigwallet-amount ew-blur">
+      {{ (usage()?.remaining ?? 0) | brlCurrency }}
+      <small>of {{ (usage()?.budget ?? 0) | brlCurrency }} · {{ (usage()?.percent ?? 0) | number: '1.0-0' }}% committed</small>
+    </div>
 
-          <div class="wallet-details__metrics">
-            <div>
-              <span>Orcamento</span>
-              <strong>{{ selectedUsage.budget | brlCurrency }}</strong>
-            </div>
-            <div>
-              <span>Disponivel</span>
-              <strong>{{ selectedUsage.remaining | brlCurrency }}</strong>
-            </div>
-            <div>
-              <span>Comprometido</span>
-              <strong>{{ selectedUsage.committed | brlCurrency }}</strong>
-            </div>
-          </div>
+    <div class="ew-bigwallet-pgr">
+      <div class="ew-bigwallet-pgr-fill" [style.width]="(usage()?.percent ?? 0) + '%'"></div>
+    </div>
 
-          <div class="wallet-details__usage">
-            <div>
-              <strong>{{ selectedUsage.percent | number: '1.0-0' }}%</strong>
-              <span>do orcamento comprometido</span>
-            </div>
-            <mat-progress-bar mode="determinate" [value]="selectedUsage.percent" />
-          </div>
-
-          <mat-divider />
-
-          <dl class="wallet-details__dates">
-            <div>
-              <dt>Mes efetivo</dt>
-              <dd>{{ selectedWallet.effectiveMonth }}</dd>
-            </div>
-            <div>
-              <dt>Inicio</dt>
-              <dd>{{ selectedWallet.startDate | brDate }}</dd>
-            </div>
-            <div>
-              <dt>Fechamento</dt>
-              <dd>{{ selectedWallet.closedDate | brDate }}</dd>
-            </div>
-          </dl>
-        </div>
-      }
-    } @else {
-      <div class="wallet-details__empty">
-        <mat-icon aria-hidden="true">info</mat-icon>
-        <strong>Selecione uma wallet</strong>
-        <span>Os dados completos aparecem aqui.</span>
-      </div>
-    }
-  </mat-card-content>
-</mat-card>
+    <div class="ew-bigwallet-meta">
+      <div>Effective<b>{{ selectedWallet.effectiveMonth }}</b></div>
+      <div>Opened<b>{{ selectedWallet.startDate | brDate }}</b></div>
+      <div>Closes<b>{{ selectedWallet.closedDate | brDate }}</b></div>
+      <div>State<b>{{ selectedWallet.state }}</b></div>
+    </div>
+  </div>
+} @else {
+  <div class="wd-empty">
+    <span class="ew-eyebrow">No wallet selected</span>
+    <p>Select a wallet from the list to see its details here.</p>
+  </div>
+}

@@ -1,125 +1,148 @@
-<section class="expense-page">
-  <div class="expense-page__header">
-    <app-page-header
-      title="Expenses"
-      subtitle="Crie e gerencie as expenses da wallet ativa."
-      icon="receipt_long"
-    />
-
-    <button mat-stroked-button type="button" (click)="refreshExpenses()" [disabled]="isLoading()">
-      <mat-icon aria-hidden="true">refresh</mat-icon>
-      Atualizar
-    </button>
+<div class="expense-page">
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">04 · Expenses</div>
+      <h1 class="ew-page-title">Where it <em>went.</em></h1>
+      <p class="ew-page-sub">
+        Every purchase that hit the active wallet, with status and bullet.
+      </p>
+    </div>
+    <div class="ew-head-meta">
+      total · <b class="ew-blur">{{ totalCost() | brlCurrency }}</b><br>
+      open · <b class="ew-blur">{{ totalOpen() | brlCurrency }}</b>
+    </div>
   </div>
 
   @if (errorMessage()) {
-    <div class="expense-page__alert" role="alert">
-      <mat-icon aria-hidden="true">error</mat-icon>
-      <span>{{ errorMessage() }}</span>
-    </div>
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
   }
-
   @if (paymentErrorMessage()) {
-    <div class="expense-page__alert" role="alert">
-      <mat-icon aria-hidden="true">error</mat-icon>
-      <span>{{ paymentErrorMessage() }}</span>
-    </div>
+    <div class="ew-alert" role="alert">{{ paymentErrorMessage() }}</div>
   }
 
-  <div class="expense-page__content">
-    <mat-card appearance="outlined" class="expense-form-card">
-      <mat-card-header>
-        <mat-card-title>Nova expense</mat-card-title>
-        <mat-card-subtitle>{{ wallet()?.description || 'Selecione uma wallet' }}</mat-card-subtitle>
-      </mat-card-header>
+  <div class="ew-row">
+    <!-- Expense ledger -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Expense ledger</h3>
+          <p>{{ expenseItems().length }} expense(s) in cycle</p>
+        </div>
+      </div>
 
-      <mat-card-content>
-        <form class="expense-form" [formGroup]="form" (ngSubmit)="createExpense()">
-          <mat-form-field appearance="outline">
-            <mat-label>Nome</mat-label>
-            <input matInput formControlName="name" placeholder="Ex.: Mercado" />
-            @if (form.controls.name.touched && form.controls.name.invalid) {
-              <mat-error>Informe um nome.</mat-error>
+      @if (isLoading()) {
+        <div class="ew-empty">Loading...</div>
+      } @else {
+        <table class="ew-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Amount</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (expense of expenseItems(); track expense.id) {
+              <tr>
+                <td>{{ expense.name }}</td>
+                <td>{{ expense.purchaseDate | brDate }}</td>
+                <td>
+                  <span class="ew-pill" [class.ew-pill--paid]="expense.statusLabel === 'PAID'" [class.ew-pill--open]="expense.statusLabel === 'OPEN'">
+                    {{ expense.statusLabel }}
+                  </span>
+                </td>
+                <td class="ew-blur">{{ expense.cost | brlCurrency }}</td>
+                <td class="ep-delete-cell">
+                  <button
+                    class="ep-delete-btn"
+                    type="button"
+                    [disabled]="deletingExpenseId() === expense.id"
+                    (click)="onDeleteClick(expense)"
+                    aria-label="Delete expense"
+                  >
+                    <mat-icon>
+                      {{ deletingExpenseId() === expense.id ? 'hourglass_empty' : 'delete_outline' }}
+                    </mat-icon>
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="ew-empty">No expenses yet</td>
+              </tr>
             }
-          </mat-form-field>
+          </tbody>
+        </table>
+      }
+    </div>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Custo</mat-label>
-            <input matInput type="number" min="0.01" step="0.01" formControlName="cost" />
-            @if (form.controls.cost.touched && form.controls.cost.invalid) {
-              <mat-error>Informe um valor maior que zero.</mat-error>
-            }
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Compra</mat-label>
-            <input matInput type="date" formControlName="purchaseDate" />
-          </mat-form-field>
-
-          <button mat-flat-button type="submit" [disabled]="!wallet() || isSaving()">
-            <mat-icon aria-hidden="true">add</mat-icon>
-            Criar expense
+    <!-- New expense form -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>New <em>expense</em></h3>
+          <p>Quick add</p>
+        </div>
+      </div>
+      <div class="ew-panel-body">
+        <form class="ew-form" [formGroup]="form" (ngSubmit)="createExpense()">
+          <div class="ew-field">
+            <label for="ep-name">Name</label>
+            <input
+              id="ep-name"
+              class="ew-input"
+              formControlName="name"
+              placeholder="e.g. Mercado"
+            />
+          </div>
+          <div class="ew-field">
+            <label for="ep-cost">Cost</label>
+            <input
+              id="ep-cost"
+              class="ew-input"
+              type="number"
+              min="0.01"
+              step="0.01"
+              formControlName="cost"
+              placeholder="R$ 0.00"
+            />
+          </div>
+          <div class="ew-field">
+            <label for="ep-date">Purchase date</label>
+            <input id="ep-date" class="ew-input" type="date" formControlName="purchaseDate" />
+          </div>
+          <button
+            class="ew-btn-submit"
+            type="submit"
+            [disabled]="!wallet() || isSaving()"
+          >
+            {{ isSaving() ? 'Creating...' : 'Create expense' }}
           </button>
         </form>
-      </mat-card-content>
-    </mat-card>
 
-    <mat-card appearance="outlined" class="expense-list-card">
-      <mat-card-header>
-        <mat-card-title>Expenses cadastradas</mat-card-title>
-        <mat-card-subtitle>{{ expenseItems().length }} expense(s) encontradas</mat-card-subtitle>
-      </mat-card-header>
-
-      <mat-card-content>
-        @if (isLoading()) {
-          <mat-progress-bar mode="indeterminate" />
+        <!-- Pay expense (inline for open expenses) -->
+        @if (expenseItems().length > 0) {
+          <div class="expense-pay-section">
+            <p class="expense-pay-label">Pay an open expense</p>
+            @for (expense of expenseItems(); track expense.id) {
+              @if (expense.statusLabel === 'OPEN') {
+                <button
+                  class="expense-pay-row"
+                  type="button"
+                  [disabled]="bulletOptions().length === 0 || isPaying()"
+                  (click)="openPaymentDialog(expense)"
+                >
+                  <span>{{ expense.name }}</span>
+                  <span class="ew-blur">{{ expense.remaining | brlCurrency }} open</span>
+                </button>
+              }
+            }
+          </div>
         }
-
-        <div class="expense-list">
-          @for (expense of expenseItems(); track expense.id) {
-            <article class="expense-list__item">
-              <div class="expense-list__row">
-                <div>
-                  <strong>{{ expense.name }}</strong>
-                  <small>{{ expense.purchaseDate }} · {{ expense.paid }} pago de {{ expense.cost }}</small>
-                </div>
-
-                <span>{{ expense.remaining }} em aberto</span>
-
-                <div class="expense-list__actions">
-                  <button
-                    mat-icon-button
-                    type="button"
-                    aria-label="Pagar expense"
-                    [disabled]="expense.remainingValue <= 0 || bulletOptions().length === 0 || isPaying()"
-                    (click)="openPaymentDialog(expense)"
-                  >
-                    <mat-icon aria-hidden="true">payments</mat-icon>
-                  </button>
-
-                  <button
-                    mat-icon-button
-                    type="button"
-                    aria-label="Excluir expense"
-                    [disabled]="deletingExpenseId() === expense.id"
-                    (click)="deleteExpense(expense.id)"
-                  >
-                    <mat-icon aria-hidden="true">delete</mat-icon>
-                  </button>
-                </div>
-              </div>
-
-              <mat-progress-bar mode="determinate" [value]="expense.progress" />
-            </article>
-          } @empty {
-            <div class="expense-list__empty">
-              <mat-icon aria-hidden="true">receipt_long</mat-icon>
-              <strong>Nenhuma expense cadastrada</strong>
-              <span>Crie a primeira expense para a wallet ativa.</span>
-            </div>
-          }
-        </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
   </div>
-</section>
+</div>

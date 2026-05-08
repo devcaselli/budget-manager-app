@@ -1,85 +1,108 @@
-<mat-sidenav-container class="shell">
-  <mat-sidenav
-    #drawer
-    class="shell__sidenav"
-    [mode]="isHandset() ? 'over' : 'side'"
-    [opened]="!isHandset()"
-  >
-    <div class="shell__brand">
-      <mat-icon aria-hidden="true">account_balance_wallet</mat-icon>
-      <div>
-        <strong>Budget Manager</strong>
-        <span>Controle financeiro</span>
+<div class="ew-app">
+  <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+  <aside class="ew-side">
+    <div class="ew-brand">
+      <div class="ew-brand-mark">B</div>
+      <div class="ew-brand-name">
+        Budget
+        <span>Personal Ledger</span>
       </div>
     </div>
 
-    <mat-nav-list aria-label="Navegacao principal">
-      @for (item of navItems; track item.route) {
+    <nav class="ew-nav" aria-label="Main navigation">
+      <div class="ew-nav-section">Workspace</div>
+
+      @for (item of workspaceNav; track item.route) {
         <a
-          mat-list-item
+          class="ew-nav-item"
           [routerLink]="item.route"
-          routerLinkActive="mdc-list-item--activated"
+          routerLinkActive="ew-nav-item--active"
           [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
-          (click)="isHandset() && drawer.close()"
+          [attr.aria-label]="item.label"
         >
-          <mat-icon matListItemIcon aria-hidden="true">{{ item.icon }}</mat-icon>
-          <span matListItemTitle>{{ item.label }}</span>
+          <span class="ew-nav-num">{{ item.num }}</span>
+          {{ item.label }}
         </a>
       }
-    </mat-nav-list>
-  </mat-sidenav>
 
-  <mat-sidenav-content class="shell__content">
-    <mat-toolbar class="shell__toolbar">
-      @if (isHandset()) {
-        <button
-          mat-icon-button
-          type="button"
-          aria-label="Abrir menu"
-          (click)="drawer.toggle()"
+      <div class="ew-nav-section">Activity</div>
+
+      @for (item of activityNav; track item.route) {
+        <a
+          class="ew-nav-item"
+          [routerLink]="item.route"
+          routerLinkActive="ew-nav-item--active"
+          [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+          [attr.aria-label]="item.label"
         >
-          <mat-icon aria-hidden="true">menu</mat-icon>
-        </button>
+          <span class="ew-nav-num">{{ item.num }}</span>
+          {{ item.label }}
+        </a>
+      }
+    </nav>
+
+    <div class="ew-side-spacer"></div>
+
+    @if (selectedWallet(); as wallet) {
+      <div class="ew-side-card" aria-label="Active wallet">
+        <b class="ew-blur">{{ wallet.remaining | brlCurrency }}</b>
+        <span>available · cycle {{ wallet.effectiveMonth }}</span>
+      </div>
+    }
+  </aside>
+
+  <!-- ── Main area ───────────────────────────────────────────────── -->
+  <div class="ew-main">
+    <!-- Topbar -->
+    <header class="ew-topbar">
+      <div class="ew-crumb">Budget · <b>{{ currentRouteLabel() }}</b></div>
+
+      <div class="ew-topbar-spacer"></div>
+
+      @if (selectedWallet(); as wallet) {
+        <div class="ew-ticker" aria-label="Wallet summary">
+          <span>Wallet · <b>{{ wallet.description }}</b></span>
+          <span>Cycle · <b>{{ wallet.effectiveMonth }}</b></span>
+          <span>Util · <b [class.ew-up]="utilizationRate() < 80">{{ utilizationRate() }}%</b></span>
+        </div>
       }
 
-      <span class="shell__toolbar-title">{{ appName }}</span>
-
-      <div class="shell__wallet-summary" aria-label="Wallet ativa">
-        <mat-icon aria-hidden="true">account_balance_wallet</mat-icon>
-
-        @if (selectedWallet(); as wallet) {
-          <div class="shell__wallet-copy">
-            <strong>{{ wallet.description || 'Wallet sem descricao' }}</strong>
-            <span>
-              {{ wallet.remaining | brlCurrency }} disponivel
-              <span aria-hidden="true">·</span>
-              {{ wallet.effectiveMonth }}
-              <span aria-hidden="true">·</span>
-              {{ wallet.state }}
-            </span>
-          </div>
-        } @else {
-          <div class="shell__wallet-copy">
-            <strong>Nenhuma wallet ativa</strong>
-            <span>Selecione uma wallet para contextualizar os dados</span>
-          </div>
-        }
-      </div>
-
-      <span class="shell__toolbar-spacer"></span>
       <button
-        mat-stroked-button
+        class="ew-btn ew-btn--ghost"
+        type="button"
+        aria-label="Refresh"
+        (click)="refresh()"
+      >↻</button>
+
+      <button
+        class="ew-btn ew-btn--primary"
         type="button"
         [disabled]="!selectedWallet()"
         (click)="openTransactionDialog()"
       >
-        <mat-icon aria-hidden="true">add</mat-icon>
-        Nova transacao
+        + New transaction
       </button>
-    </mat-toolbar>
+    </header>
 
-    <main class="shell__main">
+    <!-- Page content -->
+    <main class="ew-content" role="main">
       <router-outlet />
     </main>
-  </mat-sidenav-content>
-</mat-sidenav-container>
+  </div>
+</div>
+
+<!-- ── Tweaks panel ───────────────────────────────────────────────── -->
+<div class="ew-tweaks" aria-label="Display preferences">
+  <h6 class="ew-tweaks-title">Tweaks</h6>
+
+  <button
+    class="ew-switch"
+    type="button"
+    role="switch"
+    [attr.aria-checked]="privacyMode()"
+    (click)="togglePrivacy()"
+  >
+    <span>Privacy mode</span>
+    <i class="ew-switch-track" [class.ew-switch-track--on]="privacyMode()"></i>
+  </button>
+</div>

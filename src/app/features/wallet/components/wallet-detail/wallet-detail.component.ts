@@ -1,9 +1,5 @@
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, UpperCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { MatCardModule } from '@angular/material/card';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
@@ -20,15 +16,7 @@ interface WalletUsage {
 @Component({
   selector: 'app-wallet-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    BrDatePipe,
-    BrlCurrencyPipe,
-    DecimalPipe,
-    MatCardModule,
-    MatDividerModule,
-    MatIconModule,
-    MatProgressBarModule,
-  ],
+  imports: [BrDatePipe, BrlCurrencyPipe, DecimalPipe, UpperCasePipe],
   templateUrl: './wallet-detail.component.html',
   styleUrl: './wallet-detail.component.scss',
 })
@@ -38,9 +26,7 @@ export class WalletDetailComponent {
 
   protected readonly usage = computed<WalletUsage | null>(() => {
     const wallet = this.wallet();
-    if (!wallet) {
-      return null;
-    }
+    if (!wallet) return null;
 
     const budget = Number(wallet.budget);
     const remaining = Number(wallet.remaining);

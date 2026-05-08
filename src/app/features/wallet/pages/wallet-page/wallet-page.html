@@ -1,38 +1,42 @@
-<section class="wallet-page">
-  <div class="wallet-page__header">
-    <app-page-header
-      title="Wallets"
-      subtitle="Abra uma wallet, acompanhe o saldo disponivel e consulte os detalhes da carteira selecionada."
-      icon="account_balance_wallet"
-    />
-
-    <button mat-stroked-button type="button" (click)="refreshWallets()" [disabled]="isLoading()">
-      <mat-icon aria-hidden="true">refresh</mat-icon>
-      Atualizar
-    </button>
+<div class="wallet-page">
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">02 · Wallets</div>
+      <h1 class="ew-page-title">Carve out <em>a cycle.</em></h1>
+      <p class="ew-page-sub">
+        Each wallet is a single budget for a single month. Open it, watch it spend itself down, close it.
+      </p>
+    </div>
+    <div class="ew-head-meta">
+      total wallets · <b>{{ wallets().length }}</b><br>
+      cap aggregate · <b class="ew-blur">{{ totalCap() | brlCurrency }}</b>
+    </div>
   </div>
 
   @if (errorMessage()) {
-    <div class="wallet-page__alert" role="alert">
-      <mat-icon aria-hidden="true">error</mat-icon>
-      <span>{{ errorMessage() }}</span>
-    </div>
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
   }
 
+  <!-- ── Layout ────────────────────────────────────────────────────── -->
   <div class="wallet-page__content">
+    <!-- Left: detail card + list -->
+    <div class="ew-col-stack">
+      <app-wallet-detail [wallet]="selectedWallet()" [isLoading]="isLoading()" />
+
+      <app-wallet-list
+        [wallets]="wallets()"
+        [selectedWalletId]="selectedWallet()?.id ?? null"
+        [isLoading]="isLoading()"
+        (walletSelect)="selectWallet($event)"
+      />
+    </div>
+
+    <!-- Right: form -->
     <app-wallet-form
       [isSaving]="isSaving()"
       [resetCount]="formResetCount()"
       (walletCreate)="createWallet($event)"
     />
-
-    <app-wallet-list
-      [wallets]="wallets()"
-      [selectedWalletId]="selectedWallet()?.id ?? null"
-      [isLoading]="isLoading()"
-      (walletSelect)="selectWallet($event)"
-    />
-
-    <app-wallet-detail [wallet]="selectedWallet()" [isLoading]="isLoading()" />
   </div>
-</section>
+</div>

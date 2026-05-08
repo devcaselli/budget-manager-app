@@ -1,124 +1,118 @@
-<section class="payment-page">
-  <div class="payment-page__header">
-    <app-page-header
-      title="Payments"
-      subtitle="Registre pagamentos e acompanhe o historico da wallet ativa."
-      icon="payments"
-    />
-
-    <button mat-stroked-button type="button" (click)="refreshPayments()" [disabled]="isLoading()">
-      <mat-icon aria-hidden="true">refresh</mat-icon>
-      Atualizar
-    </button>
+<div class="payment-page">
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">06 · Payments</div>
+      <h1 class="ew-page-title">The <em>settlement.</em></h1>
+      <p class="ew-page-sub">Each time an open expense closes, a payment lands here.</p>
+    </div>
+    <div class="ew-head-meta">
+      payments · <b>{{ paymentItems().length }}</b><br>
+      settled · <b class="ew-blur">{{ totalSettled() | number: '1.2-2' }}</b>
+    </div>
   </div>
 
   @if (errorMessage()) {
-    <div class="payment-page__alert" role="alert">
-      <mat-icon aria-hidden="true">error</mat-icon>
-      <span>{{ errorMessage() }}</span>
-    </div>
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
   }
 
-  <div class="payment-page__content">
-    <mat-card appearance="outlined" class="payment-form-card">
-      <mat-card-header>
-        <mat-card-title>Novo pagamento</mat-card-title>
-        <mat-card-subtitle>{{ wallet()?.description || 'Selecione uma wallet' }}</mat-card-subtitle>
-      </mat-card-header>
+  <div class="ew-row">
+    <!-- Payment history table -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Payment history</h3>
+          <p>{{ paymentItems().length }} payment(s)</p>
+        </div>
+      </div>
 
-      <mat-card-content>
-        <form class="payment-form" [formGroup]="form" (ngSubmit)="payExpense()">
-          <mat-form-field appearance="outline">
-            <mat-label>Expense</mat-label>
-            <mat-select formControlName="expenseId">
-              @for (expense of expenseOptions(); track expense.id) {
-                <mat-option [value]="expense.id">
-                  {{ expense.name }} · {{ expense.remaining }} em aberto
-                </mat-option>
-              }
-            </mat-select>
-            @if (form.controls.expenseId.touched && form.controls.expenseId.invalid) {
-              <mat-error>Selecione uma expense.</mat-error>
+      @if (isLoading()) {
+        <div class="ew-empty">Loading...</div>
+      } @else {
+        <table class="ew-table">
+          <thead>
+            <tr>
+              <th>Expense</th>
+              <th>Bullet</th>
+              <th>When</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (payment of paymentItems(); track payment.id) {
+              <tr>
+                <td>{{ payment.expenseId.slice(0, 8) }}</td>
+                <td>{{ payment.bulletId.slice(0, 8) }}</td>
+                <td>{{ payment.paymentDate }}</td>
+                <td class="ew-blur">{{ payment.amount }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4" class="ew-empty">No payments yet</td>
+              </tr>
             }
-          </mat-form-field>
+          </tbody>
+        </table>
+      }
+    </div>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Bullet</mat-label>
-            <mat-select formControlName="bulletId">
+    <!-- Record payment form -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Record <em>payment</em></h3>
+          <p>Settle an expense</p>
+        </div>
+      </div>
+      <div class="ew-panel-body">
+        <form class="ew-form" [formGroup]="form" (ngSubmit)="payExpense()">
+          <div class="ew-field">
+            <label for="pp-expense">Expense</label>
+            <select id="pp-expense" class="ew-select" formControlName="expenseId">
+              <option value="" disabled>Select expense...</option>
+              @for (exp of expenseOptions(); track exp.id) {
+                <option [value]="exp.id">{{ exp.name }} · {{ exp.remaining }} open</option>
+              }
+            </select>
+          </div>
+
+          <div class="ew-field">
+            <label for="pp-bullet">Bullet</label>
+            <select id="pp-bullet" class="ew-select" formControlName="bulletId">
+              <option value="" disabled>Select bullet...</option>
               @for (bullet of bulletOptions(); track bullet.id) {
-                <mat-option [value]="bullet.id">
-                  {{ bullet.description }} · {{ bullet.remaining }} disponivel
-                </mat-option>
+                <option [value]="bullet.id">{{ bullet.description }} · {{ bullet.remaining }}</option>
               }
-            </mat-select>
-            @if (form.controls.bulletId.touched && form.controls.bulletId.invalid) {
-              <mat-error>Selecione um bullet.</mat-error>
-            }
-          </mat-form-field>
+            </select>
+          </div>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Valor</mat-label>
-            <input matInput type="number" min="0.01" step="0.01" formControlName="amount" />
-            @if (form.controls.amount.touched && form.controls.amount.invalid) {
-              <mat-error>Informe um valor maior que zero.</mat-error>
-            }
-          </mat-form-field>
+          <div class="ew-field">
+            <label for="pp-amount">Amount</label>
+            <input
+              id="pp-amount"
+              class="ew-input"
+              type="number"
+              min="0.01"
+              step="0.01"
+              formControlName="amount"
+              placeholder="R$ 0.00"
+            />
+          </div>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Descricao</mat-label>
-            <textarea matInput rows="3" formControlName="details"></textarea>
-          </mat-form-field>
+          <div class="ew-field">
+            <label for="pp-note">Note</label>
+            <input id="pp-note" class="ew-input" formControlName="details" placeholder="optional" />
+          </div>
 
-          <button mat-flat-button type="submit" [disabled]="!wallet() || isPaying()">
-            <mat-icon aria-hidden="true">payments</mat-icon>
-            Registrar pagamento
+          <button
+            class="ew-btn-submit"
+            type="submit"
+            [disabled]="!wallet() || isPaying()"
+          >
+            {{ isPaying() ? 'Recording...' : 'Record payment' }}
           </button>
         </form>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card appearance="outlined" class="payment-list-card">
-      <mat-card-header>
-        <mat-card-title>Pagamentos registrados</mat-card-title>
-        <mat-card-subtitle>{{ paymentItems().length }} pagamento(s) encontrados</mat-card-subtitle>
-      </mat-card-header>
-
-      <mat-card-content>
-        @if (isLoading()) {
-          <mat-progress-bar mode="indeterminate" />
-        }
-
-        <div class="payment-list">
-          @for (payment of paymentItems(); track payment.id) {
-            <article class="payment-list__item">
-              <div class="payment-list__row">
-                <div>
-                  <strong>{{ payment.amount }}</strong>
-                  <small>{{ payment.paymentDate }} · {{ payment.details }}</small>
-                </div>
-
-                <span>Expense {{ payment.expenseId }}</span>
-
-                <button
-                  mat-icon-button
-                  type="button"
-                  aria-label="Excluir pagamento"
-                  [disabled]="!canDeletePayments"
-                  (click)="deletePayment()"
-                >
-                  <mat-icon aria-hidden="true">delete</mat-icon>
-                </button>
-              </div>
-            </article>
-          } @empty {
-            <div class="payment-list__empty">
-              <mat-icon aria-hidden="true">payments</mat-icon>
-              <strong>Nenhum pagamento registrado</strong>
-              <span>Os pagamentos da wallet ativa aparecem aqui.</span>
-            </div>
-          }
-        </div>
-      </mat-card-content>
-    </mat-card>
+      </div>
+    </div>
   </div>
-</section>
+</div>

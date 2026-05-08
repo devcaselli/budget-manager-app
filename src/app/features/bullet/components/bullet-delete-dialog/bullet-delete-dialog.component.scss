@@ -1,21 +1,22 @@
-.ecd-head {
+.bdd-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+  padding: 26px 28px 18px;
   border-bottom: 1px solid var(--ew-line);
 
-  // Override mat-dialog-title margin/padding
+  // Override mat-dialog-title margin
   &[mat-dialog-title] {
     margin: 0;
     padding: 26px 28px 18px;
   }
 }
 
-.ecd-title {
+.bdd-title {
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 32px;
+  font-size: 28px;
   line-height: 1;
   letter-spacing: -0.02em;
   font-weight: 500;
@@ -23,12 +24,12 @@
 
   em {
     font-style: italic;
-    color: var(--ew-ink-2);
+    color: var(--ew-bad);
     font-weight: 300;
   }
 }
 
-.ecd-subtitle {
+.bdd-subtitle {
   margin: 8px 0 0;
   font-family: var(--ew-mono);
   font-size: 10px;
@@ -37,7 +38,7 @@
   letter-spacing: 0.18em;
 }
 
-.ecd-close {
+.bdd-close {
   flex: 0 0 34px;
   color: var(--ew-ink-2);
 
@@ -46,36 +47,30 @@
   }
 }
 
-.ecd-form {
-  display: block;
-  min-width: min(28rem, calc(100vw - 4rem));
+.bdd-body {
+  padding: 24px 28px;
 }
 
-.ecd-body {
-  display: grid;
-  gap: 0.5rem;
-  padding: 24px 28px;
+.bdd-message {
+  margin: 0;
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  line-height: 1.6;
 
-  mat-form-field {
-    width: 100%;
+  strong {
+    color: var(--ew-ink);
+    font-weight: 600;
   }
 }
 
-.ecd-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-.ecd-keep-open {
-  margin-top: 0.25rem;
-  color: var(--ew-ink-2);
-  font-size: 13px;
-}
-
-.ecd-actions {
-  gap: 0.5rem;
+.bdd-actions {
+  gap: 10px;
   padding: 18px 28px 24px;
   border-top: 1px solid var(--ew-line);
-  flex-wrap: wrap;
+}
+
+.bdd-delete-btn {
+  background: var(--ew-bad) !important;
+  color: #fff !important;
 }

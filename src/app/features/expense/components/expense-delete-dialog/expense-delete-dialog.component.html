@@ -1,0 +1,27 @@
+<div class="edd-head" mat-dialog-title>
+  <div>
+    <h2 class="edd-title">Delete <em>expense?</em></h2>
+    <p class="edd-subtitle">This action cannot be undone</p>
+  </div>
+  <button class="edd-close" type="button" mat-icon-button (click)="cancel()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="edd-body">
+  <p class="edd-message">
+    You are about to permanently delete the expense
+    <strong>{{ data.expenseName }}</strong>
+    valued at
+    <strong>{{ data.cost | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>.
+    Any associated payments will also be removed.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions class="edd-actions" align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button class="edd-delete-btn" type="button" (click)="confirm()">
+    <mat-icon aria-hidden="true">delete_outline</mat-icon>
+    Delete expense
+  </button>
+</mat-dialog-actions>

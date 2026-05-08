@@ -1,111 +1,210 @@
-<section class="dashboard">
-  <div class="dashboard__header">
-    <app-page-header
-      title="Dashboard financeiro"
-      subtitle="Visao da wallet ativa com bullets e expenses carregados da API."
-      icon="monitoring"
-    />
-
-    <button mat-stroked-button type="button" (click)="refreshDashboard()">
-      <mat-icon aria-hidden="true">refresh</mat-icon>
-      Atualizar
-    </button>
+<div class="dashboard">
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">{{ currentCycle() }} · Overview</div>
+      <h1 class="ew-page-title">{{ headlineText() }} <em>so far.</em></h1>
+      <p class="ew-page-sub">{{ summaryText() }}</p>
+    </div>
+    <div class="ew-head-meta">
+      last sync · <b>{{ lastSync() }}</b><br>
+      cycle · {{ daysLeft() }} days remaining
+    </div>
   </div>
 
-  <div class="grid gap-4 md:grid-cols-4">
-    @for (card of summaryCards(); track card.label) {
-      <mat-card appearance="outlined" class="summary-card">
-        <mat-card-content>
-          <div class="summary-card__topline">
-            <span>{{ card.label }}</span>
-            <mat-icon aria-hidden="true">{{ card.icon }}</mat-icon>
-          </div>
-          <strong>{{ card.value }}</strong>
-          <small>{{ card.helper }}</small>
-        </mat-card-content>
-      </mat-card>
-    }
+  <!-- ── Hero strip ───────────────────────────────────────────────── -->
+  <div class="ew-hero">
+    <div>
+      <div class="ew-hero-lbl">Wallet · available</div>
+      <div class="ew-hero-featured-val ew-blur">
+        {{ (wallet()?.remaining ?? 0) | brlCurrency }}<small>.00</small>
+      </div>
+      <div class="ew-hero-featured-meta">
+        <div>of cap<b class="ew-blur">{{ (wallet()?.budget ?? 0) | brlCurrency }}</b></div>
+        <div>committed<b class="ew-blur">{{ committed() | brlCurrency }}</b></div>
+        <div>last move<b>{{ lastMoveDate() }}</b></div>
+      </div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Bullets · cap</div>
+      <div class="ew-hero-val ew-blur">{{ bulletsCap() | brlCurrency }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">— {{ bulletsCount() }} active bullet(s)</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Bullets · free</div>
+      <div class="ew-hero-val ew-blur">{{ bulletsFree() | brlCurrency }}</div>
+      <div class="ew-hero-delta">{{ bulletsSpentLabel() }}</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Open · expenses</div>
+      <div class="ew-hero-val ew-blur">{{ openExpenses() | brlCurrency }}</div>
+      <div class="ew-hero-delta" [class.ew-hero-delta--dim]="openExpenses() === 0">
+        {{ openExpenses() === 0 ? 'all settled' : 'unpaid' }}
+      </div>
+    </div>
   </div>
 
-  <section class="dashboard__panel">
-    <div class="dashboard__panel-header">
-      <div>
-        <h2>Bullets da wallet</h2>
-        <p>{{ wallet()?.description || 'Nenhuma wallet selecionada' }}</p>
-      </div>
-    </div>
-
-    @if (bulletErrorMessage()) {
-      <div class="dashboard__alert" role="alert">
-        <mat-icon aria-hidden="true">error</mat-icon>
-        <span>{{ bulletErrorMessage() }}</span>
-      </div>
-    }
-
-    @if (isLoadingBullets()) {
-      <mat-progress-bar mode="indeterminate" />
-    }
-
-    <div class="bullet-list">
-      @for (bullet of bulletBudgets(); track bullet.id) {
-        <article class="bullet-list__item">
-          <div class="budget-list__row">
-            <div>
-              <strong>{{ bullet.name }}</strong>
-              <small>{{ bullet.remaining }} disponivel</small>
-            </div>
-            <span>{{ bullet.spent }} / {{ bullet.limit }}</span>
-          </div>
-          <mat-progress-bar mode="determinate" [value]="bullet.progress" />
-        </article>
-      } @empty {
-        <div class="bullet-list__empty">
-          <mat-icon aria-hidden="true">track_changes</mat-icon>
-          <strong>Nenhum bullet cadastrado</strong>
-          <span>Os bullets da wallet ativa aparecem aqui.</span>
+  <!-- ── Charts row ──────────────────────────────────────────────── -->
+  <div class="ew-row">
+    <!-- Spending line chart -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Spending <em>over time</em></h3>
+          <p>12-month rolling · BRL</p>
         </div>
-      }
-    </div>
-  </section>
-
-  <section class="dashboard__panel">
-    <div class="dashboard__panel-header">
-      <div>
-        <h2>Expenses da wallet</h2>
-        <p>{{ wallet()?.description || 'Nenhuma wallet selecionada' }}</p>
+      </div>
+      <div class="ew-panel-body">
+        <svg viewBox="0 0 600 220" preserveAspectRatio="none" class="dashboard-chart" aria-hidden="true">
+          <defs>
+            <linearGradient id="lg-c" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="#d6a371" stop-opacity=".35"/>
+              <stop offset="100%" stop-color="#d6a371" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g stroke="#2a241e" stroke-width="1">
+            <line x1="0" y1="55"  x2="600" y2="55"/>
+            <line x1="0" y1="110" x2="600" y2="110"/>
+            <line x1="0" y1="165" x2="600" y2="165"/>
+          </g>
+          <path
+            d="M0,160 C40,150 80,130 120,135 C160,140 200,100 240,110 C280,120 320,80 360,90 C400,100 440,60 480,55 C520,50 560,30 600,40"
+            fill="none" stroke="#d6a371" stroke-width="2" stroke-linecap="round"
+          />
+          <path
+            d="M0,160 C40,150 80,130 120,135 C160,140 200,100 240,110 C280,120 320,80 360,90 C400,100 440,60 480,55 C520,50 560,30 600,40 L600,220 L0,220 Z"
+            fill="url(#lg-c)"
+          />
+          <circle cx="480" cy="55" r="4" fill="#d6a371"/>
+          <g fill="#7a6f5f" font-family="JetBrains Mono" font-size="10">
+            <text x="0"   y="210">JUN</text>
+            <text x="100" y="210">AUG</text>
+            <text x="200" y="210">OCT</text>
+            <text x="300" y="210">DEC</text>
+            <text x="400" y="210">FEB</text>
+            <text x="500" y="210">APR</text>
+          </g>
+        </svg>
       </div>
     </div>
 
-    @if (expenseErrorMessage()) {
-      <div class="dashboard__alert" role="alert">
-        <mat-icon aria-hidden="true">error</mat-icon>
-        <span>{{ expenseErrorMessage() }}</span>
-      </div>
-    }
-
-    @if (isLoadingExpenses()) {
-      <mat-progress-bar mode="indeterminate" />
-    }
-
-    <div class="bullet-list">
-      @for (expense of expenseUsages(); track expense.id) {
-        <article class="bullet-list__item">
-          <div class="budget-list__row">
-            <div>
-              <strong>{{ expense.name }}</strong>
-              <small>{{ expense.purchaseDate }} · {{ expense.remaining }} em aberto</small>
-            </div>
-            <span>{{ expense.paid }} / {{ expense.cost }}</span>
-          </div>
-          <mat-progress-bar mode="determinate" [value]="expense.progress" />
-        </article>
-      } @empty {
-        <div class="bullet-list__empty">
-          <mat-icon aria-hidden="true">receipt_long</mat-icon>
-          <strong>Nenhuma expense cadastrada</strong>
-          <span>As expenses da wallet ativa aparecem aqui.</span>
+    <!-- Donut allocation -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Allocation</h3>
+          <p>Bullets · {{ wallet()?.description || '—' }}</p>
         </div>
-      }
+      </div>
+      <div class="ew-panel-body">
+        <div class="dashboard-donut-wrap">
+          <div class="dashboard-donut" aria-label="Bullet allocation donut">
+            <svg viewBox="0 0 100 100" width="160" height="160">
+              <circle cx="50" cy="50" r="44" fill="none" stroke="#2a241e" stroke-width="6"/>
+              <circle
+                cx="50" cy="50" r="44"
+                fill="none"
+                stroke="#d6a371"
+                stroke-width="6"
+                stroke-dasharray="276"
+                [attr.stroke-dashoffset]="donutOffset()"
+                stroke-linecap="round"
+                style="transform: rotate(-90deg); transform-origin: 50% 50%;"
+              />
+            </svg>
+            <div class="dashboard-donut-center">
+              <b class="ew-blur">{{ utilizationPct() }}%</b>
+              <span>Used</span>
+            </div>
+          </div>
+
+          <div class="dashboard-legend">
+            @for (item of donutLegend(); track item.label) {
+              <div class="dashboard-legend-item">
+                <i [style.background]="item.color"></i>
+                <div class="dashboard-legend-name">
+                  {{ item.label }}
+                  <small>{{ item.sublabel }}</small>
+                </div>
+                <b class="ew-blur">{{ item.value }}</b>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
     </div>
-  </section>
-</section>
+  </div>
+
+  <!-- ── Stats row ────────────────────────────────────────────────── -->
+  <div class="ew-row3">
+    <!-- By month bar chart -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>By month</h3>
+          <p>Last 12 cycles · BRL</p>
+        </div>
+      </div>
+      <div class="ew-panel-body">
+        <div class="ew-bars-v">
+          @for (bar of monthBars; track bar.label; let last = $last) {
+            <div class="ew-bars-v-col" [class.ew-bars-v-col--dim]="last">
+              <div class="ew-bars-v-bar" [style.height]="bar.height"></div>
+              <span>{{ bar.label }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Heatmap -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Activity heatmap</h3>
+          <p>2026 · transactions</p>
+        </div>
+      </div>
+      <div class="ew-panel-body">
+        <div class="ew-heat" aria-hidden="true">
+          @for (cell of heatmapCells; track $index) {
+            <i [class]="cell"></i>
+          }
+        </div>
+        <div class="dashboard-heat-labels">
+          <span>Jan</span><span>Apr</span><span>Jul</span><span>Oct</span><span>Dec</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent expenses -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Recent</h3>
+          <p>Expenses · cycle</p>
+        </div>
+      </div>
+      <div style="padding: 14px 26px 22px">
+        @if (isLoadingExpenses()) {
+          <div class="ew-empty">Loading...</div>
+        } @else if (recentExpenses().length === 0) {
+          <div class="ew-empty">No expenses this cycle</div>
+        } @else {
+          @for (expense of recentExpenses(); track expense.id) {
+            <div class="ew-alloc" style="grid-template-columns: 1fr auto; gap: 18px">
+              <div class="ew-alloc-name">
+                {{ expense.name }}
+                <small>{{ expense.purchaseDate | brDate }} · {{ expense.bulletLabel }}</small>
+              </div>
+              <div class="ew-alloc-nums">
+                <b class="ew-blur">{{ expense.cost | brlCurrency }}</b>
+                <small>{{ expense.statusLabel }}</small>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+  </div>
+</div>

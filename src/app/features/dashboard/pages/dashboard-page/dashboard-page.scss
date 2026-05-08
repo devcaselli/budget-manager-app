@@ -1,136 +1,121 @@
-.dashboard {
-  display: grid;
-  gap: 1.5rem;
+// EW design system tokens are declared globally in styles.scss
+
+// Spending chart
+.dashboard-chart {
+  width: 100%;
+  height: 220px;
+  display: block;
 }
 
-.dashboard__header,
-.dashboard__panel-header {
+// Donut
+.dashboard-donut-wrap {
   display: flex;
-  gap: 1rem;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
 }
 
-.summary-card {
-  border-radius: 0.5rem;
-
-  mat-card-content {
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  strong {
-    font-size: 1.75rem;
-    line-height: 1.1;
-  }
-
-  small {
-    color: var(--mat-sys-on-surface-variant);
-  }
+.dashboard-donut {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin: 6px auto 0;
 }
 
-.summary-card__topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--mat-sys-on-surface-variant);
-
-  mat-icon {
-    color: var(--mat-sys-primary);
-  }
-}
-
-.dashboard__panel {
+.dashboard-donut-center {
+  position: absolute;
+  inset: 0;
   display: grid;
-  gap: 1.25rem;
-  padding: 1.25rem;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 0.5rem;
-  background: var(--mat-sys-surface);
-
-  h2,
-  p {
-    margin: 0;
-  }
-
-  h2 {
-    font-size: 1.125rem;
-  }
-
-  p {
-    color: var(--mat-sys-on-surface-variant);
-  }
-}
-
-.dashboard__alert {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--mat-sys-error);
-  border-radius: 0.5rem;
-  color: var(--mat-sys-error);
-}
-
-.bullet-list {
-  display: grid;
-  gap: 1rem;
-}
-
-.bullet-list__item {
-  display: grid;
-  gap: 0.625rem;
-  padding: 1rem;
-  border: 1px solid var(--mat-sys-outline-variant);
-  border-radius: 0.5rem;
-}
-
-.budget-list__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
-  align-items: center;
-
-  strong,
-  span {
-    overflow-wrap: anywhere;
-  }
-
-  small,
-  span {
-    color: var(--mat-sys-on-surface-variant);
-    font-size: 0.875rem;
-  }
-
-  div {
-    display: grid;
-    gap: 0.25rem;
-  }
-}
-
-.bullet-list__empty {
-  display: grid;
-  gap: 0.5rem;
   place-items: center;
-  padding: 2rem;
-  color: var(--mat-sys-on-surface-variant);
   text-align: center;
 
-  strong {
-    color: var(--mat-sys-on-surface);
+  b {
+    font-family: var(--ew-serif);
+    font-size: 42px;
+    font-weight: 500;
+    display: block;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--ew-ink);
+  }
+
+  span {
+    font-family: var(--ew-mono);
+    font-size: 10px;
+    color: var(--ew-ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    margin-top: 4px;
+    display: block;
   }
 }
 
-@media (max-width: 640px) {
-  .dashboard__header,
-  .dashboard__panel-header,
-  .budget-list__row {
-    align-items: stretch;
-    grid-template-columns: 1fr;
+// Legend
+.dashboard-legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.dashboard-legend-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ew-line);
+
+  &:last-child { border-bottom: 0; }
+
+  i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 8px;
+    align-self: center;
+    display: block;
   }
 
-  .dashboard__header,
-  .dashboard__panel-header {
-    flex-direction: column;
+  b {
+    font-family: var(--ew-serif);
+    font-size: 18px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.015em;
+    color: var(--ew-ink);
+    margin-left: auto;
   }
+}
+
+.dashboard-legend-name {
+  font-family: var(--ew-serif);
+  font-size: 18px;
+  flex: 1;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ew-ink);
+
+  small {
+    display: block;
+    font-family: var(--ew-mono);
+    font-size: 10px;
+    color: var(--ew-ink-3);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-top: 2px;
+    font-weight: 400;
+  }
+}
+
+// Heatmap labels
+.dashboard-heat-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  color: var(--ew-ink-3);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }

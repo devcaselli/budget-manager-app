@@ -1,0 +1,29 @@
+<div class="bdd-head" mat-dialog-title>
+  <div>
+    <h2 class="bdd-title">Delete <em>bullet?</em></h2>
+    <p class="bdd-subtitle">This action cannot be undone</p>
+  </div>
+  <button class="bdd-close" type="button" mat-icon-button (click)="cancel()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="bdd-body">
+  <p class="bdd-message">
+    You are about to remove the bullet
+    <strong>{{ data.bulletDescription }}</strong>
+    from wallet
+    <strong>{{ data.walletDescription }}</strong>.
+    Any allocated amount
+    (<strong>{{ data.allocatedAmount | currency: 'BRL' : 'symbol' : '1.2-2' : 'pt-BR' }}</strong>)
+    will return to the wallet pool.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions class="bdd-actions" align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button class="bdd-delete-btn" type="button" (click)="confirm()">
+    <mat-icon aria-hidden="true">delete_outline</mat-icon>
+    Delete bullet
+  </button>
+</mat-dialog-actions>
