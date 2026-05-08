@@ -249,6 +249,8 @@
   padding: 40px 48px 60px;
   flex: 1;
   overflow: auto;
+  max-width: 1480px;
+  width: 100%;
 }
 
 // ── Tweaks panel ──────────────────────────────────────────────────────────────
@@ -265,7 +267,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 200px;
+  min-width: 230px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   z-index: 100;
 }

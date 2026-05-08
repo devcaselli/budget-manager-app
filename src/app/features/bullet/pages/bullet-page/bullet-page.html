@@ -44,23 +44,26 @@
                 <span class="ew-alloc-pct">{{ bullet.progress | number: '1.0-0' }}%</span>
                 <div class="ew-alloc-bar-fill" [style.width]="bullet.progress + '%'"></div>
               </div>
-              <div class="ew-alloc-nums">
-                <b class="ew-blur">{{ bullet.used | brlCurrency }}</b>
-                <small>of {{ bullet.budget | brlCurrency }}</small>
+              <div class="ew-alloc-nums bullet-alloc-actions">
+                <div>
+                  <b class="ew-blur">{{ bullet.used | brlCurrency }}</b>
+                  <small>of {{ bullet.budget | brlCurrency }}</small>
+                </div>
+                <button
+                  class="bullet-delete-btn"
+                  type="button"
+                  aria-label="Delete bullet"
+                  title="Delete bullet"
+                  [disabled]="deletingBulletId() === bullet.id"
+                  (click)="onDeleteClick(bullet)"
+                >
+                  @if (deletingBulletId() === bullet.id) {
+                    <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+                  } @else {
+                    <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                  }
+                </button>
               </div>
-              <button
-                class="bullet-delete-btn"
-                type="button"
-                aria-label="Delete bullet"
-                [disabled]="deletingBulletId() === bullet.id"
-                (click)="onDeleteClick(bullet)"
-              >
-                @if (deletingBulletId() === bullet.id) {
-                  <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
-                } @else {
-                  <mat-icon aria-hidden="true">delete_outline</mat-icon>
-                }
-              </button>
             </div>
           }
         }

@@ -37,6 +37,7 @@ interface ExpenseListItem {
   readonly paid: number;
   readonly progress: number;
   readonly statusLabel: string;
+  readonly bulletLabel: string;
 }
 
 interface BulletOption {
@@ -63,6 +64,7 @@ export class ExpensePage {
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
+  private readonly payments = toSignal(this.paymentService.payments$, { initialValue: [] });
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
@@ -87,6 +89,10 @@ export class ExpensePage {
 
   protected readonly expenseItems = computed<readonly ExpenseListItem[]>(() =>
     this.expenses().map((expense) => {
+      const payment = this.payments().find((p) => p.expenseId === expense.id);
+      const bullet = payment
+        ? this.bullets().find((candidate) => candidate.id === payment.bulletId)
+        : null;
       const cost = Number(expense.cost);
       const remaining = Number(expense.remaining);
       const paid = Math.max(cost - remaining, 0);
@@ -101,6 +107,7 @@ export class ExpensePage {
         paid,
         progress,
         statusLabel: remaining <= 0 ? 'PAID' : 'OPEN',
+        bulletLabel: bullet?.description ?? '—',
       };
     }),
   );
@@ -128,6 +135,7 @@ export class ExpensePage {
       const walletId = this.selectedWallet()?.id ?? null;
       this.bulletService.loadByWalletId(walletId);
       this.expenseService.loadByWalletId(walletId);
+      this.paymentService.loadByWalletId(walletId);
       this.resetForm();
     });
   }
@@ -207,6 +215,7 @@ export class ExpensePage {
           const id = this.selectedWallet()?.id ?? null;
           this.bulletService.loadByWalletId(id);
           this.expenseService.loadByWalletId(id);
+          this.paymentService.loadByWalletId(id);
         },
         error: () => undefined,
       });

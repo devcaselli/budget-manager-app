@@ -8,7 +8,7 @@
     </div>
     <div class="ew-head-meta">
       payments · <b>{{ paymentItems().length }}</b><br>
-      settled · <b class="ew-blur">{{ totalSettled() | number: '1.2-2' }}</b>
+      settled · <b class="ew-blur">{{ totalSettled() | brlCurrency }}</b>
     </div>
   </div>
 
@@ -41,8 +41,8 @@
           <tbody>
             @for (payment of paymentItems(); track payment.id) {
               <tr>
-                <td>{{ payment.expenseId.slice(0, 8) }}</td>
-                <td>{{ payment.bulletId.slice(0, 8) }}</td>
+                <td>{{ payment.expenseName }}</td>
+                <td>{{ payment.bulletName }}</td>
                 <td>{{ payment.paymentDate }}</td>
                 <td class="ew-blur">{{ payment.amount }}</td>
               </tr>

@@ -17,8 +17,8 @@
 
 .dashboard-donut {
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: 200px;
+  height: 200px;
   margin: 6px auto 0;
 }
 
@@ -31,12 +31,13 @@
 
   b {
     font-family: var(--ew-serif);
-    font-size: 42px;
+    font-size: 54px;
     font-weight: 500;
     display: block;
     line-height: 1;
     letter-spacing: -0.03em;
     color: var(--ew-ink);
+    font-variation-settings: 'opsz' 48;
   }
 
   span {

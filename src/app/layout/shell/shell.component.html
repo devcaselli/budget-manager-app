@@ -99,6 +99,17 @@
     class="ew-switch"
     type="button"
     role="switch"
+    [attr.aria-checked]="darkTheme()"
+    (click)="toggleTheme()"
+  >
+    <span>Dark theme</span>
+    <i class="ew-switch-track" [class.ew-switch-track--on]="darkTheme()"></i>
+  </button>
+
+  <button
+    class="ew-switch"
+    type="button"
+    role="switch"
     [attr.aria-checked]="privacyMode()"
     (click)="togglePrivacy()"
   >

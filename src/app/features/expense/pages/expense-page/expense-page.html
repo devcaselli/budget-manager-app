@@ -39,6 +39,7 @@
             <tr>
               <th>Name</th>
               <th>Date</th>
+              <th>Bullet</th>
               <th>Status</th>
               <th>Amount</th>
               <th></th>
@@ -49,12 +50,13 @@
               <tr>
                 <td>{{ expense.name }}</td>
                 <td>{{ expense.purchaseDate | brDate }}</td>
+                <td>{{ expense.bulletLabel }}</td>
                 <td>
                   <span class="ew-pill" [class.ew-pill--paid]="expense.statusLabel === 'PAID'" [class.ew-pill--open]="expense.statusLabel === 'OPEN'">
                     {{ expense.statusLabel }}
                   </span>
                 </td>
-                <td class="ew-blur">{{ expense.cost | brlCurrency }}</td>
+                <td class="ep-amount ew-blur">{{ expense.cost | brlCurrency }}</td>
                 <td class="ep-delete-cell">
                   <button
                     class="ep-delete-btn"
@@ -71,7 +73,7 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="5" class="ew-empty">No expenses yet</td>
+                <td colspan="6" class="ew-empty">No expenses yet</td>
               </tr>
             }
           </tbody>

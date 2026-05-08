@@ -5,22 +5,27 @@
 
 .bullet-list-body {
   padding: 6px 26px 26px;
+}
 
-  // Extend the shared ew-alloc grid with a 4th column for the delete button
-  .ew-alloc {
-    grid-template-columns: 1.5fr 2.4fr 1fr 32px;
-  }
+.bullet-alloc-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: flex-end;
 }
 
 .bullet-delete-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
   color: var(--ew-ink-3);
-  transition: color 0.15s, background-color 0.15s;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+  flex: 0 0 36px;
 
   mat-icon {
     font-size: 18px;
@@ -30,7 +35,8 @@
 
   &:hover:not(:disabled) {
     color: var(--ew-bad);
-    background-color: rgba(217, 122, 108, 0.1);
+    border-color: var(--ew-bad);
+    background-color: rgba(217, 122, 108, 0.06);
   }
 
   &:disabled {

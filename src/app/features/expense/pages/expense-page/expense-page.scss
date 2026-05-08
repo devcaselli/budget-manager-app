@@ -9,6 +9,15 @@
   text-align: center;
 }
 
+.ep-amount {
+  text-align: right;
+  color: var(--ew-ink) !important;
+  font-family: var(--ew-serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
 .ep-delete-btn {
   display: inline-flex;
   align-items: center;

@@ -50,6 +50,7 @@ export class ShellComponent {
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
 
   protected readonly privacyMode = signal(false);
+  protected readonly darkTheme = signal(true);
 
   protected readonly currentRouteLabel = signal('Dashboard');
 
@@ -90,6 +91,12 @@ export class ShellComponent {
     const next = !this.privacyMode();
     this.privacyMode.set(next);
     document.body.classList.toggle('ew-privacy', next);
+  }
+
+  protected toggleTheme(): void {
+    const next = !this.darkTheme();
+    this.darkTheme.set(next);
+    document.body.classList.toggle('ew-light', !next);
   }
 
   protected refresh(): void {
@@ -149,6 +156,7 @@ export class ShellComponent {
         cost: expense.cost,
         purchaseDate: expense.purchaseDate,
         walletId,
+        bulletId: expense.bulletId,
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({

@@ -13,6 +13,7 @@ export interface CreateExpenseRequest {
   readonly cost: number;
   readonly purchaseDate: string;
   readonly walletId: string;
+  readonly bulletId?: string;
 }
 
 export interface PagedExpenseResponse {

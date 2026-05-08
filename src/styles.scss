@@ -39,6 +39,36 @@ html {
   --ew-mono:      'JetBrains Mono', ui-monospace, monospace;
 }
 
+body.ew-light {
+  --ew-bg:        #f5efe6;
+  --ew-bg-2:      #ebe1d4;
+  --ew-panel:     #fffaf2;
+  --ew-panel-2:   #f0e6d8;
+  --ew-line:      #ded0be;
+  --ew-line-2:    #c9b79f;
+  --ew-ink:       #1f1a15;
+  --ew-ink-2:     #6d6257;
+  --ew-ink-3:     #998978;
+  --ew-acc:       #a86935;
+  --ew-acc-2:     #c98244;
+  --ew-acc-soft:  rgba(168, 105, 53, 0.14);
+  --ew-teal:      #277f71;
+  --ew-bad:       #b84c42;
+  color-scheme: light;
+}
+
+body.ew-light::before {
+  background: radial-gradient(circle at 90% 0%, rgba(168, 105, 53, 0.08), transparent 55%);
+}
+
+body.ew-light .ew-side {
+  background: linear-gradient(180deg, #fff8ef, var(--ew-bg));
+}
+
+body.ew-light .ew-bigwallet {
+  background: linear-gradient(135deg, #fff8ef 0%, #efe3d4 100%);
+}
+
 // ─── Global reset & base ─────────────────────────────────────────────────────
 *,
 *::before,
@@ -120,12 +150,13 @@ body.ew-privacy {
 
 .ew-page-title {
   font-family: var(--ew-serif);
-  font-size: 52px;
+  font-size: 68px;
   font-weight: 400;
   line-height: 1;
   letter-spacing: -0.025em;
   margin: 14px 0 0;
   color: var(--ew-ink);
+  font-variation-settings: 'opsz' 60;
 
   em {
     font-style: italic;
@@ -191,32 +222,34 @@ body.ew-privacy {
 
 .ew-hero-featured-val {
   font-family: var(--ew-serif);
-  font-size: 52px;
+  font-size: 68px;
   line-height: 1;
   letter-spacing: -0.03em;
   font-weight: 400;
   margin-top: 18px;
   color: var(--ew-acc);
   font-variant-numeric: tabular-nums;
+  font-variation-settings: 'opsz' 60;
 
   small {
     font-family: var(--ew-sans);
-    font-size: 16px;
+    font-size: 18px;
     color: var(--ew-ink-3);
     font-weight: 400;
-    margin-left: 4px;
+    margin-left: 6px;
   }
 }
 
 .ew-hero-val {
   font-family: var(--ew-serif);
-  font-size: 36px;
+  font-size: 42px;
   line-height: 1;
   letter-spacing: -0.025em;
   font-weight: 400;
   margin-top: 14px;
   font-variant-numeric: tabular-nums;
   color: var(--ew-ink);
+  font-variation-settings: 'opsz' 36;
 }
 
 .ew-hero-delta {
@@ -291,11 +324,12 @@ body.ew-privacy {
   h3 {
     margin: 0;
     font-family: var(--ew-serif);
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 500;
     letter-spacing: -0.02em;
     line-height: 1.1;
     color: var(--ew-ink);
+    font-variation-settings: 'opsz' 24;
 
     em {
       font-style: italic;
@@ -314,6 +348,29 @@ body.ew-privacy {
 
 .ew-panel-body {
   padding: 26px;
+}
+
+.ew-tabs {
+  display: flex;
+  gap: 4px;
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+
+  button {
+    padding: 6px 10px;
+    color: var(--ew-ink-3);
+    border-radius: 99px;
+    border: 1px solid transparent;
+    background: none;
+  }
+
+  .ew-tabs-on {
+    color: var(--ew-acc);
+    border-color: var(--ew-line-2);
+    background: var(--ew-bg-2);
+  }
 }
 
 // ── Table ─────────────────────────────────────────────────────────────────────
@@ -402,7 +459,7 @@ body.ew-privacy {
 
 .ew-alloc-name {
   font-family: var(--ew-serif);
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1.1;
   letter-spacing: -0.015em;
   font-weight: 500;
@@ -452,7 +509,7 @@ body.ew-privacy {
   b {
     display: block;
     font-family: var(--ew-serif);
-    font-size: 24px;
+    font-size: 26px;
     line-height: 1;
     font-weight: 500;
     letter-spacing: -0.02em;
@@ -501,27 +558,29 @@ body.ew-privacy {
 
 .ew-bigwallet-name {
   font-family: var(--ew-serif);
-  font-size: 44px;
+  font-size: 50px;
   line-height: 1;
   letter-spacing: -0.03em;
   font-weight: 500;
   margin-top: 14px;
   color: var(--ew-ink);
+  font-variation-settings: 'opsz' 48;
 }
 
 .ew-bigwallet-amount {
   font-family: var(--ew-serif);
-  font-size: 64px;
+  font-size: 82px;
   line-height: 1;
   letter-spacing: -0.04em;
   margin-top: 24px;
   color: var(--ew-acc);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
+  font-variation-settings: 'opsz' 72;
 
   small {
     font-family: var(--ew-sans);
-    font-size: 16px;
+    font-size: 18px;
     color: var(--ew-ink-3);
     font-weight: 400;
     display: block;
@@ -732,6 +791,19 @@ body.ew-privacy {
       border-radius: 50%;
     }
   }
+}
+
+.mat-mdc-dialog-surface {
+  background: var(--ew-panel) !important;
+  color: var(--ew-ink) !important;
+  border: 1px solid var(--ew-line-2);
+  border-radius: 20px !important;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7) !important;
+}
+
+.cdk-overlay-backdrop.cdk-overlay-backdrop-showing {
+  background: rgba(8, 7, 5, 0.7);
+  backdrop-filter: blur(8px);
 }
 
 .ew-btn-submit {

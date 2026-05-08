@@ -8,11 +8,11 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
 
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { ExpenseService } from '@features/expense/services/expense.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
+import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 
 import { PaymentService } from '../../services/payment.service';
 
@@ -36,12 +36,14 @@ interface PaymentListItem {
   readonly details: string;
   readonly expenseId: string;
   readonly bulletId: string;
+  readonly expenseName: string;
+  readonly bulletName: string;
 }
 
 @Component({
   selector: 'app-payment-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, ReactiveFormsModule],
+  imports: [BrlCurrencyPipe, ReactiveFormsModule],
   templateUrl: './payment-page.html',
   styleUrl: './payment-page.scss',
 })
@@ -93,18 +95,25 @@ export class PaymentPage {
   );
 
   protected readonly paymentItems = computed<readonly PaymentListItem[]>(() =>
-    this.payments().map((p) => ({
-      id: p.id,
-      amount: this.fmt(Number(p.amount)),
-      amountRaw: Number(p.amount),
-      paymentDate: new Intl.DateTimeFormat('en-US', {
-        dateStyle: 'short',
-        timeStyle: 'short',
-      }).format(new Date(p.paymentDate)),
-      details: p.details || '—',
-      expenseId: p.expenseId,
-      bulletId: p.bulletId,
-    })),
+    this.payments().map((p) => {
+      const expense = this.expenses().find((candidate) => candidate.id === p.expenseId);
+      const bullet = this.bullets().find((candidate) => candidate.id === p.bulletId);
+
+      return {
+        id: p.id,
+        amount: this.fmt(Number(p.amount)),
+        amountRaw: Number(p.amount),
+        paymentDate: new Intl.DateTimeFormat('en-US', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }).format(new Date(p.paymentDate)),
+        details: p.details || '—',
+        expenseId: p.expenseId,
+        bulletId: p.bulletId,
+        expenseName: expense?.name ?? p.expenseId.slice(0, 8),
+        bulletName: bullet?.description ?? p.bulletId.slice(0, 8),
+      };
+    }),
   );
 
   protected readonly totalSettled = computed(() =>

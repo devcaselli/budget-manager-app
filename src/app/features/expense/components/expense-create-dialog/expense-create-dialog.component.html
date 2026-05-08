@@ -10,53 +10,70 @@
 
 <form class="ecd-form" [formGroup]="form" (ngSubmit)="submit()">
   <mat-dialog-content class="ecd-body">
-    <mat-form-field appearance="outline">
-      <mat-label>Description</mat-label>
-      <input #nameInput matInput formControlName="name" placeholder="e.g. Groceries" />
+    <div class="ew-field">
+      <label for="ecd-name">Description</label>
+      <input
+        id="ecd-name"
+        #nameInput
+        class="ew-input"
+        formControlName="name"
+        placeholder="e.g. Groceries"
+      />
       @if (form.controls.name.touched && form.controls.name.invalid) {
-        <mat-error>Enter a description.</mat-error>
-      }
-    </mat-form-field>
-
-    <mat-form-field appearance="outline">
-      <mat-label>Amount</mat-label>
-      <input matInput type="number" min="0.01" step="0.01" formControlName="cost" placeholder="R$ 0.00" />
-      @if (form.controls.cost.touched && form.controls.cost.invalid) {
-        <mat-error>Enter an amount greater than zero.</mat-error>
-      }
-    </mat-form-field>
-
-    <div class="ecd-row">
-      <mat-form-field appearance="outline">
-        <mat-label>Date</mat-label>
-        <input matInput type="date" formControlName="purchaseDate" />
-      </mat-form-field>
-
-      @if (hasBullets) {
-        <mat-form-field appearance="outline">
-          <mat-label>Bullet</mat-label>
-          <mat-select formControlName="bulletId">
-            <mat-option value="">— none —</mat-option>
-            @for (bullet of data.bullets; track bullet.id) {
-              <mat-option [value]="bullet.id">
-                {{ bullet.description }} ({{ bullet.remaining }})
-              </mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <p class="ecd-error">Enter a description.</p>
       }
     </div>
 
-    <mat-checkbox class="ecd-keep-open" formControlName="keepOpen">
-      Keep modal open after saving
-    </mat-checkbox>
+    <div class="ew-field">
+      <label for="ecd-cost">Amount</label>
+      <input
+        id="ecd-cost"
+        class="ew-input"
+        type="number"
+        min="0.01"
+        step="0.01"
+        formControlName="cost"
+        placeholder="R$ 0.00"
+      />
+      @if (form.controls.cost.touched && form.controls.cost.invalid) {
+        <p class="ecd-error">Enter an amount greater than zero.</p>
+      }
+    </div>
+
+    <div class="ew-row-form">
+      <div class="ew-field">
+        <label for="ecd-date">Date</label>
+        <input id="ecd-date" class="ew-input" type="date" formControlName="purchaseDate" />
+      </div>
+
+      @if (hasBullets) {
+        <div class="ew-field">
+          <label for="ecd-bullet">Bullet</label>
+          <select id="ecd-bullet" class="ew-select" formControlName="bulletId">
+            <option value="">— none —</option>
+            @for (bullet of data.bullets; track bullet.id) {
+              <option [value]="bullet.id">
+                {{ bullet.description }} ({{ bullet.remaining }})
+              </option>
+            }
+          </select>
+        </div>
+      }
+    </div>
+
+    <button
+      class="ew-checkbox"
+      type="button"
+      [class.ew-checkbox--on]="form.controls.keepOpen.value"
+      (click)="form.controls.keepOpen.setValue(!form.controls.keepOpen.value)"
+    >
+      <i></i>
+      <span>Keep modal open after saving</span>
+    </button>
   </mat-dialog-content>
 
   <mat-dialog-actions class="ecd-actions" align="end">
-    <button mat-button type="button" mat-dialog-close>Cancel</button>
-    <button mat-flat-button type="submit">
-      <mat-icon aria-hidden="true">add</mat-icon>
-      Create transaction
-    </button>
+    <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
+    <button class="ew-btn ew-btn--primary" type="submit">+ Create transaction</button>
   </mat-dialog-actions>
 </form>
