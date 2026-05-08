@@ -53,9 +53,9 @@
             <span>
               {{ wallet.remaining | brlCurrency }} disponivel
               <span aria-hidden="true">·</span>
-              {{ wallet.startDate | brDate }}
+              {{ wallet.effectiveMonth }}
               <span aria-hidden="true">·</span>
-              {{ wallet.closedDate | brDate }}
+              {{ wallet.state }}
             </span>
           </div>
         } @else {
@@ -67,7 +67,12 @@
       </div>
 
       <span class="shell__toolbar-spacer"></span>
-      <button mat-stroked-button type="button" disabled>
+      <button
+        mat-stroked-button
+        type="button"
+        [disabled]="!selectedWallet()"
+        (click)="openTransactionDialog()"
+      >
         <mat-icon aria-hidden="true">add</mat-icon>
         Nova transacao
       </button>

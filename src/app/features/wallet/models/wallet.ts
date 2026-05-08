@@ -1,3 +1,5 @@
+export type WalletState = 'PRODUCTION' | 'REVIEW' | 'PREVIEW';
+
 export interface Wallet {
   readonly id: string;
   readonly description: string;
@@ -6,6 +8,8 @@ export interface Wallet {
   readonly startDate: string;
   readonly closedDate: string | null;
   readonly closed: boolean;
+  readonly effectiveMonth: string;
+  readonly state: WalletState;
 }
 
 export interface CreateWalletRequest {
@@ -14,4 +18,6 @@ export interface CreateWalletRequest {
   readonly startDate: string;
   readonly closedDate: string | null;
   readonly closed: boolean;
+  readonly effectiveMonth: string;
+  readonly state: WalletState;
 }

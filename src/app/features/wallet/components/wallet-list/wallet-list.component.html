@@ -20,6 +20,7 @@
       >
         <span>
           <strong>{{ wallet.description || 'Wallet sem descricao' }}</strong>
+          <small>{{ wallet.effectiveMonth }} · {{ wallet.state }}</small>
           <small>{{ wallet.startDate | brDate }} - {{ wallet.closedDate | brDate }}</small>
         </span>
         <span class="wallet-list__amounts">

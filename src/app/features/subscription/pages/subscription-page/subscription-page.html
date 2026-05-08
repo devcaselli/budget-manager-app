@@ -1,0 +1,212 @@
+<section class="subscription-page">
+  <div class="subscription-page__header">
+    <app-page-header
+      title="Subscriptions"
+      subtitle="Gerencie recorrencias que entram automaticamente nas wallets do mes vigente."
+      icon="subscriptions"
+    />
+
+    <button mat-stroked-button type="button" (click)="refreshSubscriptions()" [disabled]="isLoading()">
+      <mat-icon aria-hidden="true">refresh</mat-icon>
+      Atualizar
+    </button>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="subscription-page__alert" role="alert">
+      <mat-icon aria-hidden="true">error</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="subscription-page__summary" aria-label="Resumo de subscriptions">
+    <div>
+      <span>Ativas</span>
+      <strong>{{ activeSubscriptions() }}</strong>
+    </div>
+
+    <div>
+      <span>Total production</span>
+      <strong>{{ formattedMonthlyTotal() }}</strong>
+    </div>
+
+    <div>
+      <span>Preview</span>
+      <strong>{{ previewSubscriptions() }}</strong>
+    </div>
+  </div>
+
+  <div class="subscription-page__content">
+    <mat-card appearance="outlined" class="subscription-form-card">
+      <mat-card-header>
+        <mat-card-title>
+          {{ hasEditingSubscription() ? 'Editar subscription' : 'Nova subscription' }}
+        </mat-card-title>
+        <mat-card-subtitle>
+          {{ hasEditingSubscription() ? 'O novo valor vale a partir do mes atual.' : 'Crie uma recorrencia ativa para as proximas wallets.' }}
+        </mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <form class="subscription-form" [formGroup]="form" (ngSubmit)="submitSubscription()">
+          <mat-form-field appearance="outline">
+            <mat-label>Descricao</mat-label>
+            <input matInput formControlName="description" placeholder="Ex.: Streaming" />
+            @if (form.controls.description.touched && form.controls.description.invalid) {
+              <mat-error>Informe uma descricao.</mat-error>
+            }
+          </mat-form-field>
+
+          <div class="subscription-form__money">
+            <mat-form-field appearance="outline">
+              <mat-label>Valor mensal</mat-label>
+              <input matInput type="number" min="0.01" step="0.01" formControlName="amount" />
+              @if (form.controls.amount.touched && form.controls.amount.invalid) {
+                <mat-error>Informe um valor maior que zero.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Moeda</mat-label>
+              <mat-select formControlName="currency">
+                <mat-option value="BRL">BRL</mat-option>
+                <mat-option value="USD">USD</mat-option>
+                <mat-option value="EUR">EUR</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="subscription-form__cycle">
+            <mat-form-field appearance="outline">
+              <mat-label>Mes efetivo</mat-label>
+              <input matInput type="month" formControlName="effectiveMonth" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Estado</mat-label>
+              <mat-select formControlName="state">
+                <mat-option value="PRODUCTION">Production</mat-option>
+                <mat-option value="PREVIEW">Preview</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="subscription-form__special">
+            <mat-checkbox formControlName="specialSubscription">Assinatura Especial</mat-checkbox>
+            <mat-icon
+              aria-label="Informacoes sobre assinatura especial"
+              matTooltip="Quando essa sub for excluida ela sera excluida permanentemente independente da organizacao de datas."
+            >
+              info
+            </mat-icon>
+          </div>
+
+          <div class="subscription-form__actions">
+            <button
+              mat-flat-button
+              type="submit"
+              [disabled]="isSaving() || (hasEditingSubscription() && updatingSubscriptionId() === editingSubscriptionId())"
+            >
+              <mat-icon aria-hidden="true">{{ hasEditingSubscription() ? 'save' : 'add' }}</mat-icon>
+              {{ hasEditingSubscription() ? 'Salvar alteracao' : 'Criar subscription' }}
+            </button>
+
+            @if (hasEditingSubscription()) {
+              <button mat-stroked-button type="button" (click)="cancelEdit()">
+                <mat-icon aria-hidden="true">close</mat-icon>
+                Cancelar
+              </button>
+            }
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="subscription-list-card">
+      <mat-card-header>
+        <mat-card-title>Subscriptions cadastradas</mat-card-title>
+        <mat-card-subtitle>
+          {{ subscriptionItems().length }} subscription(s) encontradas
+        </mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        @if (isLoading()) {
+          <mat-progress-bar mode="indeterminate" />
+        }
+
+        <div class="subscription-list">
+          @for (subscription of subscriptionItems(); track subscription.id) {
+            <article
+              class="subscription-list__item"
+              [class.subscription-list__item--inactive]="!subscription.isActive"
+            >
+              <div class="subscription-list__main">
+                <div class="subscription-list__identity">
+                  <div class="subscription-list__badges">
+                    <span class="subscription-list__status">{{ subscription.statusLabel }}</span>
+                    <span class="subscription-list__state">{{ subscription.stateLabel }}</span>
+                    @if (subscription.isSpecial) {
+                      <span class="subscription-list__special">Especial</span>
+                    }
+                  </div>
+                  <strong>{{ subscription.description }}</strong>
+                  <small>
+                    Desde {{ subscription.startMonth }}
+                    @if (subscription.endMonth) {
+                      · encerrada em {{ subscription.endMonth }}
+                    }
+                  </small>
+                </div>
+
+                <div class="subscription-list__price">
+                  <strong>{{ subscription.amount }}</strong>
+                  <span>{{ subscription.versionCount }} versao(oes)</span>
+                </div>
+
+                <div class="subscription-list__actions">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    aria-label="Editar subscription"
+                    matTooltip="Editar"
+                    [disabled]="updatingSubscriptionId() === subscription.id || deletingSubscriptionId() === subscription.id"
+                    (click)="editSubscription(subscription)"
+                  >
+                    <mat-icon aria-hidden="true">edit</mat-icon>
+                  </button>
+
+                  <button
+                    mat-icon-button
+                    type="button"
+                    aria-label="Excluir subscription"
+                    matTooltip="Excluir"
+                    [disabled]="deletingSubscriptionId() === subscription.id"
+                    (click)="deleteSubscription(subscription.id)"
+                  >
+                    <mat-icon aria-hidden="true">delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+
+              <div class="subscription-list__timeline" aria-label="Historico de valores">
+                @for (version of subscription.versions; track version.effectiveMonth) {
+                  <span>
+                    <strong>{{ version.amount }}</strong>
+                    <small>{{ version.effectiveMonth }}</small>
+                  </span>
+                }
+              </div>
+            </article>
+          } @empty {
+            <div class="subscription-list__empty">
+              <mat-icon aria-hidden="true">subscriptions</mat-icon>
+              <strong>Nenhuma subscription cadastrada</strong>
+              <span>Crie a primeira recorrencia para automatizar as proximas wallets.</span>
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</section>

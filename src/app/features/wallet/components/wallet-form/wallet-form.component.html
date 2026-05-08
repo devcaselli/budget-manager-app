@@ -26,6 +26,22 @@
         </mat-form-field>
 
         <mat-form-field appearance="outline">
+          <mat-label>Mes efetivo</mat-label>
+          <input matInput type="month" formControlName="effectiveMonth" />
+        </mat-form-field>
+      </div>
+
+      <div class="wallet-form__dates">
+        <mat-form-field appearance="outline">
+          <mat-label>Estado</mat-label>
+          <mat-select formControlName="state">
+            <mat-option value="PRODUCTION">Production</mat-option>
+            <mat-option value="PREVIEW">Preview</mat-option>
+            <mat-option value="REVIEW">Review</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
           <mat-label>Fechamento</mat-label>
           <input matInput type="date" formControlName="closedDate" />
         </mat-form-field>

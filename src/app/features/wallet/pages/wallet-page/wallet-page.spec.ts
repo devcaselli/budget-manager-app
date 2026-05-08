@@ -34,6 +34,8 @@ const wallet: Wallet = {
   startDate: '2026-04-01',
   closedDate: null,
   closed: false,
+  effectiveMonth: '2026-04',
+  state: 'PRODUCTION',
 };
 
 const walletDetails: Wallet = {
@@ -93,6 +95,8 @@ describe('WalletPage', () => {
       startDate: '2026-05-01',
       closedDate: null,
       closed: false,
+  effectiveMonth: '2026-04',
+  state: 'PRODUCTION',
     };
     const request: CreateWalletRequest = {
       description: createdWallet.description,
@@ -100,6 +104,8 @@ describe('WalletPage', () => {
       startDate: createdWallet.startDate,
       closedDate: createdWallet.closedDate,
       closed: createdWallet.closed,
+      effectiveMonth: createdWallet.effectiveMonth,
+      state: createdWallet.state,
     };
     service.create.mockImplementation(() => {
       service.walletsSubject.next([createdWallet]);
@@ -150,6 +156,8 @@ describe('WalletPage', () => {
       startDate: '2026-05-01',
       closedDate: null,
       closed: false,
+  effectiveMonth: '2026-04',
+  state: 'PRODUCTION',
     };
     service.create.mockImplementation(() => {
       service.errorSubject.next('Nao foi possivel abrir a wallet.');

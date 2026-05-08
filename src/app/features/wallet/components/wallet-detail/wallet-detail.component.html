@@ -15,7 +15,7 @@
           <div class="wallet-details__title-row">
             <div>
               <h2>{{ selectedWallet.description || 'Wallet sem descricao' }}</h2>
-              <p>{{ selectedWallet.closed ? 'Fechada' : 'Aberta' }}</p>
+              <p>{{ selectedWallet.state }} · {{ selectedWallet.closed ? 'Fechada' : 'Aberta' }}</p>
             </div>
             <span class="wallet-details__badge">{{ selectedWallet.id }}</span>
           </div>
@@ -46,6 +46,10 @@
           <mat-divider />
 
           <dl class="wallet-details__dates">
+            <div>
+              <dt>Mes efetivo</dt>
+              <dd>{{ selectedWallet.effectiveMonth }}</dd>
+            </div>
             <div>
               <dt>Inicio</dt>
               <dd>{{ selectedWallet.startDate | brDate }}</dd>

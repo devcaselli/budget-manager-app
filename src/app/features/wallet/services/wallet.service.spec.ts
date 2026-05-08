@@ -42,6 +42,8 @@ describe('WalletService', () => {
         startDate: '2026-04-01',
         closedDate: null,
         closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
       },
     ];
 
@@ -61,6 +63,8 @@ describe('WalletService', () => {
       startDate: '2026-04-01',
       closedDate: null,
       closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
     };
 
     service.findById(wallet.id).subscribe((result) => expect(result).toEqual(wallet));
@@ -77,6 +81,8 @@ describe('WalletService', () => {
       startDate: '2026-05-01',
       closedDate: null,
       closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
     };
     const wallet: Wallet = {
       id: 'wallet-2',
@@ -86,6 +92,8 @@ describe('WalletService', () => {
       startDate: input.startDate,
       closedDate: input.closedDate,
       closed: input.closed,
+      effectiveMonth: input.effectiveMonth,
+      state: input.state,
     };
 
     service.create(input).subscribe((result) => expect(result).toEqual(wallet));
@@ -103,6 +111,8 @@ describe('WalletService', () => {
       startDate: '2026-05-01',
       closedDate: null,
       closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
     };
     const wallet: Wallet = {
       id: 'wallet-2',
@@ -112,6 +122,8 @@ describe('WalletService', () => {
       startDate: input.startDate,
       closedDate: input.closedDate,
       closed: input.closed,
+      effectiveMonth: input.effectiveMonth,
+      state: input.state,
     };
     const createdWallets: Wallet[] = [];
 
@@ -147,6 +159,8 @@ describe('WalletService', () => {
         startDate: '2026-04-01',
         closedDate: null,
         closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
       },
     ];
     const emittedWallets: (readonly Wallet[])[] = [];
@@ -184,6 +198,8 @@ describe('WalletService', () => {
       startDate: '2026-04-01',
       closedDate: null,
       closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
     };
     const latestWallet: Wallet = {
       id: 'wallet-2',
@@ -193,6 +209,8 @@ describe('WalletService', () => {
       startDate: '2026-05-01',
       closedDate: null,
       closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
     };
     const emittedWallets: (readonly Wallet[])[] = [];
 
@@ -231,6 +249,8 @@ describe('WalletService', () => {
       startDate: '2026-04-01',
       closedDate: null,
       closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
     };
     const walletDetails: Wallet = {
       ...wallet,
@@ -257,6 +277,8 @@ describe('WalletService', () => {
       startDate: '2026-04-01',
       closedDate: null,
       closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
     };
     const secondWallet: Wallet = {
       id: 'wallet-2',
@@ -266,6 +288,8 @@ describe('WalletService', () => {
       startDate: '2026-05-01',
       closedDate: null,
       closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
     };
     const secondWalletDetails: Wallet = {
       ...secondWallet,
@@ -295,6 +319,8 @@ describe('WalletService', () => {
       startDate: '2026-04-01',
       closedDate: null,
       closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
     };
     const createdWallet: Wallet = {
       id: 'wallet-2',
@@ -304,6 +330,8 @@ describe('WalletService', () => {
       startDate: '2026-05-01',
       closedDate: null,
       closed: false,
+        effectiveMonth: '2026-05',
+        state: 'PRODUCTION',
     };
     const input: CreateWalletRequest = {
       description: createdWallet.description,
@@ -311,6 +339,8 @@ describe('WalletService', () => {
       startDate: createdWallet.startDate,
       closedDate: createdWallet.closedDate,
       closed: createdWallet.closed,
+      effectiveMonth: createdWallet.effectiveMonth,
+      state: createdWallet.state,
     };
     const emittedWallets: (readonly Wallet[])[] = [];
 

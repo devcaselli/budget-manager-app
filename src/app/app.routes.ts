@@ -39,6 +39,14 @@ export const routes: Routes = [
     title: 'Expenses | Budget Manager',
   },
   {
+    path: 'subscriptions',
+    loadComponent: () =>
+      import('@features/subscription/pages/subscription-page/subscription-page').then(
+        (component) => component.SubscriptionPage,
+      ),
+    title: 'Subscriptions | Budget Manager',
+  },
+  {
     path: 'payments',
     loadComponent: () =>
       import('@features/payment/pages/payment-page/payment-page').then(

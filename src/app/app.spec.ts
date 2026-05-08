@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 
 import { WalletService } from '@features/wallet/services/wallet.service';
+import { ExpenseService } from '@features/expense/services/expense.service';
 
 import { App } from './app';
 
@@ -14,6 +15,13 @@ describe('App', () => {
       providers: [
         provideNoopAnimations(),
         provideRouter([]),
+        {
+          provide: ExpenseService,
+          useValue: {
+            create: vi.fn(),
+            loadByWalletId: vi.fn(),
+          },
+        },
         {
           provide: WalletService,
           useValue: {

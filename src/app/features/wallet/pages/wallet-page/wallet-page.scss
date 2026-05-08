@@ -23,13 +23,32 @@
 
 .wallet-page__content {
   display: grid;
+  grid-template-areas:
+    'form detail'
+    'list detail';
   grid-template-columns: minmax(18rem, 24rem) minmax(18rem, 1fr);
   gap: 1.25rem;
   align-items: start;
+
+  app-wallet-form {
+    grid-area: form;
+  }
+
+  app-wallet-list {
+    grid-area: list;
+  }
+
+  app-wallet-detail {
+    grid-area: detail;
+  }
 }
 
 @media (max-width: 920px) {
   .wallet-page__content {
+    grid-template-areas:
+      'form'
+      'list'
+      'detail';
     grid-template-columns: 1fr;
   }
 }

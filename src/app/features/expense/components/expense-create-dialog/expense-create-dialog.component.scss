@@ -1,0 +1,29 @@
+.expense-create-dialog__wallet {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.expense-create-dialog__form {
+  display: block;
+  min-width: min(28rem, calc(100vw - 4rem));
+}
+
+.expense-create-dialog__content {
+  display: grid;
+  gap: 0.875rem;
+  padding-top: 0.25rem;
+
+  mat-form-field {
+    width: 100%;
+  }
+}
+
+.expense-create-dialog__keep-open {
+  margin-top: -0.25rem;
+}
+
+.expense-create-dialog__actions {
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+  flex-wrap: wrap;
+}

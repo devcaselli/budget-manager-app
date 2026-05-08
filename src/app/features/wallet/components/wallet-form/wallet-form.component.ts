@@ -6,8 +6,9 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 
-import { CreateWalletRequest } from '../../models/wallet';
+import { CreateWalletRequest, WalletState } from '../../models/wallet';
 
 @Component({
   selector: 'app-wallet-form',
@@ -19,6 +20,7 @@ import { CreateWalletRequest } from '../../models/wallet';
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatSelectModule,
     ReactiveFormsModule,
   ],
   templateUrl: './wallet-form.component.html',
@@ -35,6 +37,8 @@ export class WalletFormComponent {
     description: [''],
     budget: [0, [Validators.required, Validators.min(0.01)]],
     startDate: [this.today(), Validators.required],
+    effectiveMonth: [this.currentMonth(), Validators.required],
+    state: ['PRODUCTION' as WalletState, Validators.required],
     closedDate: [''],
     closed: [false],
   });
@@ -58,6 +62,8 @@ export class WalletFormComponent {
       description: value.description.trim() || null,
       budget: value.budget,
       startDate: value.startDate,
+      effectiveMonth: value.effectiveMonth,
+      state: value.state,
       closedDate: value.closedDate || null,
       closed: value.closed,
     });
@@ -68,6 +74,8 @@ export class WalletFormComponent {
       description: '',
       budget: 0,
       startDate: this.today(),
+      effectiveMonth: this.currentMonth(),
+      state: 'PRODUCTION',
       closedDate: '',
       closed: false,
     });
@@ -75,5 +83,9 @@ export class WalletFormComponent {
 
   private today(): string {
     return new Date().toISOString().slice(0, 10);
+  }
+
+  private currentMonth(): string {
+    return new Date().toISOString().slice(0, 7);
   }
 }
