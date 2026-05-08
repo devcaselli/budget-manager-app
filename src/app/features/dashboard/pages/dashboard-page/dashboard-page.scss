@@ -150,3 +150,58 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
+
+:host ::ng-deep .ew-bars-v-col,
+:host ::ng-deep .ew-heat i {
+  position: relative;
+}
+
+.dashboard-inline-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(4px);
+  min-width: 108px;
+  padding: 8px 10px;
+  border: 1px solid var(--ew-line-2);
+  border-radius: 8px;
+  background: var(--ew-panel);
+  color: var(--ew-ink-2);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 20;
+  text-align: left;
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  line-height: 1.35;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  b {
+    display: block;
+    color: var(--ew-ink-3);
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+
+  span {
+    color: var(--ew-ink);
+    font-family: var(--ew-sans);
+    font-size: 12px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+}
+
+.dashboard-inline-tooltip--heat {
+  min-width: 210px;
+  white-space: normal;
+}
+
+:host ::ng-deep .ew-bars-v-col:hover .dashboard-inline-tooltip,
+:host ::ng-deep .ew-heat i:hover .dashboard-inline-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

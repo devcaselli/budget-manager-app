@@ -43,6 +43,11 @@ interface SpendingPoint extends MonthBar {
   readonly y: number;
 }
 
+interface HeatmapCell {
+  readonly className: string;
+  readonly label: string;
+}
+
 type ChartMode = 'line' | 'bars';
 
 const CHART_WIDTH = 600;
@@ -79,9 +84,6 @@ export class DashboardPage implements OnInit {
 
   protected readonly chartMode = signal<ChartMode>('line');
   protected readonly hoveredSpendingPoint = signal<SpendingPoint | null>(null);
-
-  /** Heatmap cells (371 = 53 * 7) */
-  protected readonly heatmapCells: readonly string[] = this.buildHeatmap();
 
   /** Topbar sync for refresh timestamp */
   protected readonly lastSync = signal('—');
@@ -135,6 +137,49 @@ export class DashboardPage implements OnInit {
   protected readonly spendingMaxLabel = computed(() =>
     this.formatCurrency(Math.max(...this.spendingPoints().map((point) => point.total), 0)),
   );
+
+  protected readonly heatmapYear = computed(() => {
+    const wallet = this.selectedWallet();
+    return wallet?.effectiveMonth ? this.parseMonth(wallet.effectiveMonth).getFullYear() : new Date().getFullYear();
+  });
+
+  protected readonly heatmapCells = computed<readonly HeatmapCell[]>(() => {
+    const year = this.heatmapYear();
+    const firstDay = new Date(Date.UTC(year, 0, 1));
+    const gridStart = new Date(firstDay);
+    gridStart.setUTCDate(firstDay.getUTCDate() - firstDay.getUTCDay());
+
+    const totalsByDay = new Map<string, { count: number; total: number }>();
+    for (const expense of this.expenses()) {
+      const date = this.parseDate(expense.purchaseDate);
+      if (!date || date.getUTCFullYear() !== year) continue;
+      const key = this.dayKey(date);
+      const current = totalsByDay.get(key) ?? { count: 0, total: 0 };
+      totalsByDay.set(key, {
+        count: current.count + 1,
+        total: current.total + Number(expense.cost),
+      });
+    }
+
+    const cells: HeatmapCell[] = [];
+    for (let weekday = 0; weekday < 7; weekday++) {
+      for (let week = 0; week < 53; week++) {
+        const date = new Date(gridStart);
+        date.setUTCDate(gridStart.getUTCDate() + week * 7 + weekday);
+        const inYear = date.getUTCFullYear() === year;
+        const activity = inYear ? totalsByDay.get(this.dayKey(date)) : null;
+        const count = activity?.count ?? 0;
+        cells.push({
+          className: inYear ? this.heatmapLevel(count) : 'is-outside',
+          label: inYear
+            ? `${this.formatHeatmapDate(date)} · ${count} transaction${count === 1 ? '' : 's'} · ${this.formatCurrency(activity?.total ?? 0)}`
+            : '',
+        });
+      }
+    }
+
+    return cells;
+  });
 
   protected setChartMode(mode: ChartMode): void {
     this.chartMode.set(mode);
@@ -291,28 +336,6 @@ export class DashboardPage implements OnInit {
     this.lastSync.set('just now');
   }
 
-  private buildHeatmap(): readonly string[] {
-    const cells: string[] = [];
-    const levels = ['', 'l1', 'l2', 'l3', 'l4'];
-    const weights = [0.55, 0.23, 0.12, 0.07, 0.03];
-
-    for (let i = 0; i < 53 * 7; i++) {
-      const r = Math.random();
-      let acc = 0;
-      let cls = '';
-      for (let l = 0; l < weights.length; l++) {
-        acc += weights[l];
-        if (r < acc) {
-          cls = levels[l];
-          break;
-        }
-      }
-      cells.push(cls);
-    }
-
-    return cells;
-  }
-
   private lastTwelveMonths(): readonly { readonly key: string; readonly label: string }[] {
     const wallet = this.selectedWallet();
     const anchor = wallet?.effectiveMonth
@@ -342,6 +365,27 @@ export class DashboardPage implements OnInit {
 
   private monthKey(date: Date): string {
     return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private dayKey(date: Date): string {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+  }
+
+  private heatmapLevel(count: number): string {
+    if (count <= 0) return '';
+    if (count === 1) return 'l1';
+    if (count === 2) return 'l2';
+    if (count === 3) return 'l3';
+    return 'l4';
+  }
+
+  private formatHeatmapDate(date: Date): string {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(date);
   }
 
   private formatCurrency(value: number): string {

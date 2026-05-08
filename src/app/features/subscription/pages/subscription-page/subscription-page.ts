@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { BehaviorSubject } from 'rxjs';
@@ -30,6 +30,8 @@ interface SubscriptionListItem {
   readonly versions: readonly { effectiveMonth: string; amount: string }[];
 }
 
+type SubscriptionFilter = 'all' | 'production' | 'preview';
+
 @Component({
   selector: 'app-subscription-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -46,6 +48,8 @@ export class SubscriptionPage {
     initialValue: [],
   });
   private readonly editingSubscriptionId$ = new BehaviorSubject<string | null>(null);
+  protected readonly subscriptionFilter = signal<SubscriptionFilter>('all');
+  protected readonly activeOnly = signal(true);
 
   protected readonly isLoading = toSignal(this.subscriptionService.loading$, { initialValue: false });
   protected readonly isSaving = toSignal(this.subscriptionService.saving$, { initialValue: false });
@@ -72,6 +76,26 @@ export class SubscriptionPage {
   protected readonly subscriptionItems = computed<readonly SubscriptionListItem[]>(() =>
     this.subscriptions().map((sub) => this.toListItem(sub)),
   );
+
+  protected readonly filteredSubscriptionItems = computed<readonly SubscriptionListItem[]>(() => {
+    const stateFilter = this.subscriptionFilter();
+    const activeOnly = this.activeOnly();
+
+    return this.subscriptionItems().filter((sub) => {
+      const stateMatches =
+        stateFilter === 'all' ||
+        (stateFilter === 'production' && sub.state === 'PRODUCTION') ||
+        (stateFilter === 'preview' && sub.state === 'PREVIEW');
+      const activeMatches = !activeOnly || sub.isActive;
+      return stateMatches && activeMatches;
+    });
+  });
+
+  protected readonly filteredCountLabel = computed(() => {
+    const visible = this.filteredSubscriptionItems();
+    const active = visible.filter((sub) => sub.isActive).length;
+    return this.activeOnly() ? `${visible.length} active` : `${visible.length} total · ${active} active`;
+  });
 
   protected readonly activeCount = computed(() =>
     this.subscriptionItems().filter((s) => s.isActive).length,
@@ -160,6 +184,14 @@ export class SubscriptionPage {
   protected toggleSpecial(): void {
     const current = this.form.controls.specialSubscription.value;
     this.form.controls.specialSubscription.setValue(!current);
+  }
+
+  protected setSubscriptionFilter(filter: SubscriptionFilter): void {
+    this.subscriptionFilter.set(filter);
+  }
+
+  protected toggleActiveOnly(): void {
+    this.activeOnly.update((value) => !value);
   }
 
   private toListItem(sub: Subscription): SubscriptionListItem {

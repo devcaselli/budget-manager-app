@@ -7,6 +7,27 @@
   padding: 6px 26px 22px;
 }
 
+.sub-filters {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.sub-active-filter {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.sub-inactive {
+  opacity: 0.55;
+
+  .ew-sub-avatar {
+    background: var(--ew-line-2);
+    color: var(--ew-ink-3);
+  }
+}
+
 .sub-actions {
   display: flex;
   gap: 6px;

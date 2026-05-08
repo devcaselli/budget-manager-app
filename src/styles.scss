@@ -892,6 +892,7 @@ body.ew-privacy {
     &.l2 { background: rgba(214, 163, 113, 0.35); }
     &.l3 { background: rgba(214, 163, 113, 0.60); }
     &.l4 { background: var(--ew-acc); }
+    &.is-outside { opacity: 0; }
   }
 }
 

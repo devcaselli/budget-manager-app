@@ -219,6 +219,10 @@
           @for (bar of monthBars(); track bar.label; let last = $last) {
             <div class="ew-bars-v-col" [class.ew-bars-v-col--dim]="last">
               <div class="ew-bars-v-bar" [style.height]="bar.height"></div>
+              <div class="dashboard-inline-tooltip">
+                <b>{{ bar.label | uppercase }}</b>
+                <span>{{ bar.total | brlCurrency }}</span>
+              </div>
               <span>{{ bar.label }}</span>
             </div>
           }
@@ -231,13 +235,19 @@
       <div class="ew-panel-head">
         <div>
           <h3>Activity heatmap</h3>
-          <p>2026 · transactions</p>
+          <p>{{ heatmapYear() }} · transactions</p>
         </div>
       </div>
       <div class="ew-panel-body">
         <div class="ew-heat" aria-hidden="true">
-          @for (cell of heatmapCells; track $index) {
-            <i [class]="cell"></i>
+          @for (cell of heatmapCells(); track $index) {
+            <i [class]="cell.className">
+              @if (cell.label) {
+                <span class="dashboard-inline-tooltip dashboard-inline-tooltip--heat">
+                  {{ cell.label }}
+                </span>
+              }
+            </i>
           }
         </div>
         <div class="dashboard-heat-labels">

@@ -41,7 +41,35 @@
       <div class="ew-panel-head">
         <div>
           <h3>Registered</h3>
-          <p>{{ activeCount() }} active</p>
+          <p>{{ filteredCountLabel() }}</p>
+        </div>
+        <div class="sub-filters">
+          <div class="ew-tabs" aria-label="Subscription state filter">
+            <button
+              type="button"
+              [class.ew-tabs-on]="subscriptionFilter() === 'all'"
+              (click)="setSubscriptionFilter('all')"
+            >All</button>
+            <button
+              type="button"
+              [class.ew-tabs-on]="subscriptionFilter() === 'production'"
+              (click)="setSubscriptionFilter('production')"
+            >Production</button>
+            <button
+              type="button"
+              [class.ew-tabs-on]="subscriptionFilter() === 'preview'"
+              (click)="setSubscriptionFilter('preview')"
+            >Preview</button>
+          </div>
+          <button
+            class="ew-checkbox sub-active-filter"
+            type="button"
+            [class.ew-checkbox--on]="activeOnly()"
+            (click)="toggleActiveOnly()"
+          >
+            <i></i>
+            <span>Active only</span>
+          </button>
         </div>
       </div>
 
@@ -50,13 +78,19 @@
           <div class="ew-empty">Loading...</div>
         } @else if (subscriptionItems().length === 0) {
           <div class="ew-empty">No subscriptions yet</div>
+        } @else if (filteredSubscriptionItems().length === 0) {
+          <div class="ew-empty">No subscriptions match filters</div>
         } @else {
-          @for (sub of subscriptionItems(); track sub.id) {
-            <div class="ew-sub">
+          @for (sub of filteredSubscriptionItems(); track sub.id) {
+            <div class="ew-sub" [class.sub-inactive]="!sub.isActive">
               <div class="ew-sub-avatar">{{ sub.description.charAt(0).toUpperCase() }}</div>
               <div class="ew-sub-info">
                 <b>{{ sub.description }}</b>
-                <span>since {{ sub.startMonth }} · {{ sub.versionCount }} version(s)</span>
+                <span>
+                  {{ sub.isActive ? 'since' : 'cancelled' }}
+                  {{ sub.isActive ? sub.startMonth : sub.endMonth }}
+                  · {{ sub.versionCount }} version(s)
+                </span>
               </div>
               <div class="ew-sub-pills">
                 @if (sub.isActive) {
