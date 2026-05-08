@@ -7,6 +7,7 @@ import {
   signal,
   OnInit,
 } from '@angular/core';
+import { UpperCasePipe } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 
 import { BulletService } from '@features/bullet/services/bullet.service';
@@ -34,27 +35,28 @@ interface RecentExpense {
 interface MonthBar {
   readonly label: string;
   readonly height: string;
+  readonly total: number;
 }
 
-const MONTH_BARS: readonly MonthBar[] = [
-  { label: 'Jun', height: '35%' },
-  { label: 'Jul', height: '48%' },
-  { label: 'Aug', height: '42%' },
-  { label: 'Sep', height: '60%' },
-  { label: 'Oct', height: '55%' },
-  { label: 'Nov', height: '70%' },
-  { label: 'Dec', height: '65%' },
-  { label: 'Jan', height: '80%' },
-  { label: 'Feb', height: '72%' },
-  { label: 'Mar', height: '85%' },
-  { label: 'Apr', height: '90%' },
-  { label: 'May', height: '25%' },
-];
+interface SpendingPoint extends MonthBar {
+  readonly x: number;
+  readonly y: number;
+}
+
+type ChartMode = 'line' | 'bars';
+
+const CHART_WIDTH = 600;
+const CHART_HEIGHT = 220;
+const CHART_LEFT = 28;
+const CHART_RIGHT = 572;
+const CHART_TOP = 24;
+const CHART_BOTTOM = 186;
+const MONTHS_IN_SERIES = 12;
 
 @Component({
   selector: 'app-dashboard-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BrlCurrencyPipe, BrDatePipe],
+  imports: [BrlCurrencyPipe, BrDatePipe, UpperCasePipe],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.scss',
 })
@@ -75,14 +77,85 @@ export class DashboardPage implements OnInit {
 
   protected readonly wallet = this.selectedWallet;
 
-  /** Static chart data */
-  protected readonly monthBars: readonly MonthBar[] = MONTH_BARS;
+  protected readonly chartMode = signal<ChartMode>('line');
+  protected readonly hoveredSpendingPoint = signal<SpendingPoint | null>(null);
 
   /** Heatmap cells (371 = 53 * 7) */
   protected readonly heatmapCells: readonly string[] = this.buildHeatmap();
 
   /** Topbar sync for refresh timestamp */
   protected readonly lastSync = signal('—');
+
+  protected readonly spendingPoints = computed<readonly SpendingPoint[]>(() => {
+    const months = this.lastTwelveMonths();
+    const totalsByMonth = new Map<string, number>();
+
+    for (const expense of this.expenses()) {
+      const date = this.parseDate(expense.purchaseDate);
+      if (!date) continue;
+      const key = this.monthKey(date);
+      totalsByMonth.set(key, (totalsByMonth.get(key) ?? 0) + Number(expense.cost));
+    }
+
+    const totals = months.map((month) => totalsByMonth.get(month.key) ?? 0);
+    const max = Math.max(...totals, 0);
+    const usableHeight = CHART_BOTTOM - CHART_TOP;
+    const chartInnerWidth = CHART_RIGHT - CHART_LEFT;
+    const step = MONTHS_IN_SERIES > 1 ? chartInnerWidth / (MONTHS_IN_SERIES - 1) : chartInnerWidth;
+
+    return months.map((month, index) => {
+      const total = totals[index];
+      const ratio = max > 0 ? total / max : 0;
+      return {
+        label: month.label,
+        total,
+        height: `${Math.max(ratio * 100, total > 0 ? 4 : 0)}%`,
+        x: Math.round(CHART_LEFT + index * step),
+        y: Math.round(CHART_BOTTOM - ratio * usableHeight),
+      };
+    });
+  });
+
+  protected readonly monthBars = computed<readonly MonthBar[]>(() =>
+    this.spendingPoints().map(({ label, total, height }) => ({ label, total, height })),
+  );
+
+  protected readonly spendingLinePath = computed(() => {
+    const points = this.spendingPoints();
+    if (!points.length) return '';
+    return points.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`).join(' ');
+  });
+
+  protected readonly spendingAreaPath = computed(() => {
+    const line = this.spendingLinePath();
+    if (!line) return '';
+    return `${line} L${CHART_RIGHT},${CHART_BOTTOM} L${CHART_LEFT},${CHART_BOTTOM} Z`;
+  });
+
+  protected readonly spendingMaxLabel = computed(() =>
+    this.formatCurrency(Math.max(...this.spendingPoints().map((point) => point.total), 0)),
+  );
+
+  protected setChartMode(mode: ChartMode): void {
+    this.chartMode.set(mode);
+  }
+
+  protected showSpendingTooltip(point: SpendingPoint): void {
+    this.hoveredSpendingPoint.set(point);
+  }
+
+  protected hideSpendingTooltip(): void {
+    this.hoveredSpendingPoint.set(null);
+  }
+
+  protected tooltipX(point: SpendingPoint): number {
+    if (point.x > CHART_WIDTH - 130) return point.x - 120;
+    return point.x + 12;
+  }
+
+  protected tooltipY(point: SpendingPoint): number {
+    return Math.max(CHART_TOP, point.y - 52);
+  }
 
   // ── Hero computed values ──────────────────────────────────────────────────
 
@@ -116,7 +189,7 @@ export class DashboardPage implements OnInit {
   protected readonly bulletsSpentLabel = computed(() => {
     const spent = this.bulletsCap() - this.bulletsFree();
     if (spent <= 0) return 'nothing spent';
-    const formatted = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(spent);
+    const formatted = this.formatCurrency(spent);
     return `↓ ${formatted} spent`;
   });
 
@@ -141,20 +214,17 @@ export class DashboardPage implements OnInit {
     const cap = this.bulletsCap();
     const free = this.bulletsFree();
     const used = cap - free;
-    const fmt = (v: number) =>
-      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
     return [
       {
         label: 'used',
-        sublabel: `used · ${fmt(used)}`,
-        value: fmt(used),
+        sublabel: `used · ${this.formatCurrency(used)}`,
+        value: this.formatCurrency(used),
         color: '#d6a371',
       },
       {
         label: 'available',
         sublabel: 'untouched',
-        value: fmt(free),
+        value: this.formatCurrency(free),
         color: '#3a3128',
       },
     ];
@@ -241,5 +311,40 @@ export class DashboardPage implements OnInit {
     }
 
     return cells;
+  }
+
+  private lastTwelveMonths(): readonly { readonly key: string; readonly label: string }[] {
+    const wallet = this.selectedWallet();
+    const anchor = wallet?.effectiveMonth
+      ? this.parseMonth(wallet.effectiveMonth)
+      : new Date();
+    const start = new Date(anchor.getFullYear(), anchor.getMonth() - (MONTHS_IN_SERIES - 1), 1);
+
+    return Array.from({ length: MONTHS_IN_SERIES }, (_, index) => {
+      const date = new Date(start.getFullYear(), start.getMonth() + index, 1);
+      return {
+        key: this.monthKey(date),
+        label: new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' }).format(date),
+      };
+    });
+  }
+
+  private parseDate(value: string): Date | null {
+    const date = new Date(`${value}T00:00:00Z`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  private parseMonth(value: string): Date {
+    const [year, month] = value.split('-').map(Number);
+    if (!year || !month) return new Date();
+    return new Date(year, month - 1, 1);
+  }
+
+  private monthKey(date: Date): string {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private formatCurrency(value: number): string {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   }
 }

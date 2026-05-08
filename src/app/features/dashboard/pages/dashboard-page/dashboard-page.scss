@@ -7,6 +7,36 @@
   display: block;
 }
 
+.dashboard-chart-hit {
+  fill: transparent;
+  pointer-events: all;
+  cursor: crosshair;
+}
+
+.dashboard-chart-tooltip {
+  pointer-events: none;
+
+  rect {
+    fill: var(--ew-panel);
+    stroke: var(--ew-line-2);
+    filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.45));
+  }
+
+  text {
+    fill: var(--ew-ink-3);
+    font-family: var(--ew-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  .dashboard-chart-tooltip-value {
+    fill: var(--ew-ink);
+    font-family: var(--ew-sans);
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+}
+
 // Donut
 .dashboard-donut-wrap {
   display: flex;

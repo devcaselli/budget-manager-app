@@ -264,8 +264,9 @@ body.ew-privacy {
 }
 
 .ew-hero-featured-meta {
-  display: flex;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
   margin-top: 22px;
   padding-top: 18px;
   border-top: 1px solid var(--ew-line);
@@ -273,6 +274,12 @@ body.ew-privacy {
   font-size: 11px;
   color: var(--ew-ink-3);
   letter-spacing: 0.04em;
+  min-width: 0;
+
+  > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 
   b {
     color: var(--ew-ink);
@@ -281,6 +288,9 @@ body.ew-privacy {
     margin-top: 3px;
     font-family: var(--ew-sans);
     font-size: 13px;
+    line-height: 1.2;
+    letter-spacing: 0;
+    overflow-wrap: anywhere;
   }
 }
 

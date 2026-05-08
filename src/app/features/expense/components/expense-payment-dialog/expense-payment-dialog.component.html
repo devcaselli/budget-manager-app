@@ -1,45 +1,66 @@
-<h2 mat-dialog-title>Pagar expense</h2>
-
-<mat-dialog-content>
-  <div class="payment-dialog__summary">
-    <strong>{{ data.expense.name }}</strong>
-    <span>{{ data.expense.remaining }} em aberto</span>
+<div class="payment-dialog__head" mat-dialog-title>
+  <div>
+    <h2 class="payment-dialog__title">Pay <em>expense</em></h2>
+    <p class="payment-dialog__subtitle">
+      {{ data.expense.name }} · {{ data.expense.remaining }} open
+    </p>
   </div>
+  <button
+    class="payment-dialog__close"
+    type="button"
+    mat-dialog-close
+    aria-label="Close"
+  >×</button>
+</div>
 
+<mat-dialog-content class="payment-dialog__body">
   <form class="payment-dialog__form" [formGroup]="form" (ngSubmit)="submit()">
-    <mat-form-field appearance="outline">
-      <mat-label>Bullet</mat-label>
-      <mat-select formControlName="bulletId">
+    <div class="ew-field">
+      <label for="pay-bullet">Bullet *</label>
+      <select id="pay-bullet" class="ew-select" formControlName="bulletId">
+        <option value="" disabled>Choose a bullet...</option>
         @for (bullet of data.bullets; track bullet.id) {
-          <mat-option [value]="bullet.id">
-            {{ bullet.description }} · {{ bullet.remaining }} disponivel
-          </mat-option>
+          <option [value]="bullet.id">
+            {{ bullet.description }} · {{ bullet.remaining }} available
+          </option>
         }
-      </mat-select>
+      </select>
       @if (form.controls.bulletId.touched && form.controls.bulletId.invalid) {
-        <mat-error>Selecione um bullet.</mat-error>
+        <p class="payment-dialog__error">Choose a bullet.</p>
       }
-    </mat-form-field>
+    </div>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Valor</mat-label>
-      <input matInput type="number" min="0.01" step="0.01" formControlName="amount" />
+    <div class="ew-field">
+      <label for="pay-amount">Amount *</label>
+      <input
+        id="pay-amount"
+        class="ew-input"
+        type="number"
+        min="0.01"
+        step="0.01"
+        formControlName="amount"
+      />
       @if (form.controls.amount.touched && form.controls.amount.invalid) {
-        <mat-error>Informe um valor valido.</mat-error>
+        <p class="payment-dialog__error">Enter a valid amount.</p>
       }
-    </mat-form-field>
+    </div>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Descricao</mat-label>
-      <textarea matInput rows="3" formControlName="details"></textarea>
-    </mat-form-field>
+    <div class="ew-field">
+      <label for="pay-note">Description</label>
+      <input
+        id="pay-note"
+        class="ew-input"
+        formControlName="details"
+        placeholder="optional note"
+      />
+    </div>
   </form>
 </mat-dialog-content>
 
-<mat-dialog-actions align="end">
-  <button mat-button type="button" mat-dialog-close>Cancelar</button>
-  <button mat-flat-button type="button" (click)="submit()">
+<mat-dialog-actions class="payment-dialog__actions" align="end">
+  <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
+  <button class="ew-btn ew-btn--primary" type="button" (click)="submit()">
     <mat-icon aria-hidden="true">payments</mat-icon>
-    Pagar
+    Pay
   </button>
 </mat-dialog-actions>

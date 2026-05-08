@@ -54,12 +54,20 @@
           <p>12-month rolling · BRL</p>
         </div>
         <div class="ew-tabs" aria-label="Chart display">
-          <button class="ew-tabs-on" type="button">Line</button>
-          <button type="button">Bars</button>
+          <button
+            [class.ew-tabs-on]="chartMode() === 'line'"
+            type="button"
+            (click)="setChartMode('line')"
+          >Line</button>
+          <button
+            [class.ew-tabs-on]="chartMode() === 'bars'"
+            type="button"
+            (click)="setChartMode('bars')"
+          >Bars</button>
         </div>
       </div>
       <div class="ew-panel-body">
-        <svg viewBox="0 0 600 220" preserveAspectRatio="none" class="dashboard-chart" aria-hidden="true">
+        <svg viewBox="0 0 600 220" preserveAspectRatio="none" class="dashboard-chart" role="img" aria-label="Spending over the last 12 months">
           <defs>
             <linearGradient id="lg-c" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%"   stop-color="#d6a371" stop-opacity=".35"/>
@@ -71,23 +79,80 @@
             <line x1="0" y1="110" x2="600" y2="110"/>
             <line x1="0" y1="165" x2="600" y2="165"/>
           </g>
-          <path
-            d="M0,160 C40,150 80,130 120,135 C160,140 200,100 240,110 C280,120 320,80 360,90 C400,100 440,60 480,55 C520,50 560,30 600,40"
-            fill="none" stroke="#d6a371" stroke-width="2" stroke-linecap="round"
-          />
-          <path
-            d="M0,160 C40,150 80,130 120,135 C160,140 200,100 240,110 C280,120 320,80 360,90 C400,100 440,60 480,55 C520,50 560,30 600,40 L600,220 L0,220 Z"
-            fill="url(#lg-c)"
-          />
-          <circle cx="480" cy="55" r="4" fill="#d6a371"/>
+
+          @if (chartMode() === 'line') {
+            <path [attr.d]="spendingAreaPath()" fill="url(#lg-c)"/>
+            <path
+              [attr.d]="spendingLinePath()"
+              fill="none" stroke="#d6a371" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            />
+            @for (point of spendingPoints(); track point.label) {
+              @if (point.total > 0) {
+                <circle [attr.cx]="point.x" [attr.cy]="point.y" r="4" fill="#d6a371">
+                  <title>{{ point.label }} · {{ point.total | brlCurrency }}</title>
+                </circle>
+              }
+            }
+          } @else {
+            @for (point of spendingPoints(); track point.label; let i = $index) {
+              <rect
+                [attr.x]="point.x - 14"
+                [attr.y]="point.y"
+                width="28"
+                [attr.height]="186 - point.y"
+                rx="2"
+                [attr.fill]="point.total > 0 ? '#d6a371' : '#3a3128'"
+                [attr.opacity]="point.total > 0 ? 1 : 0.55"
+              >
+                <title>{{ point.label }} · {{ point.total | brlCurrency }}</title>
+              </rect>
+            }
+          }
+
+          @for (point of spendingPoints(); track point.label) {
+            <rect
+              class="dashboard-chart-hit"
+              [attr.x]="point.x - 22"
+              y="20"
+              width="44"
+              height="172"
+              (mouseenter)="showSpendingTooltip(point)"
+              (mousemove)="showSpendingTooltip(point)"
+              (mouseleave)="hideSpendingTooltip()"
+            />
+          }
+
           <g fill="#7a6f5f" font-family="JetBrains Mono" font-size="10">
-            <text x="0"   y="210">JUN</text>
-            <text x="100" y="210">AUG</text>
-            <text x="200" y="210">OCT</text>
-            <text x="300" y="210">DEC</text>
-            <text x="400" y="210">FEB</text>
-            <text x="500" y="210">APR</text>
+            @for (point of spendingPoints(); track point.label; let i = $index) {
+              @if (i % 2 === 0 || i === 11) {
+                <text [attr.x]="point.x" y="210" text-anchor="middle">{{ point.label | uppercase }}</text>
+              }
+            }
           </g>
+          <text x="0" y="18" fill="#7a6f5f" font-family="JetBrains Mono" font-size="10">
+            {{ spendingMaxLabel() }}
+          </text>
+
+          @if (hoveredSpendingPoint(); as point) {
+            <g class="dashboard-chart-tooltip">
+              <rect
+                [attr.x]="tooltipX(point)"
+                [attr.y]="tooltipY(point)"
+                width="108"
+                height="42"
+                rx="8"
+              />
+              <text
+                [attr.x]="tooltipX(point) + 12"
+                [attr.y]="tooltipY(point) + 17"
+              >{{ point.label | uppercase }}</text>
+              <text
+                [attr.x]="tooltipX(point) + 12"
+                [attr.y]="tooltipY(point) + 32"
+                class="dashboard-chart-tooltip-value"
+              >{{ point.total | brlCurrency }}</text>
+            </g>
+          }
         </svg>
       </div>
     </div>
@@ -151,7 +216,7 @@
       </div>
       <div class="ew-panel-body">
         <div class="ew-bars-v">
-          @for (bar of monthBars; track bar.label; let last = $last) {
+          @for (bar of monthBars(); track bar.label; let last = $last) {
             <div class="ew-bars-v-col" [class.ew-bars-v-col--dim]="last">
               <div class="ew-bars-v-bar" [style.height]="bar.height"></div>
               <span>{{ bar.label }}</span>

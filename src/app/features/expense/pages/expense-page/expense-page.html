@@ -42,7 +42,7 @@
               <th>Bullet</th>
               <th>Status</th>
               <th>Amount</th>
-              <th></th>
+              <th style="width: 1%"></th>
             </tr>
           </thead>
           <tbody>
@@ -57,9 +57,21 @@
                   </span>
                 </td>
                 <td class="ep-amount ew-blur">{{ expense.cost | brlCurrency }}</td>
-                <td class="ep-delete-cell">
+                <td class="ep-row-actions">
                   <button
-                    class="ep-delete-btn"
+                    class="ep-icon-btn"
+                    type="button"
+                    [disabled]="expense.statusLabel === 'PAID' || bulletOptions().length === 0 || isPaying()"
+                    (click)="openPaymentDialog(expense)"
+                    [attr.aria-label]="expense.statusLabel === 'PAID' ? 'Expense already paid' : 'Pay expense'"
+                    [title]="expense.statusLabel === 'PAID' ? 'Already paid' : 'Pay expense'"
+                  >
+                    <mat-icon aria-hidden="true">
+                      {{ expense.statusLabel === 'PAID' ? 'check' : 'payments' }}
+                    </mat-icon>
+                  </button>
+                  <button
+                    class="ep-icon-btn ep-icon-btn--danger"
                     type="button"
                     [disabled]="deletingExpenseId() === expense.id"
                     (click)="onDeleteClick(expense)"
@@ -124,26 +136,6 @@
             {{ isSaving() ? 'Creating...' : 'Create expense' }}
           </button>
         </form>
-
-        <!-- Pay expense (inline for open expenses) -->
-        @if (expenseItems().length > 0) {
-          <div class="expense-pay-section">
-            <p class="expense-pay-label">Pay an open expense</p>
-            @for (expense of expenseItems(); track expense.id) {
-              @if (expense.statusLabel === 'OPEN') {
-                <button
-                  class="expense-pay-row"
-                  type="button"
-                  [disabled]="bulletOptions().length === 0 || isPaying()"
-                  (click)="openPaymentDialog(expense)"
-                >
-                  <span>{{ expense.name }}</span>
-                  <span class="ew-blur">{{ expense.remaining | brlCurrency }} open</span>
-                </button>
-              }
-            }
-          </div>
-        }
       </div>
     </div>
   </div>
