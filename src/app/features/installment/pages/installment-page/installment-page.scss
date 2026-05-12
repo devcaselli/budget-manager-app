@@ -1,0 +1,113 @@
+.installment-page {
+  display: grid;
+  gap: 0;
+}
+
+.installment-list-body {
+  padding: 6px 26px 26px;
+}
+
+.installment-alloc {
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.installment-alloc-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-content: flex-end;
+}
+
+.installment-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink-3);
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+  flex: 0 0 36px;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover:not(:disabled) {
+    color: var(--ew-bad);
+    border-color: var(--ew-bad);
+    background-color: rgba(217, 122, 108, 0.06);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.ew-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.installment-schedule-panel {
+  margin-top: 0;
+}
+
+.installment-schedule-bars {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+
+  .ew-bars-v-col {
+    min-width: 36px;
+  }
+}
+
+.installment-bar {
+  background: linear-gradient(180deg, var(--ew-acc) 0%, rgba(214, 163, 113, 0.18) 100%);
+}
+
+.installment-bar-col {
+  cursor: crosshair;
+
+  &:hover .ew-bars-v-bar {
+    filter: brightness(1.25);
+  }
+}
+
+.installment-tooltip {
+  position: fixed;
+  z-index: 9000;
+  pointer-events: none;
+  background: var(--ew-panel-2);
+  border: 1px solid var(--ew-line-2);
+  border-radius: 10px;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+}
+
+.installment-tooltip-label {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+}
+
+.installment-tooltip-value {
+  font-family: var(--ew-serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ew-acc);
+  font-variant-numeric: tabular-nums;
+}

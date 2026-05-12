@@ -1,0 +1,75 @@
+.idd-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 26px 28px 18px;
+  border-bottom: 1px solid var(--ew-line);
+
+  &[mat-dialog-title] {
+    margin: 0;
+    padding: 26px 28px 18px;
+  }
+}
+
+.idd-title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ew-ink);
+
+  em {
+    font-style: italic;
+    color: var(--ew-bad);
+    font-weight: 300;
+  }
+}
+
+.idd-subtitle {
+  margin: 8px 0 0;
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  color: var(--ew-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.idd-close {
+  flex: 0 0 34px;
+  color: var(--ew-ink-2);
+
+  &:hover {
+    color: var(--ew-ink);
+  }
+}
+
+.idd-body {
+  padding: 24px 28px;
+}
+
+.idd-message {
+  margin: 0;
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  line-height: 1.6;
+
+  strong {
+    color: var(--ew-ink);
+    font-weight: 600;
+  }
+}
+
+.idd-actions {
+  gap: 10px;
+  padding: 18px 28px 24px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.idd-delete-btn {
+  background: var(--ew-bad) !important;
+  color: #fff !important;
+}

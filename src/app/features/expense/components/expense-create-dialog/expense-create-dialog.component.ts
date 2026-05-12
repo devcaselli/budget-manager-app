@@ -21,9 +21,15 @@ export interface ExpenseCreateDialogBullet {
   readonly remaining: string;
 }
 
+export interface ExpenseCreateDialogCreditCard {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface ExpenseCreateDialogData {
   readonly walletDescription: string;
   readonly bullets?: readonly ExpenseCreateDialogBullet[];
+  readonly creditCards?: readonly ExpenseCreateDialogCreditCard[];
 }
 
 export interface ExpenseCreateDialogResult {
@@ -31,6 +37,10 @@ export interface ExpenseCreateDialogResult {
   readonly cost: number;
   readonly purchaseDate: string;
   readonly bulletId?: string;
+  /** Required by API — always sent */
+  readonly creditCardId: string;
+  readonly installment?: boolean;
+  readonly installmentNumber?: number;
 }
 
 @Component({
@@ -61,11 +71,35 @@ export class ExpenseCreateDialogComponent {
     cost: [0, [Validators.required, Validators.min(0.01)]],
     purchaseDate: [this.today(), Validators.required],
     bulletId: [''],
+    creditCardId: ['', Validators.required],
+    isInstallment: [false],
+    installmentCharges: [0],
     keepOpen: [false],
   });
 
   protected get hasBullets(): boolean {
     return (this.data.bullets?.length ?? 0) > 0;
+  }
+
+  protected get hasCreditCards(): boolean {
+    return (this.data.creditCards?.length ?? 0) > 0;
+  }
+
+  protected get showInstallments(): boolean {
+    return this.form.controls.isInstallment.value;
+  }
+
+  protected toggleInstallment(): void {
+    const current = this.form.controls.isInstallment.value;
+    this.form.controls.isInstallment.setValue(!current);
+
+    if (!current) {
+      this.form.controls.installmentCharges.setValidators([Validators.required, Validators.min(2)]);
+    } else {
+      this.form.controls.installmentCharges.clearValidators();
+      this.form.controls.installmentCharges.setValue(0);
+    }
+    this.form.controls.installmentCharges.updateValueAndValidity();
   }
 
   protected submit(): void {
@@ -75,11 +109,18 @@ export class ExpenseCreateDialogComponent {
     }
 
     const value = this.form.getRawValue();
+    const isInstallment = value.isInstallment;
+    const charges = value.installmentCharges;
+
     const result: ExpenseCreateDialogResult = {
       name: value.name.trim(),
       cost: value.cost,
       purchaseDate: value.purchaseDate,
+      creditCardId: value.creditCardId,
       ...(value.bulletId ? { bulletId: value.bulletId } : {}),
+      ...(isInstallment && charges >= 2
+        ? { installment: true, installmentNumber: charges }
+        : {}),
     };
 
     if (value.keepOpen) {
@@ -92,11 +133,16 @@ export class ExpenseCreateDialogComponent {
   }
 
   private resetForNextTransaction(purchaseDate: string): void {
+    this.form.controls.installmentCharges.clearValidators();
+    this.form.controls.installmentCharges.updateValueAndValidity();
     this.form.patchValue({
       name: '',
       cost: 0,
       purchaseDate,
       bulletId: '',
+      creditCardId: '',
+      isInstallment: false,
+      installmentCharges: 0,
       keepOpen: true,
     });
     this.form.markAsPristine();

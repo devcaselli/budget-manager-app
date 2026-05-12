@@ -19,6 +19,7 @@ import {
 import { ExpenseService } from '@features/expense/services/expense.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { BulletService } from '@features/bullet/services/bullet.service';
+import { InstallmentService } from '@features/installment/services/installment.service';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 
 interface NavEntry {
@@ -42,12 +43,14 @@ export class ShellComponent {
   private readonly expenseService = inject(ExpenseService);
   private readonly walletService = inject(WalletService);
   private readonly bulletService = inject(BulletService);
+  private readonly installmentService = inject(InstallmentService);
 
   protected readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
+  private readonly creditCards = toSignal(this.installmentService.creditCards$, { initialValue: [] });
 
   protected readonly privacyMode = signal(false);
   protected readonly darkTheme = signal(true);
@@ -62,8 +65,10 @@ export class ShellComponent {
 
   protected readonly activityNav: readonly NavEntry[] = [
     { label: 'Expenses',      route: '/expenses',      num: '04' },
-    { label: 'Subscriptions', route: '/subscriptions', num: '05' },
-    { label: 'Payments',      route: '/payments',      num: '06' },
+    { label: 'Installments',  route: '/installments',  num: '05' },
+    { label: 'Credit cards',  route: '/credit-cards',  num: '06' },
+    { label: 'Subscriptions', route: '/subscriptions', num: '07' },
+    { label: 'Payments',      route: '/payments',      num: '08' },
   ];
 
   /** Percentage of wallet budget already committed. */
@@ -122,9 +127,12 @@ export class ShellComponent {
         }).format(Number(b.remaining)),
       }));
 
+    const creditCards = this.creditCards().map((c) => ({ id: c.id, name: c.name }));
+
     const data: ExpenseCreateDialogData = {
       walletDescription: wallet.description || 'Wallet',
       bullets,
+      creditCards,
     };
 
     const dialogRef = this.dialog.open<
@@ -156,7 +164,11 @@ export class ShellComponent {
         cost: expense.cost,
         purchaseDate: expense.purchaseDate,
         walletId,
-        bulletId: expense.bulletId,
+        creditCardId: expense.creditCardId,
+        ...(expense.bulletId ? { bulletId: expense.bulletId } : {}),
+        ...(expense.installment && expense.installmentNumber
+          ? { installment: true, installmentNumber: expense.installmentNumber }
+          : {}),
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({

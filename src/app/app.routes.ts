@@ -39,6 +39,22 @@ export const routes: Routes = [
     title: 'Expenses | Budget Manager',
   },
   {
+    path: 'installments',
+    loadComponent: () =>
+      import('@features/installment/pages/installment-page/installment-page').then(
+        (component) => component.InstallmentPage,
+      ),
+    title: 'Installments | Budget Manager',
+  },
+  {
+    path: 'credit-cards',
+    loadComponent: () =>
+      import('@features/credit-card/pages/credit-card-page/credit-card-page').then(
+        (component) => component.CreditCardPage,
+      ),
+    title: 'Credit Cards | Budget Manager',
+  },
+  {
     path: 'subscriptions',
     loadComponent: () =>
       import('@features/subscription/pages/subscription-page/subscription-page').then(

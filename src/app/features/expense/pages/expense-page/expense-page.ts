@@ -16,6 +16,7 @@ import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { PaymentService } from '@features/payment/services/payment.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
+import { InstallmentService } from '@features/installment/services/installment.service';
 
 import {
   ExpenseDeleteDialogComponent,
@@ -61,12 +62,17 @@ export class ExpensePage {
   private readonly expenseService = inject(ExpenseService);
   private readonly paymentService = inject(PaymentService);
   private readonly walletService = inject(WalletService);
+  private readonly installmentService = inject(InstallmentService);
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
   private readonly payments = toSignal(this.paymentService.payments$, { initialValue: [] });
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
+  });
+
+  protected readonly creditCards = toSignal(this.installmentService.creditCards$, {
+    initialValue: [],
   });
 
   protected readonly wallet = this.selectedWallet;
@@ -85,7 +91,15 @@ export class ExpensePage {
     name: ['', [Validators.required, Validators.maxLength(120)]],
     cost: [0, [Validators.required, Validators.min(0.01)]],
     purchaseDate: [this.today(), Validators.required],
+    creditCardId: ['', Validators.required],
+    isInstallment: [false],
+    installmentCharges: [0],
   });
+
+  protected readonly showInstallments = toSignal(
+    this.form.controls.isInstallment.valueChanges,
+    { initialValue: false },
+  );
 
   protected readonly expenseItems = computed<readonly ExpenseListItem[]>(() =>
     this.expenses().map((expense) => {
@@ -136,8 +150,25 @@ export class ExpensePage {
       this.bulletService.loadByWalletId(walletId);
       this.expenseService.loadByWalletId(walletId);
       this.paymentService.loadByWalletId(walletId);
+      // Load credit cards for the dropdown
+      this.installmentService.loadByWalletId(walletId);
       this.resetForm();
     });
+  }
+
+  protected toggleInstallment(): void {
+    const current = this.form.controls.isInstallment.value;
+    this.form.controls.isInstallment.setValue(!current);
+
+    if (!current) {
+      // turning on: require installmentCharges >= 2
+      this.form.controls.installmentCharges.setValidators([Validators.required, Validators.min(2)]);
+    } else {
+      // turning off: clear validators
+      this.form.controls.installmentCharges.clearValidators();
+      this.form.controls.installmentCharges.setValue(0);
+    }
+    this.form.controls.installmentCharges.updateValueAndValidity();
   }
 
   protected createExpense(): void {
@@ -148,8 +179,20 @@ export class ExpensePage {
     }
 
     const value = this.form.getRawValue();
+    const isInstallment = value.isInstallment;
+    const charges = value.installmentCharges;
+
     this.expenseService
-      .create({ name: value.name.trim(), cost: value.cost, purchaseDate: value.purchaseDate, walletId: wallet.id })
+      .create({
+        name: value.name.trim(),
+        cost: value.cost,
+        purchaseDate: value.purchaseDate,
+        walletId: wallet.id,
+        creditCardId: value.creditCardId,
+        ...(isInstallment && charges >= 2
+          ? { installment: true, installmentNumber: charges }
+          : {}),
+      })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ next: () => this.resetForm(), error: () => undefined });
   }
@@ -222,7 +265,16 @@ export class ExpensePage {
   }
 
   private resetForm(): void {
-    this.form.reset({ name: '', cost: 0, purchaseDate: this.today() });
+    this.form.controls.installmentCharges.clearValidators();
+    this.form.controls.installmentCharges.updateValueAndValidity();
+    this.form.reset({
+      name: '',
+      cost: 0,
+      purchaseDate: this.today(),
+      creditCardId: '',
+      isInstallment: false,
+      installmentCharges: 0,
+    });
   }
 
   private today(): string {

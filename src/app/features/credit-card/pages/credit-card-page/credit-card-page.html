@@ -1,0 +1,233 @@
+<div class="credit-card-page">
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">06 · Credit cards</div>
+      <h1 class="ew-page-title">Plastic <em>ledger.</em></h1>
+      <p class="ew-page-sub">
+        Track every charge across your registered credit cards.
+      </p>
+    </div>
+    <div class="ew-head-meta">
+      cards · <b>{{ cards().length }}</b><br>
+      this cycle · <b class="ew-blur">{{ cycleSummary().cycleTotal | brlCurrency }}</b>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  }
+
+  <!-- ── Monthly spend panel ──────────────────────────────────────── -->
+  <div class="ew-panel ccp-chart-panel">
+    <div class="ew-panel-head">
+      <div>
+        <h3>Monthly <em>spend</em></h3>
+        <p>Last 12 months</p>
+      </div>
+      <div class="ccp-chart-filters">
+        <select class="ccp-filter-select" [value]="selectedCardId()" (change)="onCardSelect($any($event.target).value)">
+          <option value="all">All cards</option>
+          @for (card of cards(); track card.id) {
+            <option [value]="card.id">{{ card.name }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    <div class="ew-panel-body">
+      <!-- Bar chart -->
+      <div class="ew-bars-v ccp-bars">
+        @for (bar of chartBars(); track bar.label) {
+          <div class="ew-bars-v-col" [class.ew-bars-v-col--dim]="!bar.isCurrent">
+            <div class="ew-bars-v-bar" [style.height.%]="bar.heightPct"></div>
+            <span>{{ bar.label }}</span>
+          </div>
+        }
+      </div>
+
+      <!-- Summary stats -->
+      <div class="ew-hero ccp-stats">
+        <div>
+          <div class="ew-hero-lbl">Cycle total</div>
+          <div class="ew-hero-val ew-blur">{{ cycleSummary().cycleTotal | brlCurrency }}</div>
+          <div class="ew-hero-delta ew-hero-delta--dim">selected month</div>
+        </div>
+        <div>
+          <div class="ew-hero-lbl">Avg / cycle</div>
+          <div class="ew-hero-val ew-blur">{{ cycleSummary().avgCycle | brlCurrency }}</div>
+          <div class="ew-hero-delta ew-hero-delta--dim">12-month average</div>
+        </div>
+        <div>
+          <div class="ew-hero-lbl">Peak</div>
+          <div class="ew-hero-val ew-blur">{{ cycleSummary().peak | brlCurrency }}</div>
+          <div class="ew-hero-delta ew-hero-delta--dim">highest month</div>
+        </div>
+        <div>
+          <div class="ew-hero-lbl">Charges</div>
+          <div class="ew-hero-val">{{ cycleSummary().chargesCount }}</div>
+          <div class="ew-hero-delta ew-hero-delta--dim">this cycle</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main content row ─────────────────────────────────────────── -->
+  <div class="ew-row ccp-main-row">
+    <!-- LEFT: Charges table -->
+    <div class="ew-panel ccp-charges-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Charges</h3>
+          <p>{{ chargesCount() }} charge(s) · {{ chargesTotal() | brlCurrency }}</p>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="ew-panel-body ccp-filters-row">
+        <input
+          class="ew-input ccp-search"
+          type="text"
+          placeholder="Search charges..."
+          [value]="searchQuery()"
+          (input)="onSearchInput($event)"
+          aria-label="Search charges"
+        />
+
+        <select
+          class="ccp-filter-select"
+          [value]="selectedCardId()"
+          (change)="onCardSelect($any($event.target).value)"
+          aria-label="Filter by card"
+        >
+          <option value="all">All cards</option>
+          @for (card of cards(); track card.id) {
+            <option [value]="card.id">{{ card.name }}</option>
+          }
+        </select>
+
+        <select
+          class="ccp-filter-select"
+          [value]="selectedMonthLabel()"
+          (change)="onMonthSelect(
+            +$any($event.target).value.split('/')[1],
+            +$any($event.target).value.split('/')[0]
+          )"
+          aria-label="Filter by month"
+        >
+          @for (opt of monthOptions(); track opt.label) {
+            <option [value]="opt.label" [selected]="opt.year === selectedYear() && opt.month === selectedMonth()">
+              {{ opt.label }}
+            </option>
+          }
+        </select>
+      </div>
+
+      @if (selectedCardId() === 'all') {
+        <div class="ew-empty">Select a card to view charges</div>
+      } @else if (isLoading()) {
+        <div class="ew-empty">Loading...</div>
+      } @else {
+        <table class="ew-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Date</th>
+              <th>Card</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (charge of filteredCharges(); track charge.id) {
+              <tr>
+                <td>{{ charge.name }}</td>
+                <td>{{ charge.purchaseDate | brDate }}</td>
+                <td>{{ cardName(charge.creditCardId) }}</td>
+                <td class="ccp-amount ew-blur">{{ charge.cost | brlCurrency }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4" class="ew-empty">No charges found</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" class="ccp-footer-label">{{ chargesCount() }} charge(s)</td>
+              <td class="ccp-amount ew-blur">{{ chargesTotal() | brlCurrency }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      }
+    </div>
+
+    <!-- RIGHT: Registered cards + New card -->
+    <div class="ccp-right-col">
+      <!-- Registered cards -->
+      <div class="ew-panel">
+        <div class="ew-panel-head">
+          <div>
+            <h3>Registered <em>cards</em></h3>
+            <p>{{ cards().length }} card(s)</p>
+          </div>
+        </div>
+
+        @if (cards().length === 0) {
+          <div class="ew-empty">No cards registered</div>
+        } @else {
+          <ul class="ccp-card-list">
+            @for (card of cards(); track card.id) {
+              <li class="ccp-card-item">
+                <span class="ccp-card-name">{{ card.name }}</span>
+                <button
+                  class="ccp-delete-btn"
+                  type="button"
+                  aria-label="Delete card"
+                  [disabled]="deletingId() === card.id"
+                  (click)="onDeleteCard(card)"
+                >
+                  <mat-icon aria-hidden="true">
+                    {{ deletingId() === card.id ? 'hourglass_empty' : 'delete_outline' }}
+                  </mat-icon>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+
+      <!-- New card form -->
+      <div class="ew-panel">
+        <div class="ew-panel-head">
+          <div>
+            <h3>New <em>card</em></h3>
+            <p>Register a credit card</p>
+          </div>
+        </div>
+        <div class="ew-panel-body">
+          <form class="ew-form" [formGroup]="newCardForm" (ngSubmit)="createCard()">
+            <div class="ew-field">
+              <label for="ccp-card-name">Card name</label>
+              <input
+                id="ccp-card-name"
+                class="ew-input"
+                formControlName="name"
+                placeholder="e.g. Nubank Mastercard"
+              />
+              @if (newCardForm.controls.name.touched && newCardForm.controls.name.invalid) {
+                <p class="ccp-field-error">Enter a card name.</p>
+              }
+            </div>
+            <button
+              class="ew-btn-submit"
+              type="submit"
+              [disabled]="isSaving()"
+            >
+              {{ isSaving() ? 'Saving...' : 'Add card' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

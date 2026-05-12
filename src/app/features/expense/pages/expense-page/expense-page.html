@@ -56,7 +56,7 @@
                     {{ expense.statusLabel }}
                   </span>
                 </td>
-                <td class="ep-amount ew-blur">{{ expense.cost | brlCurrency }}</td>
+                <td class="ep-amount ew-blur">{{ expense.remaining | brlCurrency }}</td>
                 <td class="ep-row-actions">
                   <button
                     class="ep-icon-btn"
@@ -128,6 +128,47 @@
             <label for="ep-date">Purchase date</label>
             <input id="ep-date" class="ew-input" type="date" formControlName="purchaseDate" />
           </div>
+
+          @if (creditCards().length > 0) {
+            <div class="ew-field">
+              <label for="ep-card">Credit card</label>
+              <select id="ep-card" class="ew-select" formControlName="creditCardId">
+                <option value="">— Cash / debit —</option>
+                @for (card of creditCards(); track card.id) {
+                  <option [value]="card.id">{{ card.name }}</option>
+                }
+              </select>
+            </div>
+          }
+
+          <button
+            class="ew-checkbox"
+            type="button"
+            [class.ew-checkbox--on]="showInstallments()"
+            (click)="toggleInstallment()"
+          >
+            <i></i>
+            <span>Installment purchase</span>
+          </button>
+
+          @if (showInstallments()) {
+            <div class="ew-field">
+              <label for="ep-charges">Charges (min. 2)</label>
+              <input
+                id="ep-charges"
+                class="ew-input"
+                type="number"
+                min="2"
+                step="1"
+                formControlName="installmentCharges"
+                placeholder="e.g. 12"
+              />
+              @if (form.controls.installmentCharges.touched && form.controls.installmentCharges.invalid) {
+                <p class="ep-field-error">Enter a number of charges (min. 2).</p>
+              }
+            </div>
+          }
+
           <button
             class="ew-btn-submit"
             type="submit"

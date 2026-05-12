@@ -1,0 +1,177 @@
+.credit-card-page {
+  display: grid;
+  gap: 0;
+}
+
+// ── Chart panel ──────────────────────────────────────────────────
+.ccp-chart-panel {
+  margin-bottom: 18px;
+}
+
+.ccp-chart-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ccp-bars {
+  margin-bottom: 24px;
+  overflow-x: auto;
+
+  .ew-bars-v-col {
+    min-width: 36px;
+  }
+}
+
+.ccp-stats {
+  border-top: 1px solid var(--ew-line);
+  padding-top: 20px;
+  margin-top: 4px;
+}
+
+// ── Main row ─────────────────────────────────────────────────────
+.ccp-main-row {
+  grid-template-columns: 2fr 1fr;
+  align-items: start;
+}
+
+.ccp-charges-panel {
+  min-width: 0;
+}
+
+.ccp-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+// ── Filters row ──────────────────────────────────────────────────
+.ccp-filters-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  border-bottom: 1px solid var(--ew-line);
+  padding-bottom: 16px;
+  margin-bottom: 4px;
+}
+
+.ccp-search {
+  flex: 1 1 160px;
+  min-width: 120px;
+}
+
+.ccp-filter-select {
+  flex: 0 1 auto;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--ew-line-2);
+  padding: 6px 0;
+  color: var(--ew-ink);
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  outline: none;
+  cursor: pointer;
+
+  option {
+    background: var(--ew-panel-2);
+    color: var(--ew-ink);
+    text-transform: none;
+    font-family: var(--ew-sans);
+    font-size: 13px;
+    letter-spacing: 0;
+  }
+
+  &:focus {
+    border-color: var(--ew-acc);
+  }
+}
+
+// ── Table ────────────────────────────────────────────────────────
+.ccp-amount {
+  text-align: right;
+  color: var(--ew-ink) !important;
+  font-family: var(--ew-serif);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.ccp-footer-label {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  color: var(--ew-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+// ── Card list ────────────────────────────────────────────────────
+.ccp-card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 26px 16px;
+}
+
+.ccp-card-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ew-line);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.ccp-card-name {
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  color: var(--ew-ink);
+}
+
+.ccp-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink-3);
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+  flex: 0 0 32px;
+  cursor: pointer;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    color: var(--ew-bad);
+    border-color: var(--ew-bad);
+    background-color: rgba(217, 122, 108, 0.06);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+// ── Form ─────────────────────────────────────────────────────────
+.ccp-field-error {
+  margin: 7px 0 0;
+  color: var(--ew-bad);
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

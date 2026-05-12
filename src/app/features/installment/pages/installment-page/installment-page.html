@@ -1,0 +1,133 @@
+<div class="installment-page">
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">05 · Installments</div>
+      <h1 class="ew-page-title">Spread <em>across time.</em></h1>
+      <p class="ew-page-sub">
+        Track long-running purchases billed in monthly charges to a credit card.
+      </p>
+    </div>
+    <div class="ew-head-meta">
+      open · <b>{{ openCount() }}</b><br>
+      outstanding · <b class="ew-blur">{{ outstanding() | brlCurrency }}</b>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  }
+
+  <!-- ── Hero strip ───────────────────────────────────────────────── -->
+  <div class="ew-hero">
+    <div>
+      <div class="ew-hero-lbl">Open contracts</div>
+      <div class="ew-hero-val">{{ openCount() }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">active installment plans</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Outstanding</div>
+      <div class="ew-hero-val ew-blur">{{ outstanding() | brlCurrency }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">total remaining</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">This cycle</div>
+      <div class="ew-hero-val ew-blur">{{ thisCycleTotal() | brlCurrency }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">due this month</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Next finish</div>
+      <div class="ew-hero-val">{{ nextFinish() }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">earliest end date</div>
+    </div>
+  </div>
+
+  <!-- ── Active contracts ─────────────────────────────────────────── -->
+  <div class="ew-panel installment-schedule-panel" style="margin-bottom: 18px">
+    <div class="ew-panel-head">
+      <div>
+        <h3>Active <em>contracts</em></h3>
+        <p>All open installment plans</p>
+      </div>
+    </div>
+
+    <div class="installment-list-body">
+      @if (isLoading()) {
+        <div class="ew-empty">Loading...</div>
+      } @else if (listItems().length === 0) {
+        <div class="ew-empty">No installments for this wallet</div>
+      } @else {
+        @for (item of listItems(); track item.id) {
+          <div class="ew-alloc installment-alloc">
+            <div class="ew-alloc-name">
+              {{ item.description }}
+              <small>{{ item.creditCardName }} · started {{ item.purchaseDateLabel }}</small>
+            </div>
+            <div class="ew-alloc-bar">
+              <span class="ew-alloc-pct">{{ item.currentInstallment }}/{{ item.totalInstallments }}</span>
+              <div class="ew-alloc-bar-fill" [style.width]="item.progressPct + '%'"></div>
+            </div>
+            <div class="ew-alloc-nums installment-alloc-actions">
+              <div>
+                <b class="ew-blur">{{ item.installmentValue | brlCurrency }}/mo</b>
+                <small>{{ item.remainingAmount | brlCurrency }} left · ends {{ item.lastInstallmentDate }}</small>
+              </div>
+              <button
+                class="installment-delete-btn"
+                type="button"
+                aria-label="Delete installment"
+                title="Delete installment"
+                [disabled]="deletingId() === item.id"
+                (click)="onDeleteClick(item)"
+              >
+                @if (deletingId() === item.id) {
+                  <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+                } @else {
+                  <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                }
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+
+  <!-- ── Schedule preview ──────────────────────────────────────────── -->
+  @if (scheduleMonths().length > 0) {
+    <div class="ew-panel installment-schedule-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Monthly <em>load</em></h3>
+          <p>Projected installment charges per cycle</p>
+        </div>
+      </div>
+      <div class="ew-panel-body">
+        <div class="ew-bars-v installment-schedule-bars">
+          @for (month of scheduleMonths(); track month.label) {
+            <div
+              class="ew-bars-v-col installment-bar-col"
+              (mouseenter)="showTooltip($event, month)"
+              (mousemove)="moveTooltip($event)"
+              (mouseleave)="hideTooltip()"
+            >
+              <div class="ew-bars-v-bar installment-bar" [style.height]="month.height"></div>
+              <span>{{ month.label }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (tooltip(); as tip) {
+    <div
+      class="installment-tooltip"
+      [style.left.px]="tip.x + 14"
+      [style.top.px]="tip.y - 40"
+    >
+      <span class="installment-tooltip-label">{{ tip.label }}</span>
+      <span class="installment-tooltip-value ew-blur">{{ tip.total | brlCurrency }}</span>
+    </div>
+  }
+</div>

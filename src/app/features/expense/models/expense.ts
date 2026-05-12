@@ -14,6 +14,12 @@ export interface CreateExpenseRequest {
   readonly purchaseDate: string;
   readonly walletId: string;
   readonly bulletId?: string;
+  /** Required by API (@NotBlank) — must always be sent */
+  readonly creditCardId: string;
+  /** Only sent when installment=true */
+  readonly installment?: boolean;
+  /** Only sent when installment=true; API requires min=2, max=120 */
+  readonly installmentNumber?: number;
 }
 
 export interface PagedExpenseResponse {

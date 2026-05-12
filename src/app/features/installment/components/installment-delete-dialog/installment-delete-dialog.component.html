@@ -1,0 +1,25 @@
+<div class="idd-head" mat-dialog-title>
+  <div>
+    <h2 class="idd-title">Delete <em>installment?</em></h2>
+    <p class="idd-subtitle">This action cannot be undone</p>
+  </div>
+  <button class="idd-close" type="button" mat-icon-button (click)="cancel()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="idd-body">
+  <p class="idd-message">
+    You are about to remove
+    <strong>{{ data.description }}</strong>.
+    This action cannot be undone.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions class="idd-actions" align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button class="idd-delete-btn" type="button" (click)="confirm()">
+    <mat-icon aria-hidden="true">delete_outline</mat-icon>
+    Delete installment
+  </button>
+</mat-dialog-actions>

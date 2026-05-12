@@ -12,6 +12,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { ExpenseService } from '@features/expense/services/expense.service';
+import { InstallmentService } from '@features/installment/services/installment.service';
 import { SubscriptionService } from '@features/subscription/services/subscription.service';
 import { Subscription } from '@features/subscription/models/subscription';
 import { WalletService } from '@features/wallet/services/wallet.service';
@@ -40,13 +41,14 @@ interface MonthBar {
   readonly total: number;
 }
 
-interface SubscriptionMonthBar {
+interface SubsWalletPoint {
   readonly label: string;
-  readonly totalCount: number;
-  readonly activeCount: number;
-  readonly activeAmount: number;
-  readonly totalHeight: string;
-  readonly activeHeight: string;
+  readonly monthKey: string;
+  readonly walletSpent: number;
+  readonly subsAmount: number;
+  readonly x: number;
+  readonly walletY: number;
+  readonly subsY: number;
 }
 
 interface SpendingPoint extends MonthBar {
@@ -79,6 +81,7 @@ const MONTHS_IN_SERIES = 12;
 export class DashboardPage implements OnInit {
   private readonly bulletService = inject(BulletService);
   private readonly expenseService = inject(ExpenseService);
+  private readonly installmentService = inject(InstallmentService);
   private readonly subscriptionService = inject(SubscriptionService);
   private readonly walletService = inject(WalletService);
 
@@ -87,6 +90,9 @@ export class DashboardPage implements OnInit {
   });
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
+  private readonly installments = toSignal(this.installmentService.installments$, {
+    initialValue: [],
+  });
   private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {
     initialValue: [],
   });
@@ -137,43 +143,105 @@ export class DashboardPage implements OnInit {
     this.spendingPoints().map(({ label, total, height }) => ({ label, total, height })),
   );
 
-  protected readonly subscriptionBars = computed<readonly SubscriptionMonthBar[]>(() => {
+  protected readonly subsWalletPoints = computed<readonly SubsWalletPoint[]>(() => {
     const months = this.lastTwelveMonths();
-    const bars = months.map((month) => {
-      const subscriptions = this.subscriptions();
-      const totalCount = subscriptions.filter((subscription) =>
-        this.isSubscriptionInMonth(subscription, month.key),
-      ).length;
-      const activeCount = subscriptions.filter((subscription) =>
-        this.isSubscriptionActiveInMonth(subscription, month.key),
-      ).length;
-      const activeAmount = subscriptions.reduce(
-        (sum, subscription) =>
-          sum + (this.isSubscriptionActiveInMonth(subscription, month.key)
-            ? this.subscriptionAmountForMonth(subscription, month.key)
+
+    // Expenses spent per month
+    const spentByMonth = new Map<string, number>();
+    for (const expense of this.expenses()) {
+      const date = this.parseDate(expense.purchaseDate);
+      if (!date) continue;
+      const key = this.monthKey(date);
+      spentByMonth.set(key, (spentByMonth.get(key) ?? 0) + Number(expense.cost));
+    }
+
+    const raw = months.map((month) => {
+      const walletSpent = spentByMonth.get(month.key) ?? 0;
+      const subsAmount = this.subscriptions().reduce(
+        (sum, sub) =>
+          sum + (this.isSubscriptionActiveInMonth(sub, month.key)
+            ? this.subscriptionAmountForMonth(sub, month.key)
             : 0),
         0,
       );
-
-      return {
-        label: month.label,
-        totalCount,
-        activeCount,
-        activeAmount,
-      };
+      return { label: month.label, monthKey: month.key, walletSpent, subsAmount };
     });
-    const max = Math.max(...bars.flatMap((bar) => [bar.totalCount, bar.activeCount]), 0);
 
-    return bars.map((bar) => {
-      const totalRatio = max > 0 ? bar.totalCount / max : 0;
-      const activeRatio = max > 0 ? bar.activeCount / max : 0;
-      return {
-        ...bar,
-        totalHeight: `${Math.max(totalRatio * 100, bar.totalCount > 0 ? 4 : 0)}%`,
-        activeHeight: `${Math.max(activeRatio * 100, bar.activeCount > 0 ? 4 : 0)}%`,
-      };
-    });
+    const maxVal = Math.max(...raw.map((p) => Math.max(p.walletSpent, p.subsAmount)), 1);
+    const step = MONTHS_IN_SERIES > 1 ? (CHART_RIGHT - CHART_LEFT) / (MONTHS_IN_SERIES - 1) : (CHART_RIGHT - CHART_LEFT);
+    const usable = CHART_BOTTOM - CHART_TOP;
+
+    return raw.map((p, i) => ({
+      ...p,
+      x: Math.round(CHART_LEFT + i * step),
+      walletY: Math.round(CHART_BOTTOM - (p.walletSpent / maxVal) * usable),
+      subsY: Math.round(CHART_BOTTOM - (p.subsAmount / maxVal) * usable),
+    }));
   });
+
+  protected readonly hoveredSubsWalletPoint = signal<SubsWalletPoint | null>(null);
+
+  protected readonly subsWalletLinePath = computed(() => {
+    const pts = this.subsWalletPoints();
+    if (!pts.length) return { wallet: '', subs: '' };
+    return {
+      wallet: pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.walletY}`).join(' '),
+      subs: pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.subsY}`).join(' '),
+    };
+  });
+
+  protected readonly subsWalletAreaPath = computed(() => {
+    const { wallet, subs } = this.subsWalletLinePath();
+    if (!wallet) return { wallet: '', subs: '' };
+    return {
+      wallet: `${wallet} L${CHART_RIGHT},${CHART_BOTTOM} L${CHART_LEFT},${CHART_BOTTOM} Z`,
+      subs: `${subs} L${CHART_RIGHT},${CHART_BOTTOM} L${CHART_LEFT},${CHART_BOTTOM} Z`,
+    };
+  });
+
+  protected readonly subsCurrentWalletSpent = computed(() => {
+    const key = this.currentMonthKey();
+    return this.expenses()
+      .filter((e) => {
+        const d = this.parseDate(e.purchaseDate);
+        return d ? this.monthKey(d) === key : false;
+      })
+      .reduce((sum, e) => sum + Number(e.cost), 0);
+  });
+
+  protected readonly subsCurrentMonthAmount = computed(() => {
+    const key = this.currentMonthKey();
+    return this.subscriptions().reduce(
+      (sum, sub) =>
+        sum + (this.isSubscriptionActiveInMonth(sub, key)
+          ? this.subscriptionAmountForMonth(sub, key)
+          : 0),
+      0,
+    );
+  });
+
+  protected readonly subsSharePct = computed(() => {
+    const wallet = this.selectedWallet()?.budget ?? 0;
+    if (wallet <= 0) return '0.0';
+    return ((this.subsCurrentMonthAmount() / wallet) * 100).toFixed(1);
+  });
+
+  protected showSubsWalletTooltip(point: SubsWalletPoint): void {
+    this.hoveredSubsWalletPoint.set(point);
+  }
+
+  protected hideSubsWalletTooltip(): void {
+    this.hoveredSubsWalletPoint.set(null);
+  }
+
+  protected subsTooltipX(point: SubsWalletPoint): number {
+    if (point.x > CHART_WIDTH - 150) return point.x - 140;
+    return point.x + 12;
+  }
+
+  protected subsTooltipY(point: SubsWalletPoint): number {
+    return Math.max(CHART_TOP, Math.min(point.walletY, point.subsY) - 60);
+  }
 
   protected readonly spendingLinePath = computed(() => {
     const points = this.spendingPoints();
@@ -295,6 +363,27 @@ export class DashboardPage implements OnInit {
     this.expenses().reduce((acc, e) => acc + Number(e.remaining), 0),
   );
 
+  protected readonly installmentsCycleTotal = computed(() => {
+    const key = this.currentMonthKey();
+    return this.installments()
+      .filter((inst) => key >= inst.sourceEffectiveMonth && key <= inst.lastInstallmentDate)
+      .reduce((acc, inst) => acc + Number(inst.installmentValue), 0);
+  });
+
+  protected readonly installmentsActiveCount = computed(
+    () =>
+      this.installments().filter(
+        (inst) =>
+          this.currentMonthKey() >= inst.sourceEffectiveMonth &&
+          this.currentMonthKey() <= inst.lastInstallmentDate,
+      ).length,
+  );
+
+  private readonly currentMonthKey = computed(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+
   protected readonly utilizationPct = computed(() => {
     const cap = this.bulletsCap();
     if (cap <= 0) return 0;
@@ -380,6 +469,7 @@ export class DashboardPage implements OnInit {
       const walletId = this.selectedWallet()?.id ?? null;
       this.bulletService.loadByWalletId(walletId);
       this.expenseService.loadByWalletId(walletId);
+      this.installmentService.loadByWalletId(walletId);
     });
   }
 

@@ -1,5 +1,73 @@
 // EW design system tokens are declared globally in styles.scss
 
+// Hero: 5 columns for dashboard (overrides global 4-col default)
+.dashboard-hero-5col {
+  grid-template-columns: 2.4fr 1fr 1fr 1fr 1fr;
+}
+
+// Stats row: 2 equal columns
+.dashboard-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+// Recent expenses: full-width panel
+.dashboard-recent-panel {
+  margin-bottom: 18px;
+}
+
+// Subscriptions vs Wallet chart
+.dashboard-subs-chart {
+  width: 100%;
+  height: 200px;
+  display: block;
+  margin-bottom: 0;
+}
+
+.dashboard-subs-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  padding-top: 18px;
+  margin-top: 18px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.dashboard-subs-summary-lbl {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+}
+
+.dashboard-subs-summary-val {
+  font-family: var(--ew-serif);
+  font-size: 34px;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  color: var(--ew-acc);
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+
+  &--teal { color: #5fb6a5; }
+}
+
+.dashboard-subs-tooltip-wallet { fill: #5fb6a5 !important; }
+.dashboard-subs-tooltip-subs   { fill: var(--ew-acc) !important; }
+
+.dashboard-subs-pct {
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ew-ink-3);
+  font-weight: 400;
+}
+
+
+
 // Spending chart
 .dashboard-chart {
   width: 100%;
@@ -168,28 +236,6 @@
   }
 }
 
-.dashboard-subscription-bars {
-  .ew-bars-v-col {
-    min-width: 0;
-  }
-}
-
-.dashboard-grouped-bars {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: end;
-  gap: 4px;
-  width: 100%;
-  height: 100%;
-}
-
-.dashboard-subscription-total-bar {
-  background: linear-gradient(180deg, var(--ew-acc) 0%, rgba(214, 163, 113, 0.18) 100%);
-}
-
-.dashboard-subscription-active-bar {
-  background: linear-gradient(180deg, var(--ew-teal) 0%, rgba(95, 182, 165, 0.18) 100%);
-}
 
 .dashboard-legend-mini {
   display: flex;
@@ -208,16 +254,14 @@
   }
 
   i {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
     display: block;
-    background: var(--ew-acc);
   }
 
-  span:last-child i {
-    background: var(--ew-teal);
-  }
+  .dashboard-legend-mini-wallet { background: #5fb6a5; }
+  .dashboard-legend-mini-subs   { background: var(--ew-acc); }
 }
 
 :host ::ng-deep .ew-bars-v-col,

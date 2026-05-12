@@ -13,7 +13,7 @@
   </div>
 
   <!-- ── Hero strip ───────────────────────────────────────────────── -->
-  <div class="ew-hero">
+  <div class="ew-hero dashboard-hero-5col">
     <div>
       <div class="ew-hero-lbl">Wallet · available</div>
       <div class="ew-hero-featured-val ew-blur">
@@ -42,9 +42,14 @@
         {{ openExpenses() === 0 ? 'all settled' : 'unpaid' }}
       </div>
     </div>
+    <div>
+      <div class="ew-hero-lbl">Installments · cycle</div>
+      <div class="ew-hero-val ew-blur">{{ installmentsCycleTotal() | brlCurrency }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">— {{ installmentsActiveCount() }} active</div>
+    </div>
   </div>
 
-  <!-- ── Charts row ──────────────────────────────────────────────── -->
+  <!-- ── Charts row: spending line + donut ─────────────────────────── -->
   <div class="ew-row">
     <!-- Spending line chart -->
     <div class="ew-panel dashboard-tooltip-panel">
@@ -94,7 +99,7 @@
               }
             }
           } @else {
-            @for (point of spendingPoints(); track point.label; let i = $index) {
+            @for (point of spendingPoints(); track point.label) {
               <rect
                 [attr.x]="point.x - 14"
                 [attr.y]="point.y"
@@ -135,22 +140,11 @@
 
           @if (hoveredSpendingPoint(); as point) {
             <g class="dashboard-chart-tooltip">
-              <rect
-                [attr.x]="tooltipX(point)"
-                [attr.y]="tooltipY(point)"
-                width="108"
-                height="42"
-                rx="8"
-              />
-              <text
-                [attr.x]="tooltipX(point) + 12"
-                [attr.y]="tooltipY(point) + 17"
-              >{{ point.label | uppercase }}</text>
-              <text
-                [attr.x]="tooltipX(point) + 12"
-                [attr.y]="tooltipY(point) + 32"
-                class="dashboard-chart-tooltip-value"
-              >{{ point.total | brlCurrency }}</text>
+              <rect [attr.x]="tooltipX(point)" [attr.y]="tooltipY(point)" width="108" height="42" rx="8"/>
+              <text [attr.x]="tooltipX(point) + 12" [attr.y]="tooltipY(point) + 17">{{ point.label | uppercase }}</text>
+              <text [attr.x]="tooltipX(point) + 12" [attr.y]="tooltipY(point) + 32" class="dashboard-chart-tooltip-value">
+                {{ point.total | brlCurrency }}
+              </text>
             </g>
           }
         </svg>
@@ -204,13 +198,13 @@
     </div>
   </div>
 
-  <!-- ── Stats row ────────────────────────────────────────────────── -->
-  <div class="ew-row3">
+  <!-- ── Stats row: By month + Subscriptions vs Wallet ─────────────── -->
+  <div class="dashboard-stats-row">
     <!-- By month bar chart -->
     <div class="ew-panel">
       <div class="ew-panel-head">
         <div>
-          <h3>By month</h3>
+          <h3>By <em>month</em></h3>
           <p>Last 12 cycles · BRL</p>
         </div>
       </div>
@@ -230,76 +224,126 @@
       </div>
     </div>
 
-    <!-- Subscriptions by month -->
+    <!-- Subscriptions vs Wallet line chart -->
     <div class="ew-panel dashboard-tooltip-panel">
       <div class="ew-panel-head">
         <div>
-          <h3>Subscriptions</h3>
-          <p>Total vs active · active value</p>
+          <h3>Subscriptions <em>vs wallet</em></h3>
+          <p>Recurring cost share · last 12 cycles</p>
         </div>
         <div class="dashboard-legend-mini" aria-hidden="true">
-          <span><i></i>Total</span>
-          <span><i></i>Active</span>
+          <span><i class="dashboard-legend-mini-wallet"></i>Wallet</span>
+          <span><i class="dashboard-legend-mini-subs"></i>Subscriptions</span>
         </div>
       </div>
       <div class="ew-panel-body">
-        <div class="ew-bars-v dashboard-subscription-bars">
-          @for (bar of subscriptionBars(); track bar.label; let last = $last) {
-            <div class="ew-bars-v-col" [class.ew-bars-v-col--dim]="last">
-              <div class="dashboard-grouped-bars">
-                <div class="ew-bars-v-bar dashboard-subscription-total-bar" [style.height]="bar.totalHeight"></div>
-                <div class="ew-bars-v-bar dashboard-subscription-active-bar" [style.height]="bar.activeHeight"></div>
-              </div>
-              <div class="dashboard-inline-tooltip dashboard-inline-tooltip--wide">
-                <b>{{ bar.label | uppercase }}</b>
-                <span>Total · {{ bar.totalCount }}</span>
-                <span>Active · {{ bar.activeCount }}</span>
-                <span>Active value · {{ bar.activeAmount | brlCurrency }}</span>
-              </div>
-              <span>{{ bar.label }}</span>
-            </div>
-          }
-        </div>
-      </div>
-    </div>
+        <svg viewBox="0 0 600 200" preserveAspectRatio="none" class="dashboard-subs-chart" role="img" aria-label="Subscriptions vs wallet over 12 months">
+          <defs>
+            <linearGradient id="lg-wallet" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#5fb6a5" stop-opacity=".3"/>
+              <stop offset="100%" stop-color="#5fb6a5" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="lg-sub" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#d6a371" stop-opacity=".3"/>
+              <stop offset="100%" stop-color="#d6a371" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g stroke="#2a241e" stroke-width="1">
+            <line x1="0" y1="50"  x2="600" y2="50"/>
+            <line x1="0" y1="100" x2="600" y2="100"/>
+            <line x1="0" y1="150" x2="600" y2="150"/>
+          </g>
 
-    <!-- Recent expenses -->
-    <div class="ew-panel">
-      <div class="ew-panel-head">
-        <div>
-          <h3>Recent</h3>
-          <p>Expenses · cycle</p>
-        </div>
-      </div>
-      <div style="padding: 14px 26px 22px">
-        @if (isLoadingExpenses()) {
-          <div class="ew-empty">Loading...</div>
-        } @else if (recentExpenses().length === 0) {
-          <div class="ew-empty">No expenses this cycle</div>
-        } @else {
-          @for (expense of recentExpenses(); track expense.id) {
-            <div class="ew-alloc" style="grid-template-columns: 1fr auto; gap: 18px">
-              <div class="ew-alloc-name">
-                {{ expense.name }}
-                <small>{{ expense.purchaseDate | brDate }} · {{ expense.bulletLabel }}</small>
-              </div>
-              <div class="ew-alloc-nums">
-                <b class="ew-blur">{{ expense.cost | brlCurrency }}</b>
-                <small>{{ expense.statusLabel }}</small>
-              </div>
-            </div>
+          <!-- Wallet area + line -->
+          <path [attr.d]="subsWalletAreaPath().wallet" fill="url(#lg-wallet)"/>
+          <path [attr.d]="subsWalletLinePath().wallet" fill="none" stroke="#5fb6a5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+          <!-- Subscriptions area + line -->
+          <path [attr.d]="subsWalletAreaPath().subs" fill="url(#lg-sub)"/>
+          <path [attr.d]="subsWalletLinePath().subs" fill="none" stroke="#d6a371" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+          <!-- Hover hit areas -->
+          @for (pt of subsWalletPoints(); track pt.label) {
+            <rect
+              class="dashboard-chart-hit"
+              [attr.x]="pt.x - 22"
+              y="0"
+              width="44"
+              height="186"
+              (mouseenter)="showSubsWalletTooltip(pt)"
+              (mousemove)="showSubsWalletTooltip(pt)"
+              (mouseleave)="hideSubsWalletTooltip()"
+            />
           }
-        }
+
+          <!-- Dots on wallet line -->
+          @for (pt of subsWalletPoints(); track pt.label) {
+            @if (pt.walletSpent > 0) {
+              <circle [attr.cx]="pt.x" [attr.cy]="pt.walletY" r="3.5" fill="#5fb6a5"/>
+            }
+          }
+
+          <!-- Dots on subs line -->
+          @for (pt of subsWalletPoints(); track pt.label) {
+            @if (pt.subsAmount > 0) {
+              <circle [attr.cx]="pt.x" [attr.cy]="pt.subsY" r="3.5" fill="#d6a371"/>
+            }
+          }
+
+          <g fill="#7a6f5f" font-family="JetBrains Mono" font-size="9">
+            @for (pt of subsWalletPoints(); track pt.label; let i = $index) {
+              @if (i % 2 === 0 || i === 11) {
+                <text [attr.x]="pt.x" y="198" text-anchor="middle">{{ pt.label | uppercase }}</text>
+              }
+            }
+          </g>
+
+          <!-- Tooltip -->
+          @if (hoveredSubsWalletPoint(); as pt) {
+            <g class="dashboard-chart-tooltip">
+              <rect
+                [attr.x]="subsTooltipX(pt)"
+                [attr.y]="subsTooltipY(pt)"
+                width="138"
+                height="56"
+                rx="8"
+              />
+              <text [attr.x]="subsTooltipX(pt) + 12" [attr.y]="subsTooltipY(pt) + 17">{{ pt.label | uppercase }}</text>
+              <text [attr.x]="subsTooltipX(pt) + 12" [attr.y]="subsTooltipY(pt) + 33" class="dashboard-chart-tooltip-value dashboard-subs-tooltip-wallet">
+                ↑ {{ pt.walletSpent | brlCurrency }}
+              </text>
+              <text [attr.x]="subsTooltipX(pt) + 12" [attr.y]="subsTooltipY(pt) + 49" class="dashboard-chart-tooltip-value dashboard-subs-tooltip-subs">
+                ↓ {{ pt.subsAmount | brlCurrency }}
+              </text>
+            </g>
+          }
+        </svg>
+
+        <div class="dashboard-subs-summary">
+          <div>
+            <div class="dashboard-subs-summary-lbl">Wallet · spent this cycle</div>
+            <div class="dashboard-subs-summary-val dashboard-subs-summary-val--teal ew-blur">
+              {{ subsCurrentWalletSpent() | brlCurrency }}
+            </div>
+          </div>
+          <div>
+            <div class="dashboard-subs-summary-lbl">Subscriptions · current</div>
+            <div class="dashboard-subs-summary-val ew-blur">
+              {{ subsCurrentMonthAmount() | brlCurrency }}
+              <span class="dashboard-subs-pct">· {{ subsSharePct() }}%</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- ── Activity row ─────────────────────────────────────────────── -->
+  <!-- ── Activity heatmap ─────────────────────────────────────────── -->
   <div class="dashboard-activity-row">
     <div class="ew-panel dashboard-tooltip-panel">
       <div class="ew-panel-head">
         <div>
-          <h3>Activity heatmap</h3>
+          <h3>Activity <em>heatmap</em></h3>
           <p>{{ heatmapYear() }} · transactions</p>
         </div>
       </div>
@@ -319,6 +363,36 @@
           <span>Jan</span><span>Apr</span><span>Jul</span><span>Oct</span><span>Dec</span>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Recent expenses ──────────────────────────────────────────── -->
+  <div class="ew-panel dashboard-recent-panel">
+    <div class="ew-panel-head">
+      <div>
+        <h3>Recent <em>expenses</em></h3>
+        <p>Active cycle</p>
+      </div>
+    </div>
+    <div style="padding: 14px 26px 22px">
+      @if (isLoadingExpenses()) {
+        <div class="ew-empty">Loading...</div>
+      } @else if (recentExpenses().length === 0) {
+        <div class="ew-empty">No expenses this cycle</div>
+      } @else {
+        @for (expense of recentExpenses(); track expense.id) {
+          <div class="ew-alloc" style="grid-template-columns: 1fr auto; gap: 18px">
+            <div class="ew-alloc-name">
+              {{ expense.name }}
+              <small>{{ expense.purchaseDate | brDate }} · {{ expense.bulletLabel }}</small>
+            </div>
+            <div class="ew-alloc-nums">
+              <b class="ew-blur">{{ expense.cost | brlCurrency }}</b>
+              <small>{{ expense.statusLabel }}</small>
+            </div>
+          </div>
+        }
+      }
     </div>
   </div>
 </div>

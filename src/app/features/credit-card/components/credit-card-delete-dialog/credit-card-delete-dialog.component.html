@@ -1,0 +1,25 @@
+<div class="cdd-head" mat-dialog-title>
+  <div>
+    <h2 class="cdd-title">Delete <em>card?</em></h2>
+    <p class="cdd-subtitle">This action cannot be undone</p>
+  </div>
+  <button class="cdd-close" type="button" mat-icon-button (click)="cancel()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="cdd-body">
+  <p class="cdd-message">
+    You are about to permanently delete the credit card
+    <strong>{{ data.cardName }}</strong>.
+    This action cannot be undone.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions class="cdd-actions" align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button class="cdd-delete-btn" type="button" (click)="confirm()">
+    <mat-icon aria-hidden="true">delete_outline</mat-icon>
+    Delete card
+  </button>
+</mat-dialog-actions>

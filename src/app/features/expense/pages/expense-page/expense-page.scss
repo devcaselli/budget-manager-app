@@ -55,3 +55,12 @@
     cursor: not-allowed;
   }
 }
+
+.ep-field-error {
+  margin: 7px 0 0;
+  color: var(--ew-bad);
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
