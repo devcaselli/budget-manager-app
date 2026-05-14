@@ -152,6 +152,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  background: var(--ew-bg);
 }
 
 .ew-topbar {
@@ -246,34 +247,80 @@
 
 // ── Content area ──────────────────────────────────────────────────────────────
 .ew-content {
-  padding: 40px 48px 60px;
+  padding: clamp(28px, 3.2vw, 56px) clamp(28px, 3.6vw, 72px) 80px;
   flex: 1;
-  overflow: auto;
-  max-width: 1480px;
+  overflow-x: hidden;
+  overflow-y: auto;
   width: 100%;
+  min-width: 0;
+
+  // Centered mode: cap width and center
+  &--centered {
+    max-width: 1720px;
+    margin: 0 auto;
+  }
 }
 
 // ── Tweaks panel ──────────────────────────────────────────────────────────────
 .ew-tweaks {
   position: fixed;
-  right: 28px;
-  bottom: 28px;
   background: var(--ew-panel);
   border: 1px solid var(--ew-line-2);
   border-radius: 18px;
-  padding: 18px 20px;
+  padding: 0;
   font-size: 12px;
   color: var(--ew-ink-2);
   display: flex;
   flex-direction: column;
-  gap: 6px;
   min-width: 230px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   z-index: 100;
+  user-select: none;
+
+  &--dragging {
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.75);
+    opacity: 0.96;
+    cursor: grabbing;
+  }
+}
+
+.ew-tweaks-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 10px;
+  cursor: grab;
+  border-bottom: 1px solid var(--ew-line);
+  margin-bottom: 4px;
+
+  &:active { cursor: grabbing; }
+}
+
+.ew-tweaks-drag-dots {
+  display: grid;
+  grid-template-columns: repeat(3, 4px);
+  grid-template-rows: repeat(2, 4px);
+  gap: 3px;
+  opacity: 0.35;
+
+  i {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--ew-ink-2);
+    display: block;
+  }
+}
+
+.ew-tweaks-body {
+  padding: 6px 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .ew-tweaks-title {
-  margin: 0 0 6px;
+  margin: 0;
   font-family: var(--ew-mono);
   font-size: 10px;
   color: var(--ew-ink-3);
@@ -330,21 +377,494 @@
   }
 }
 
+// ── Wallet quick-view ─────────────────────────────────────────────────────────
+.ew-wallet-wrap {
+  position: relative;
+}
+
+.ew-wallet-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--ew-line);
+  border-radius: 14px;
+  background: var(--ew-panel-2);
+  color: var(--ew-ink);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  font-family: var(--ew-sans);
+  text-align: left;
+
+  &:hover {
+    border-color: var(--ew-line-2);
+  }
+
+  &[aria-expanded='true'] {
+    border-color: rgba(214, 163, 113, 0.35);
+    background: var(--ew-panel);
+
+    .ew-wb-chev {
+      color: var(--ew-acc);
+    }
+  }
+}
+
+.ew-wb-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ew-wb-eyebrow {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+}
+
+.ew-wb-amount {
+  font-family: var(--ew-serif);
+  font-size: 14px;
+  color: var(--ew-ink-2);
+  letter-spacing: -0.01em;
+
+  b {
+    font-family: var(--ew-serif);
+    font-size: 22px;
+    color: var(--ew-acc);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+}
+
+.ew-wb-chev {
+  width: 14px;
+  height: 14px;
+  color: var(--ew-ink-3);
+  flex: 0 0 14px;
+  transition: transform 0.2s, color 0.15s;
+
+  &--open {
+    transform: rotate(180deg);
+  }
+}
+
+// Popover — position:fixed so it escapes sidebar overflow:auto
+.ew-wallet-pop {
+  position: fixed;
+  width: 320px;
+  background: var(--ew-panel);
+  border: 1px solid var(--ew-line-2);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(214, 163, 113, 0.06);
+  z-index: 200;
+  animation: walletPopIn 0.2s cubic-bezier(0.2, 0.7, 0.3, 1);
+  transform: translateY(-100%); // top coord = button bottom → shift up so popover sits above
+
+  // Arrow pointing left
+  &::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    bottom: 24px;
+    width: 12px;
+    height: 12px;
+    background: var(--ew-panel);
+    border-left: 1px solid var(--ew-line-2);
+    border-bottom: 1px solid var(--ew-line-2);
+    transform: rotate(45deg);
+  }
+}
+
+@keyframes walletPopIn {
+  from { opacity: 0; transform: translateY(-100%) translateX(-8px); }
+  to   { opacity: 1; transform: translateY(-100%) translateX(0); }
+}
+
+.ew-wp-head {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--ew-line);
+}
+
+.ew-wp-eyebrow {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+}
+
+.ew-wp-amount {
+  font-family: var(--ew-serif);
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  color: var(--ew-acc);
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+
+  small {
+    font-family: var(--ew-sans);
+    font-size: 12px;
+    color: var(--ew-ink-3);
+    font-weight: 400;
+    margin-left: 6px;
+  }
+}
+
+.ew-wp-sec {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+  margin: 16px 0 6px;
+}
+
+.ew-wp-loading {
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  color: var(--ew-ink-3);
+  letter-spacing: 0.1em;
+  padding: 12px 0;
+}
+
+.ew-wp-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ew-wp-bullet {
+  display: grid;
+  grid-template-columns: 1fr 56px 80px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ew-line);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.ew-wp-bn {
+  font-family: var(--ew-serif);
+  font-size: 15px;
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+
+  small {
+    display: block;
+    font-family: var(--ew-mono);
+    font-size: 9px;
+    color: var(--ew-ink-3);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-top: 3px;
+    font-weight: 400;
+  }
+}
+
+.ew-wp-bar {
+  position: relative;
+  height: 2px;
+  background: var(--ew-line-2);
+  border-radius: 1px;
+  overflow: hidden;
+
+  i {
+    display: block;
+    height: 100%;
+    background: var(--ew-acc);
+    border-radius: 1px;
+  }
+}
+
+.ew-wp-val {
+  text-align: right;
+  font-family: var(--ew-serif);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+
+  small {
+    display: block;
+    font-family: var(--ew-mono);
+    font-size: 9px;
+    color: var(--ew-ink-3);
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+    font-weight: 400;
+  }
+}
+
+.ew-wp-cta {
+  margin-top: 16px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--ew-ink);
+  border: 1px solid var(--ew-line-2);
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-decoration: none;
+  font-weight: 500;
+
+  svg {
+    width: 12px;
+    height: 12px;
+    transition: transform 0.2s;
+  }
+
+  &:hover {
+    background: var(--ew-acc);
+    color: #1c1814;
+    border-color: var(--ew-acc);
+
+    svg { transform: translateX(3px); }
+  }
+}
+
+// ── User chip ─────────────────────────────────────────────────────────────────
+.ew-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--ew-line);
+  border-radius: 14px;
+  background: var(--ew-panel-2);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  position: relative;
+
+  &:hover {
+    border-color: var(--ew-line-2);
+  }
+}
+
+.ew-user-av {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, var(--ew-acc-2), var(--ew-acc) 70%);
+  display: grid;
+  place-items: center;
+  font-family: var(--ew-serif);
+  font-size: 18px;
+  font-style: italic;
+  font-weight: 500;
+  color: #1c1814;
+  flex: 0 0 34px;
+  line-height: 1;
+}
+
+.ew-user-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+
+  b {
+    display: block;
+    font-family: var(--ew-serif);
+    font-size: 16px;
+    line-height: 1.1;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  span {
+    display: block;
+    font-family: var(--ew-mono);
+    font-size: 10px;
+    color: var(--ew-ink-3);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.ew-user-logout {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  display: grid;
+  place-items: center;
+  color: var(--ew-ink-3);
+  flex: 0 0 30px;
+  transition: color 0.12s, border-color 0.12s;
+  background: transparent;
+  cursor: pointer;
+
+  svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  &:hover {
+    color: var(--ew-bad);
+    border-color: var(--ew-bad);
+  }
+}
+
 // ── Responsive ────────────────────────────────────────────────────────────────
-@media (max-width: 900px) {
+
+/* Tablet — icon-only sidebar (64px) */
+@media (max-width: 1024px) {
   .ew-app {
-    grid-template-columns: 1fr;
+    grid-template-columns: 64px 1fr;
   }
 
   .ew-side {
+    padding: 18px 10px;
+  }
+
+  .ew-brand-name,
+  .ew-nav-section,
+  .ew-side-card,
+  .ew-wallet-wrap {
     display: none;
+  }
+
+  .ew-nav-item {
+    justify-content: center;
+    padding: 10px 0;
+    font-size: 0;
+    gap: 0;
+
+    &::before {
+      content: attr(data-go);
+      font-family: var(--ew-mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: inherit;
+    }
+  }
+
+  .ew-nav-num {
+    display: none;
+  }
+
+  .ew-brand {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .ew-topbar {
+    padding: 12px 20px;
+    gap: 10px;
+  }
+
+  .ew-user-info,
+  .ew-user-logout {
+    display: none;
+  }
+
+  .ew-user-chip {
+    justify-content: center;
+    padding: 8px;
+  }
+}
+
+/* Phone — horizontal nav bar at top */
+@media (max-width: 640px) {
+  .ew-app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .ew-side {
+    position: relative;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--ew-line);
+    gap: 8px;
+    overflow-x: auto;
+  }
+
+  .ew-brand {
+    flex: 0 0 auto;
+  }
+
+  .ew-nav {
+    flex-direction: row;
+    flex: 1;
+    gap: 4px;
+    overflow-x: auto;
+  }
+
+  .ew-nav-section {
+    display: none;
+  }
+
+  .ew-nav-item {
+    border-left: 0;
+    flex: 0 0 auto;
+    font-size: 13px; // reset font-size: 0 inherited from 1024px breakpoint
+    gap: 6px;
+    padding: 8px 10px;
+
+    &--active {
+      border-left: 0;
+      color: var(--ew-acc);
+    }
+
+    &::before {
+      display: none;
+    }
+  }
+
+  .ew-nav-num {
+    display: inline;
+    font-size: 10px;
+  }
+
+  .ew-side-spacer,
+  .ew-side-card,
+  .ew-wallet-wrap {
+    display: none;
+  }
+
+  .ew-user-chip {
+    flex: 0 0 auto;
+    padding: 6px 8px;
+  }
+
+  .ew-content {
+    padding: 22px 18px 40px;
   }
 
   .ew-ticker {
     display: none;
-  }
-
-  .ew-content {
-    padding: 24px 20px 48px;
   }
 }

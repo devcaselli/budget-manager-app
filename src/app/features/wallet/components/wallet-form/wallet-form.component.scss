@@ -1,1 +1,6 @@
 // EW design system styles are declared globally — no local overrides needed.
+
+:host {
+  display: block;
+  min-width: 0;
+}

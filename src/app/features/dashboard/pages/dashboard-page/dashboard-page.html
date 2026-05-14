@@ -56,19 +56,34 @@
       <div class="ew-panel-head">
         <div>
           <h3>Spending <em>over time</em></h3>
-          <p>12-month rolling · BRL</p>
+          <p>{{ chartPeriod() }}-month rolling · all wallets · BRL</p>
         </div>
-        <div class="ew-tabs" aria-label="Chart display">
-          <button
-            [class.ew-tabs-on]="chartMode() === 'line'"
-            type="button"
-            (click)="setChartMode('line')"
-          >Line</button>
-          <button
-            [class.ew-tabs-on]="chartMode() === 'bars'"
-            type="button"
-            (click)="setChartMode('bars')"
-          >Bars</button>
+        <div class="ew-panel-head-actions">
+          <div class="ew-tabs" aria-label="Period">
+            <button
+              [class.ew-tabs-on]="chartPeriod() === '12'"
+              type="button"
+              (click)="setChartPeriod('12')"
+            >12M</button>
+            <button
+              [class.ew-tabs-on]="chartPeriod() === '24'"
+              type="button"
+              (click)="setChartPeriod('24')"
+            >24M</button>
+          </div>
+          <div class="ew-tabs" aria-label="Chart display">
+            <button
+              [class.ew-tabs-on]="chartMode() === 'line'"
+              type="button"
+              (click)="setChartMode('line')"
+            >Line</button>
+            <button
+              [class.ew-tabs-on]="chartMode() === 'bars'"
+              type="button"
+              (click)="setChartMode('bars')"
+            >Bars</button>
+          </div>
+          <button class="ew-btn ew-btn--ghost" type="button" (click)="downloadExport()" title="Export all expenses as CSV">↓ CSV</button>
         </div>
       </div>
       <div class="ew-panel-body">

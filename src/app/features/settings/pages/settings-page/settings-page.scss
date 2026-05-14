@@ -1,0 +1,265 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+.set-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--ew-line);
+  margin-bottom: 24px;
+
+  button {
+    padding: 14px 22px 16px;
+    background: none;
+    border: 0;
+    color: var(--ew-ink-3);
+    font-family: var(--ew-serif);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    &:hover { color: var(--ew-ink-2); }
+
+    &.set-tab--on {
+      color: var(--ew-ink);
+
+      &::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -1px;
+        height: 1px;
+        background: var(--ew-acc);
+      }
+
+      .set-tab-num { color: var(--ew-acc); }
+    }
+  }
+}
+
+.set-tab-num {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ew-ink-3);
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+// ── Pane ──────────────────────────────────────────────────────────────────────
+.set-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: setFadeIn 0.2s ease;
+}
+
+@keyframes setFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+// ── Form ──────────────────────────────────────────────────────────────────────
+.set-form {
+  max-width: 580px;
+}
+
+.set-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+// ── Danger zone ───────────────────────────────────────────────────────────────
+.set-danger-panel {
+  border-color: rgba(217, 122, 108, 0.3) !important;
+}
+
+.set-danger-head {
+  border-bottom-color: rgba(217, 122, 108, 0.2) !important;
+}
+
+.set-danger-title {
+  color: var(--ew-bad) !important;
+}
+
+.set-danger-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.set-danger-h {
+  font-family: var(--ew-serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.set-danger-p {
+  margin: 8px 0 0;
+  color: var(--ew-ink-2);
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 520px;
+}
+
+.set-btn-danger {
+  background: transparent;
+  border-color: var(--ew-bad);
+  color: var(--ew-bad);
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background: rgba(217, 122, 108, 0.08);
+    border-color: var(--ew-bad);
+    color: var(--ew-bad);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+// ── Set rows (toggle rows) ────────────────────────────────────────────────────
+.set-rows {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 0;
+  border-top: 1px solid var(--ew-line);
+
+  &:first-child {
+    border-top: 0;
+    padding-top: 6px;
+  }
+
+  &:last-child {
+    padding-bottom: 6px;
+  }
+}
+
+.set-row-h {
+  font-family: var(--ew-serif);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--ew-ink);
+}
+
+.set-row-p {
+  margin: 6px 0 0;
+  color: var(--ew-ink-3);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 540px;
+}
+
+// ── Switch (settings variant, larger than tweaks) ─────────────────────────────
+.set-switch {
+  flex: 0 0 auto;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+
+  i {
+    width: 44px;
+    height: 26px;
+    background: var(--ew-line-2);
+    border-radius: 99px;
+    position: relative;
+    transition: background 0.2s;
+    display: block;
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--ew-ink-2);
+      transition: left 0.2s, background 0.2s;
+    }
+  }
+
+  &--on i {
+    background: var(--ew-acc);
+
+    &::after {
+      left: 22px;
+      background: #1c1814;
+    }
+  }
+}
+
+// ── Delete dialog ─────────────────────────────────────────────────────────────
+.set-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 7, 5, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.set-dialog {
+  background: var(--ew-panel);
+  border: 1px solid rgba(217, 122, 108, 0.3);
+  border-radius: 20px;
+  padding: 36px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+}
+
+.set-dialog-title {
+  font-family: var(--ew-serif);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--ew-bad);
+}
+
+.set-dialog-p {
+  margin: 12px 0 0;
+  color: var(--ew-ink-2);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.set-dialog-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}

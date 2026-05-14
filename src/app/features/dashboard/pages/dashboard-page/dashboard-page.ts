@@ -18,6 +18,7 @@ import { Subscription } from '@features/subscription/models/subscription';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
+import { ChartPeriod } from '@features/expense/models/expense';
 
 interface DonutLegendItem {
   readonly label: string;
@@ -88,14 +89,29 @@ export class DashboardPage implements OnInit {
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
+  private readonly wallets = toSignal(this.walletService.wallets$, { initialValue: [] });
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
+  /** Expenses for current wallet — used in hero metrics and recent list */
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
+  /** Cross-wallet expenses — used in charts only */
+  private readonly allExpenses = toSignal(this.expenseService.allExpenses$, { initialValue: [] });
+
+  /** walletId → effectiveMonth map, rebuilt only when wallets list changes — O(n) */
+  private readonly walletEffectiveMonthMap = computed(() => {
+    const map = new Map<string, string>();
+    for (const w of this.wallets()) {
+      if (w.effectiveMonth) map.set(w.id, w.effectiveMonth);
+    }
+    return map;
+  });
   private readonly installments = toSignal(this.installmentService.installments$, {
     initialValue: [],
   });
   private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {
     initialValue: [],
   });
+
+  protected readonly chartPeriod = signal<ChartPeriod>('12');
 
   protected readonly isLoadingExpenses = toSignal(this.expenseService.loading$, {
     initialValue: false,
@@ -110,13 +126,13 @@ export class DashboardPage implements OnInit {
   protected readonly lastSync = signal('—');
 
   protected readonly spendingPoints = computed<readonly SpendingPoint[]>(() => {
-    const months = this.lastTwelveMonths();
+    const months = this.lastNMonths();
+    const walletMonthMap = this.walletEffectiveMonthMap();
     const totalsByMonth = new Map<string, number>();
 
-    for (const expense of this.expenses()) {
-      const date = this.parseDate(expense.purchaseDate);
-      if (!date) continue;
-      const key = this.monthKey(date);
+    for (const expense of this.allExpenses()) {
+      const key = walletMonthMap.get(expense.walletId) ?? null;
+      if (!key) continue;
       totalsByMonth.set(key, (totalsByMonth.get(key) ?? 0) + Number(expense.cost));
     }
 
@@ -124,7 +140,7 @@ export class DashboardPage implements OnInit {
     const max = Math.max(...totals, 0);
     const usableHeight = CHART_BOTTOM - CHART_TOP;
     const chartInnerWidth = CHART_RIGHT - CHART_LEFT;
-    const step = MONTHS_IN_SERIES > 1 ? chartInnerWidth / (MONTHS_IN_SERIES - 1) : chartInnerWidth;
+    const step = months.length > 1 ? chartInnerWidth / (months.length - 1) : chartInnerWidth;
 
     return months.map((month, index) => {
       const total = totals[index];
@@ -144,14 +160,14 @@ export class DashboardPage implements OnInit {
   );
 
   protected readonly subsWalletPoints = computed<readonly SubsWalletPoint[]>(() => {
-    const months = this.lastTwelveMonths();
+    const months = this.lastNMonths();
+    const walletMonthMap = this.walletEffectiveMonthMap();
 
-    // Expenses spent per month
+    // Expenses grouped by wallet effectiveMonth
     const spentByMonth = new Map<string, number>();
-    for (const expense of this.expenses()) {
-      const date = this.parseDate(expense.purchaseDate);
-      if (!date) continue;
-      const key = this.monthKey(date);
+    for (const expense of this.allExpenses()) {
+      const key = walletMonthMap.get(expense.walletId) ?? null;
+      if (!key) continue;
       spentByMonth.set(key, (spentByMonth.get(key) ?? 0) + Number(expense.cost));
     }
 
@@ -168,7 +184,7 @@ export class DashboardPage implements OnInit {
     });
 
     const maxVal = Math.max(...raw.map((p) => Math.max(p.walletSpent, p.subsAmount)), 1);
-    const step = MONTHS_IN_SERIES > 1 ? (CHART_RIGHT - CHART_LEFT) / (MONTHS_IN_SERIES - 1) : (CHART_RIGHT - CHART_LEFT);
+    const step = months.length > 1 ? (CHART_RIGHT - CHART_LEFT) / (months.length - 1) : (CHART_RIGHT - CHART_LEFT);
     const usable = CHART_BOTTOM - CHART_TOP;
 
     return raw.map((p, i) => ({
@@ -201,11 +217,9 @@ export class DashboardPage implements OnInit {
 
   protected readonly subsCurrentWalletSpent = computed(() => {
     const key = this.currentMonthKey();
-    return this.expenses()
-      .filter((e) => {
-        const d = this.parseDate(e.purchaseDate);
-        return d ? this.monthKey(d) === key : false;
-      })
+    const walletMonthMap = this.walletEffectiveMonthMap();
+    return this.allExpenses()
+      .filter((e) => (walletMonthMap.get(e.walletId) ?? null) === key)
       .reduce((sum, e) => sum + Number(e.cost), 0);
   });
 
@@ -271,7 +285,7 @@ export class DashboardPage implements OnInit {
     gridStart.setUTCDate(firstDay.getUTCDate() - firstDay.getUTCDay());
 
     const totalsByDay = new Map<string, { count: number; total: number }>();
-    for (const expense of this.expenses()) {
+    for (const expense of this.allExpenses()) {
       const date = this.parseDate(expense.purchaseDate);
       if (!date || date.getUTCFullYear() !== year) continue;
       const key = this.dayKey(date);
@@ -304,6 +318,22 @@ export class DashboardPage implements OnInit {
 
   protected setChartMode(mode: ChartMode): void {
     this.chartMode.set(mode);
+  }
+
+  protected setChartPeriod(period: ChartPeriod): void {
+    this.chartPeriod.set(period);
+    this.expenseService.loadMine(period);
+  }
+
+  protected downloadExport(): void {
+    this.expenseService.exportMine().subscribe((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'expenses.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
   }
 
   protected showSpendingTooltip(point: SpendingPoint): void {
@@ -464,6 +494,7 @@ export class DashboardPage implements OnInit {
 
   constructor() {
     this.subscriptionService.loadSubscriptions();
+    this.expenseService.loadMine(this.chartPeriod());
 
     effect(() => {
       const walletId = this.selectedWallet()?.id ?? null;
@@ -481,14 +512,15 @@ export class DashboardPage implements OnInit {
     this.lastSync.set('just now');
   }
 
-  private lastTwelveMonths(): readonly { readonly key: string; readonly label: string }[] {
+  private lastNMonths(): readonly { readonly key: string; readonly label: string }[] {
+    const months = Number(this.chartPeriod());
     const wallet = this.selectedWallet();
     const anchor = wallet?.effectiveMonth
       ? this.parseMonth(wallet.effectiveMonth)
       : new Date();
-    const start = new Date(anchor.getFullYear(), anchor.getMonth() - (MONTHS_IN_SERIES - 1), 1);
+    const start = new Date(anchor.getFullYear(), anchor.getMonth() - (months - 1), 1);
 
-    return Array.from({ length: MONTHS_IN_SERIES }, (_, index) => {
+    return Array.from({ length: months }, (_, index) => {
       const date = new Date(start.getFullYear(), start.getMonth() + index, 1);
       return {
         key: this.monthKey(date),

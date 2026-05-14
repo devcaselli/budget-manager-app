@@ -1,0 +1,166 @@
+<div class="ew-auth">
+  <!-- ── Hero (left) ─────────────────────────────────────────────── -->
+  <div class="ew-auth-hero">
+    <div class="ew-auth-hero-top">
+      <div class="ew-auth-hero-mark">B</div>
+      <div class="ew-auth-hero-name">
+        Budget
+        <span>Personal Ledger</span>
+      </div>
+    </div>
+
+    <div class="ew-auth-hero-quote">
+      <div class="ew-auth-hero-eyebrow">A budget for grown-ups</div>
+      <h1 class="ew-auth-hero-h">Spend with <em>intention.</em></h1>
+      <p class="ew-auth-hero-p">
+        Carve each month into wallets, bullets and subscriptions —
+        and watch every cent settle exactly where you planned.
+      </p>
+    </div>
+
+    <div class="ew-auth-hero-foot">
+      <div>
+        <b>R$&nbsp;8,900</b>tracked this cycle
+      </div>
+      <div>
+        <b>3 cards</b>under one roof
+      </div>
+      <div>
+        <b>2026.05</b>active cycle
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Form (right) ───────────────────────────────────────────── -->
+  <div class="ew-auth-form-side">
+    <!-- Tab switcher -->
+    <div class="ew-auth-tabs" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        [class.ew-on]="activeTab() === 'login'"
+        [attr.aria-selected]="activeTab() === 'login'"
+        (click)="activeTab.set('login')"
+      >
+        Sign in
+      </button>
+      <button
+        type="button"
+        role="tab"
+        [class.ew-on]="activeTab() === 'signup'"
+        [attr.aria-selected]="activeTab() === 'signup'"
+        (click)="activeTab.set('signup')"
+      >
+        Create account
+      </button>
+    </div>
+
+    <!-- Login form -->
+    @if (activeTab() === 'login') {
+      <form [formGroup]="loginForm" (ngSubmit)="onLoginSubmit()" novalidate>
+        <div class="ew-auth-form-field" style="margin-bottom: 28px">
+          <label for="login-email">Email</label>
+          <input
+            id="login-email"
+            type="email"
+            class="ew-auth-input"
+            formControlName="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="ew-auth-form-field" style="margin-bottom: 28px">
+          <label for="login-password">Password</label>
+          <input
+            id="login-password"
+            type="password"
+            class="ew-auth-input"
+            formControlName="password"
+            placeholder="your password"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <div class="ew-auth-err" role="alert" aria-live="polite">
+          {{ loginError() }}
+        </div>
+
+        <button type="submit" class="ew-auth-submit">Sign in</button>
+
+        <p class="ew-auth-hint">
+          No account yet?
+          <a (click)="activeTab.set('signup')" (keydown.enter)="activeTab.set('signup')" tabindex="0" role="button">
+            Create one
+          </a>
+        </p>
+      </form>
+    }
+
+    <!-- Signup form -->
+    @if (activeTab() === 'signup') {
+      <form [formGroup]="signupForm" (ngSubmit)="onSignupSubmit()" novalidate>
+        <div class="ew-auth-form-field" style="margin-bottom: 28px">
+          <label for="signup-email">Email</label>
+          <input
+            id="signup-email"
+            type="email"
+            class="ew-auth-input"
+            formControlName="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="ew-auth-form-field" style="margin-bottom: 8px">
+          <label for="signup-password">Password</label>
+          <input
+            id="signup-password"
+            type="password"
+            class="ew-auth-input"
+            formControlName="password"
+            placeholder="choose a strong password"
+            autocomplete="new-password"
+          />
+        </div>
+
+        <!-- Strength bar -->
+        <div class="ew-pw-strength" aria-hidden="true">
+          <i [style.width.%]="pwStrengthPercent()" [style.background]="pwStrengthColor()"></i>
+        </div>
+
+        <!-- Password rules grid -->
+        <div class="ew-pw-rules" aria-label="Password requirements">
+          @for (rule of pwRules(); track rule.label) {
+            <div [class.ew-ok]="rule.met">{{ rule.label }}</div>
+          }
+        </div>
+
+        <div class="ew-auth-form-field" style="margin-top: 28px; margin-bottom: 28px">
+          <label for="signup-confirm">Confirm password</label>
+          <input
+            id="signup-confirm"
+            type="password"
+            class="ew-auth-input"
+            formControlName="confirmPassword"
+            placeholder="repeat password"
+            autocomplete="new-password"
+          />
+        </div>
+
+        <div class="ew-auth-err" role="alert" aria-live="polite">
+          {{ signupError() }}
+        </div>
+
+        <button type="submit" class="ew-auth-submit">Create account</button>
+
+        <p class="ew-auth-hint">
+          Already have an account?
+          <a (click)="activeTab.set('login')" (keydown.enter)="activeTab.set('login')" tabindex="0" role="button">
+            Sign in
+          </a>
+        </p>
+      </form>
+    }
+  </div>
+</div>

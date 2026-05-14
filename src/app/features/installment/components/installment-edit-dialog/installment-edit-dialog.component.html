@@ -1,0 +1,83 @@
+<div class="ied-head" mat-dialog-title>
+  <div>
+    <h2 class="ied-title">Edit <em>installment</em></h2>
+    <p class="ied-subtitle">{{ data.description }}</p>
+  </div>
+  <button class="ied-close" type="button" mat-icon-button [mat-dialog-close]="null" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<form class="ied-form" [formGroup]="form" (ngSubmit)="submit()">
+  <mat-dialog-content class="ied-body">
+
+    <div class="ew-row-form">
+      <div class="ew-field">
+        <label for="ied-value">Installment value / mo</label>
+        <input
+          id="ied-value"
+          class="ew-input"
+          type="number"
+          min="0.01"
+          step="0.01"
+          formControlName="installmentValue"
+        />
+        @if (form.controls.installmentValue.touched && form.controls.installmentValue.invalid) {
+          <p class="ied-error">Enter a value greater than zero.</p>
+        }
+      </div>
+
+      <div class="ew-field">
+        <label for="ied-charges">Charges (min. 2)</label>
+        <input
+          id="ied-charges"
+          class="ew-input"
+          type="number"
+          min="2"
+          max="120"
+          step="1"
+          formControlName="installmentNumber"
+        />
+        @if (form.controls.installmentNumber.touched && form.controls.installmentNumber.invalid) {
+          <p class="ied-error">Enter 2–120 charges.</p>
+        }
+      </div>
+    </div>
+
+    <div class="ew-row-form">
+      <div class="ew-field">
+        <label for="ied-purchase-date">Purchase date</label>
+        <input id="ied-purchase-date" class="ew-input" type="date" formControlName="purchaseDate" />
+        @if (form.controls.purchaseDate.touched && form.controls.purchaseDate.invalid) {
+          <p class="ied-error">Enter a date.</p>
+        }
+      </div>
+
+      <div class="ew-field">
+        <label for="ied-effective-month">First billing month</label>
+        <input id="ied-effective-month" class="ew-input" type="month" formControlName="sourceEffectiveMonth" />
+        @if (form.controls.sourceEffectiveMonth.touched && form.controls.sourceEffectiveMonth.invalid) {
+          <p class="ied-error">Select a month.</p>
+        }
+      </div>
+    </div>
+
+    <div class="ew-field">
+      <label for="ied-card">Credit card</label>
+      <select id="ied-card" class="ew-select" formControlName="creditCardId">
+        @for (card of data.creditCards; track card.id) {
+          <option [value]="card.id">{{ card.name }}</option>
+        }
+      </select>
+      @if (form.controls.creditCardId.touched && form.controls.creditCardId.invalid) {
+        <p class="ied-error">Select a credit card.</p>
+      }
+    </div>
+
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="ied-actions" align="end">
+    <button class="ew-btn ew-btn--ghost" type="button" [mat-dialog-close]="null">Cancel</button>
+    <button class="ew-btn ew-btn--primary" type="submit">Save changes</button>
+  </mat-dialog-actions>
+</form>

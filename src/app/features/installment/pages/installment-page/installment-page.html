@@ -8,9 +8,20 @@
         Track long-running purchases billed in monthly charges to a credit card.
       </p>
     </div>
-    <div class="ew-head-meta">
-      open · <b>{{ openCount() }}</b><br>
-      outstanding · <b class="ew-blur">{{ outstanding() | brlCurrency }}</b>
+    <div class="installment-head-right">
+      <div class="ew-head-meta">
+        open · <b>{{ openCount() }}</b><br>
+        outstanding · <b class="ew-blur">{{ outstanding() | brlCurrency }}</b>
+      </div>
+      <button
+        class="installment-new-btn"
+        type="button"
+        [disabled]="isSaving()"
+        (click)="onNewClick()"
+      >
+        <mat-icon aria-hidden="true">add</mat-icon>
+        New installment
+      </button>
     </div>
   </div>
 
@@ -49,6 +60,30 @@
         <h3>Active <em>contracts</em></h3>
         <p>All open installment plans</p>
       </div>
+      <!-- ── Filters ── -->
+      <div class="installment-filters">
+        <select
+          class="ew-select installment-filter-select"
+          [value]="filter().creditCardId ?? ''"
+          (change)="onCreditCardFilterChange($any($event.target).value)"
+          aria-label="Filter by credit card"
+        >
+          <option value="">All cards</option>
+          @for (card of creditCards(); track card.id) {
+            <option [value]="card.id">{{ card.name }}</option>
+          }
+        </select>
+
+        <button
+          class="installment-sort-btn"
+          type="button"
+          [title]="filter().sort === 'ENDING_SOON' ? 'Sorted: ending soon first' : 'Sorted: ending late first'"
+          (click)="onSortToggle()"
+        >
+          <mat-icon aria-hidden="true">{{ filter().sort === 'ENDING_SOON' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+          {{ filter().sort === 'ENDING_SOON' ? 'Ending soon' : 'Ending late' }}
+        </button>
+      </div>
     </div>
 
     <div class="installment-list-body">
@@ -60,7 +95,20 @@
         @for (item of listItems(); track item.id) {
           <div class="ew-alloc installment-alloc">
             <div class="ew-alloc-name">
-              {{ item.description }}
+              <span class="installment-description-row">
+                {{ item.description }}
+                @if (item.details) {
+                  <span
+                    class="installment-notes-badge"
+                    (mouseenter)="showNotesTooltip($event, item.details)"
+                    (mousemove)="moveNotesTooltip($event)"
+                    (mouseleave)="hideNotesTooltip()"
+                    aria-label="Has notes"
+                  >
+                    <mat-icon aria-hidden="true">sticky_note_2</mat-icon>
+                  </span>
+                }
+              </span>
               <small>{{ item.creditCardName }} · started {{ item.purchaseDateLabel }}</small>
             </div>
             <div class="ew-alloc-bar">
@@ -72,25 +120,70 @@
                 <b class="ew-blur">{{ item.installmentValue | brlCurrency }}/mo</b>
                 <small>{{ item.remainingAmount | brlCurrency }} left · ends {{ item.lastInstallmentDate }}</small>
               </div>
-              <button
-                class="installment-delete-btn"
-                type="button"
-                aria-label="Delete installment"
-                title="Delete installment"
-                [disabled]="deletingId() === item.id"
-                (click)="onDeleteClick(item)"
-              >
-                @if (deletingId() === item.id) {
-                  <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
-                } @else {
-                  <mat-icon aria-hidden="true">delete_outline</mat-icon>
-                }
-              </button>
+              <div class="installment-row-actions">
+                <button
+                  class="installment-action-btn"
+                  type="button"
+                  aria-label="Edit notes"
+                  title="Edit notes"
+                  (click)="onNotesClick(item)"
+                >
+                  <mat-icon aria-hidden="true">sticky_note_2</mat-icon>
+                </button>
+                <button
+                  class="installment-action-btn"
+                  type="button"
+                  aria-label="Edit installment"
+                  title="Edit installment"
+                  (click)="onEditClick(item)"
+                >
+                  <mat-icon aria-hidden="true">edit_note</mat-icon>
+                </button>
+                <button
+                  class="installment-action-btn installment-action-btn--danger"
+                  type="button"
+                  aria-label="Delete installment"
+                  title="Delete installment"
+                  [disabled]="deletingId() === item.id"
+                  (click)="onDeleteClick(item)"
+                >
+                  @if (deletingId() === item.id) {
+                    <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+                  } @else {
+                    <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                  }
+                </button>
+              </div>
             </div>
           </div>
         }
       }
     </div>
+
+    <!-- ── Pagination ── -->
+    @if (pagination().totalPages > 1) {
+      <div class="installment-pagination">
+        <button
+          class="installment-page-btn"
+          type="button"
+          [disabled]="!hasPrev()"
+          (click)="onPrevPage()"
+          aria-label="Previous page"
+        >
+          <mat-icon aria-hidden="true">chevron_left</mat-icon>
+        </button>
+        <span class="installment-page-label">{{ pageLabel() }}</span>
+        <button
+          class="installment-page-btn"
+          type="button"
+          [disabled]="!hasNext()"
+          (click)="onNextPage()"
+          aria-label="Next page"
+        >
+          <mat-icon aria-hidden="true">chevron_right</mat-icon>
+        </button>
+      </div>
+    }
   </div>
 
   <!-- ── Schedule preview ──────────────────────────────────────────── -->
@@ -117,6 +210,20 @@
           }
         </div>
       </div>
+    </div>
+  }
+
+  @if (notesTooltip(); as tip) {
+    <div
+      class="installment-notes-tooltip"
+      [style.left.px]="tip.x + 16"
+      [style.top.px]="tip.y - 12"
+    >
+      <div class="installment-notes-tooltip-header">
+        <mat-icon aria-hidden="true">sticky_note_2</mat-icon>
+        <span>Notes</span>
+      </div>
+      <p class="installment-notes-tooltip-body">{{ tip.text }}</p>
     </div>
   }
 

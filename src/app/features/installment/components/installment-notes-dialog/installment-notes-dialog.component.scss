@@ -1,0 +1,141 @@
+.ind-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  border-bottom: 1px solid var(--ew-line);
+
+  &[mat-dialog-title] {
+    margin: 0;
+    padding: 24px 28px 18px;
+  }
+}
+
+.ind-head-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(214, 163, 113, 0.12);
+  color: var(--ew-acc);
+  flex: 0 0 40px;
+  margin-top: 2px;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.ind-title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ew-ink);
+}
+
+.ind-subtitle {
+  margin: 6px 0 0;
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  color: var(--ew-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.ind-close {
+  flex: 0 0 34px;
+  margin-left: auto;
+  color: var(--ew-ink-2);
+
+  &:hover {
+    color: var(--ew-ink);
+  }
+}
+
+.ind-form {
+  display: block;
+  min-width: min(26rem, calc(100vw - 4rem));
+}
+
+.ind-body {
+  padding: 24px 28px;
+}
+
+.ind-textarea {
+  resize: vertical;
+  min-height: 120px;
+  font-family: var(--ew-sans);
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.ind-counter {
+  margin-left: 8px;
+  font-family: var(--ew-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--ew-ink-3);
+  font-weight: 400;
+  text-transform: none;
+}
+
+.ind-error {
+  margin: 7px 0 0;
+  color: var(--ew-bad);
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ind-actions {
+  gap: 10px;
+  padding: 18px 28px 24px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.ew-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  &--primary {
+    background: var(--ew-acc);
+    color: #1c1814;
+    border-color: var(--ew-acc);
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background: var(--ew-acc-2);
+      border-color: var(--ew-acc-2);
+      color: #1c1814;
+    }
+  }
+
+  &--ghost {
+    border-color: transparent;
+  }
+}

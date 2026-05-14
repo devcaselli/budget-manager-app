@@ -1,0 +1,350 @@
+<div class="settings-page">
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">09 · Settings</div>
+      <h1 class="ew-page-title">Your <em>preferences.</em></h1>
+      <p class="ew-page-sub">Account, security and system-level toggles for this workspace.</p>
+    </div>
+    <div class="ew-head-meta">
+      signed in as<br>
+      <b>{{ userEmail() }}</b>
+    </div>
+  </div>
+
+  <!-- ── Tabs ─────────────────────────────────────────────────────── -->
+  <div class="set-tabs">
+    <button
+      [class.set-tab--on]="activeTab() === 'user'"
+      type="button"
+      (click)="setTab('user')"
+    >
+      <span class="set-tab-num">01</span>
+      <span>User</span>
+    </button>
+    <button
+      [class.set-tab--on]="activeTab() === 'security'"
+      type="button"
+      (click)="setTab('security')"
+    >
+      <span class="set-tab-num">02</span>
+      <span>Security</span>
+    </button>
+    <button
+      [class.set-tab--on]="activeTab() === 'system'"
+      type="button"
+      (click)="setTab('system')"
+    >
+      <span class="set-tab-num">03</span>
+      <span>System</span>
+    </button>
+  </div>
+
+  <!-- ── Tab: User ────────────────────────────────────────────────── -->
+  @if (activeTab() === 'user') {
+    <div class="set-pane">
+
+      <!-- Profile -->
+      <div class="ew-panel">
+        <div class="ew-panel-head">
+          <div>
+            <h3>Profile</h3>
+            <p>Identity for this account</p>
+          </div>
+        </div>
+        <div class="ew-panel-body">
+          <form class="ew-form set-form" [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+            <div class="ew-field">
+              <label>Display name</label>
+              <input class="ew-input" formControlName="name" placeholder="e.g. Lucas" />
+            </div>
+            <div class="ew-field">
+              <label>Email</label>
+              <input class="ew-input" formControlName="email" type="email" placeholder="you@domain.com" />
+            </div>
+            <div class="set-form-actions">
+              <button class="ew-btn ew-btn--primary" type="submit" disabled title="Backend not yet available">
+                Save changes
+              </button>
+              <button class="ew-btn ew-btn--ghost" type="button" (click)="profileForm.reset()">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="ew-panel set-danger-panel">
+        <div class="ew-panel-head set-danger-head">
+          <div>
+            <h3 class="set-danger-title">Danger zone</h3>
+            <p>Permanent actions · cannot be undone</p>
+          </div>
+        </div>
+        <div class="ew-panel-body set-danger-body">
+          <div>
+            <div class="set-danger-h">Delete this account</div>
+            <p class="set-danger-p">
+              All your wallets, bullets, expenses and cards will be erased.
+              You'll need to confirm by typing your email.
+            </p>
+          </div>
+          <button
+            class="ew-btn set-btn-danger"
+            type="button"
+            (click)="openDeleteDialog()"
+          >
+            Delete account
+          </button>
+        </div>
+      </div>
+
+    </div>
+  }
+
+  <!-- ── Tab: Security ────────────────────────────────────────────── -->
+  @if (activeTab() === 'security') {
+    <div class="set-pane">
+
+      <!-- Change password -->
+      <div class="ew-panel">
+        <div class="ew-panel-head">
+          <div>
+            <h3>Change <em>password</em></h3>
+            <p>Use 8+ characters, mixed case, numbers and symbols</p>
+          </div>
+        </div>
+        <div class="ew-panel-body">
+          <form class="ew-form set-form" [formGroup]="passwordForm" (ngSubmit)="updatePassword()">
+            <div class="ew-field">
+              <label>Current password</label>
+              <input class="ew-input" formControlName="current" type="password" placeholder="••••••••" />
+            </div>
+            <div class="ew-field">
+              <label>New password</label>
+              <input class="ew-input" formControlName="newPw" type="password" placeholder="••••••••" />
+            </div>
+
+            <!-- Strength bar -->
+            <div class="ew-pw-strength">
+              <i [style.width]="pwStrengthWidth()" [style.background]="pwStrengthColor()"></i>
+            </div>
+
+            <!-- Rules -->
+            <div class="ew-pw-rules">
+              <div [class.ew-ok]="pwRules().len">8+ characters</div>
+              <div [class.ew-ok]="pwRules().upper">Uppercase letter</div>
+              <div [class.ew-ok]="pwRules().lower">Lowercase letter</div>
+              <div [class.ew-ok]="pwRules().num">A number</div>
+              <div [class.ew-ok]="pwRules().sym">A symbol</div>
+              <div [class.ew-ok]="pwRules().match">Both match</div>
+            </div>
+
+            <div class="ew-field">
+              <label>Confirm new password</label>
+              <input class="ew-input" formControlName="confirm" type="password" placeholder="••••••••" />
+            </div>
+
+            <div class="set-form-actions">
+              <button
+                class="ew-btn ew-btn--primary"
+                type="submit"
+                disabled
+                title="Backend not yet available"
+              >
+                Update password
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- 2FA -->
+      <div class="ew-panel">
+        <div class="ew-panel-head">
+          <div>
+            <h3>Two-factor <em>authentication</em></h3>
+            <p>Add a second layer to every sign-in</p>
+          </div>
+        </div>
+        <div class="ew-panel-body set-rows">
+          <div class="set-row">
+            <div>
+              <div class="set-row-h">Authenticator app</div>
+              <p class="set-row-p">Use Google Authenticator, 1Password or Authy to generate codes.</p>
+            </div>
+            <button
+              class="set-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="mfaApp()"
+              [class.set-switch--on]="mfaApp()"
+              (click)="toggleMfaApp()"
+            ><i></i></button>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-row-h">SMS codes</div>
+              <p class="set-row-p">Send 6-digit codes to your phone. Less secure than an app.</p>
+            </div>
+            <button
+              class="set-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="mfaSms()"
+              [class.set-switch--on]="mfaSms()"
+              (click)="toggleMfaSms()"
+            ><i></i></button>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-row-h">Recovery codes</div>
+              <p class="set-row-p">Download 10 single-use codes for emergencies.</p>
+            </div>
+            <button class="ew-btn" type="button" disabled title="Backend not yet available">
+              Generate
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  }
+
+  <!-- ── Tab: System ──────────────────────────────────────────────── -->
+  @if (activeTab() === 'system') {
+    <div class="set-pane">
+
+      <!-- Appearance -->
+      <div class="ew-panel">
+        <div class="ew-panel-head">
+          <div>
+            <h3>Appearance</h3>
+            <p>Visual preferences for this device</p>
+          </div>
+        </div>
+        <div class="ew-panel-body set-rows">
+          <div class="set-row">
+            <div>
+              <div class="set-row-h">Dark theme</div>
+              <p class="set-row-p">Use the dark editorial palette across the app.</p>
+            </div>
+            <button
+              class="set-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="prefs.darkTheme()"
+              [class.set-switch--on]="prefs.darkTheme()"
+              (click)="toggleDarkTheme()"
+            ><i></i></button>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-row-h">Privacy mode</div>
+              <p class="set-row-p">Blur every monetary value across the app.</p>
+            </div>
+            <button
+              class="set-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="prefs.privacyMode()"
+              [class.set-switch--on]="prefs.privacyMode()"
+              (click)="togglePrivacy()"
+            ><i></i></button>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-row-h">Centered layout</div>
+              <p class="set-row-p">Constrain the main content to a comfortable max-width.</p>
+            </div>
+            <button
+              class="set-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="prefs.centeredLayout()"
+              [class.set-switch--on]="prefs.centeredLayout()"
+              (click)="toggleCenteredLayout()"
+            ><i></i></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Workspace -->
+      <div class="ew-panel">
+        <div class="ew-panel-head">
+          <div>
+            <h3>Workspace</h3>
+            <p>Behaviour and feature flags</p>
+          </div>
+        </div>
+        <div class="ew-panel-body set-rows">
+          <div class="set-row">
+            <div>
+              <div class="set-row-h">Feature flags</div>
+              <p class="set-row-p">Enable experimental features being rolled out gradually.</p>
+            </div>
+            <button
+              class="set-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="prefs.featureFlags()"
+              [class.set-switch--on]="prefs.featureFlags()"
+              (click)="toggleFeatureFlags()"
+            ><i></i></button>
+          </div>
+          <div class="set-row">
+            <div>
+              <div class="set-row-h">Show Tweaks panel</div>
+              <p class="set-row-p">Toggle the floating Tweaks panel in the bottom right.</p>
+            </div>
+            <button
+              class="set-switch"
+              type="button"
+              role="switch"
+              [attr.aria-checked]="prefs.showTweaks()"
+              [class.set-switch--on]="prefs.showTweaks()"
+              (click)="toggleShowTweaks()"
+            ><i></i></button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  }
+</div>
+
+<!-- ── Delete account dialog ────────────────────────────────────── -->
+@if (showDeleteDialog()) {
+  <div class="set-overlay" (click)="closeDeleteDialog()" aria-modal="true" role="dialog">
+    <div class="set-dialog" (click)="$event.stopPropagation()">
+      <div class="set-dialog-title">Delete account</div>
+      <p class="set-dialog-p">
+        This will permanently erase all your data. Type your email to confirm.
+      </p>
+      <div class="ew-field" style="margin: 20px 0">
+        <label>Your email</label>
+        <input
+          class="ew-input"
+          type="email"
+          [value]="deleteEmailInput()"
+          (input)="deleteEmailInput.set($any($event.target).value)"
+          [placeholder]="userEmail()"
+        />
+      </div>
+      <div class="set-dialog-actions">
+        <button
+          class="ew-btn set-btn-danger"
+          type="button"
+          [disabled]="!deleteConfirmEnabled()"
+          (click)="confirmDeleteAccount()"
+        >
+          Confirm delete
+        </button>
+        <button class="ew-btn ew-btn--ghost" type="button" (click)="closeDeleteDialog()">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+}

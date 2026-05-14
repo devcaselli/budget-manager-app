@@ -14,7 +14,7 @@ import {
 
 import { environment } from '@environments/environment';
 
-import { CreateExpenseRequest, Expense, PagedExpenseResponse } from '../models/expense';
+import { ChartPeriod, CreateExpenseRequest, Expense, PagedExpenseResponse } from '../models/expense';
 
 @Injectable({
   providedIn: 'root',
@@ -24,6 +24,7 @@ export class ExpenseService {
   private readonly expensesUrl = `${environment.apiUrl}/expenses`;
 
   private readonly expensesSubject = new BehaviorSubject<readonly Expense[]>([]);
+  private readonly allExpensesSubject = new BehaviorSubject<readonly Expense[]>([]);
   private readonly loadingSubject = new BehaviorSubject(false);
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
@@ -32,6 +33,7 @@ export class ExpenseService {
   private activeLoadingRequests = 0;
 
   readonly expenses$ = this.expensesSubject.asObservable();
+  readonly allExpenses$ = this.allExpensesSubject.asObservable();
   readonly loading$ = this.loadingSubject.asObservable();
   readonly saving$ = this.savingSubject.asObservable();
   readonly deleting$ = this.deletingSubject.asObservable();
@@ -76,6 +78,24 @@ export class ExpenseService {
     return this.http.get<PagedExpenseResponse>(`${this.expensesUrl}/wallet/${walletId}`, {
       params,
     });
+  }
+
+  findMine(months: ChartPeriod = '12'): Observable<readonly Expense[]> {
+    const params = new HttpParams().set('months', months);
+    return this.http.get<Expense[]>(`${this.expensesUrl}/mine`, { params });
+  }
+
+  exportMine(): Observable<Blob> {
+    return this.http.get(`${this.expensesUrl}/mine/export`, {
+      responseType: 'blob',
+    });
+  }
+
+  loadMine(months: ChartPeriod = '12'): void {
+    this.findMine(months).pipe(
+      tap((expenses) => this.allExpensesSubject.next(expenses)),
+      catchError(() => EMPTY),
+    ).subscribe();
   }
 
   create(input: CreateExpenseRequest): Observable<Expense> {

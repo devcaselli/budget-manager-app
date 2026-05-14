@@ -19,6 +19,7 @@
           routerLinkActive="ew-nav-item--active"
           [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
           [attr.aria-label]="item.label"
+          [attr.data-go]="item.label.toLowerCase()"
         >
           <span class="ew-nav-num">{{ item.num }}</span>
           {{ item.label }}
@@ -34,6 +35,7 @@
           routerLinkActive="ew-nav-item--active"
           [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
           [attr.aria-label]="item.label"
+          [attr.data-go]="item.label.toLowerCase()"
         >
           <span class="ew-nav-num">{{ item.num }}</span>
           {{ item.label }}
@@ -44,11 +46,56 @@
     <div class="ew-side-spacer"></div>
 
     @if (selectedWallet(); as wallet) {
-      <div class="ew-side-card" aria-label="Active wallet">
-        <b class="ew-blur">{{ wallet.remaining | brlCurrency }}</b>
-        <span>available · cycle {{ wallet.effectiveMonth }}</span>
+      <!-- Wallet quick-view button -->
+      <div class="ew-wallet-wrap">
+        <button
+          class="ew-wallet-btn"
+          type="button"
+          [attr.aria-expanded]="walletPopOpen()"
+          (click)="toggleWalletPop($event)"
+        >
+          <div class="ew-wb-left">
+            <span class="ew-wb-eyebrow">Available</span>
+            <span class="ew-wb-amount">
+              <b class="ew-blur">{{ wallet.remaining | brlCurrency }}</b>
+            </span>
+          </div>
+          <svg class="ew-wb-chev" [class.ew-wb-chev--open]="walletPopOpen()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
       </div>
     }
+
+    <!-- User chip -->
+    <div
+      class="ew-user-chip"
+      (click)="toggleUserMenu()"
+      [attr.aria-expanded]="userMenuOpen()"
+      role="button"
+      tabindex="0"
+      (keydown.enter)="toggleUserMenu()"
+      aria-label="User menu"
+    >
+      <div class="ew-user-av">{{ userInitials() }}</div>
+      <div class="ew-user-info">
+        <b>{{ userName() }}</b>
+        <span>{{ userEmail() }}</span>
+      </div>
+      <button
+        class="ew-user-logout"
+        type="button"
+        (click)="logout($event)"
+        aria-label="Sign out"
+        title="Sign out"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+    </div>
   </aside>
 
   <!-- ── Main area ───────────────────────────────────────────────── -->
@@ -85,35 +132,115 @@
     </header>
 
     <!-- Page content -->
-    <main class="ew-content" role="main">
+    <main class="ew-content" [class.ew-content--centered]="prefs.centeredLayout()" role="main">
       <router-outlet />
     </main>
   </div>
 </div>
 
+<!-- ── Wallet popover — rendered outside sidebar to escape overflow:auto ── -->
+@if (walletPopOpen() && selectedWallet(); as wallet) {
+  <div
+    class="ew-wallet-pop"
+    role="dialog"
+    aria-label="Wallet details"
+    [style.top.px]="walletPopCoords().top"
+    [style.left.px]="walletPopCoords().left"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="ew-wp-head">
+      <div class="ew-wp-eyebrow">Wallet · {{ wallet.description }}</div>
+      <div class="ew-wp-amount ew-blur">
+        {{ wallet.remaining | brlCurrency }}
+        <small>of {{ wallet.budget | brlCurrency }}</small>
+      </div>
+    </div>
+
+    <div class="ew-wp-sec">Top bullets</div>
+    @if (bulletsLoading()) {
+      <div class="ew-wp-loading">Loading…</div>
+    } @else if (bullets().length > 0) {
+      <div class="ew-wp-list">
+        @for (bullet of bullets().slice(0, 3); track bullet.id) {
+          @let pct = bullet.budget > 0 ? (bullet.budget - bullet.remaining) / bullet.budget * 100 : 0;
+          <div class="ew-wp-bullet">
+            <div class="ew-wp-bn">
+              {{ bullet.description }}
+              <small>{{ pct | number:'1.0-0' }}% used</small>
+            </div>
+            <div class="ew-wp-bar">
+              <i [style.width.%]="pct"></i>
+            </div>
+            <div class="ew-wp-val ew-blur">
+              {{ bullet.remaining | brlCurrency }}
+              <small>/ {{ bullet.budget | brlCurrency }}</small>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="ew-wp-loading">No bullets yet</div>
+    }
+
+    <a class="ew-wp-cta" routerLink="/bullets" (click)="closeWalletPop()">
+      Go to bullets
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </a>
+  </div>
+}
+
 <!-- ── Tweaks panel ───────────────────────────────────────────────── -->
-<div class="ew-tweaks" aria-label="Display preferences">
-  <h6 class="ew-tweaks-title">Tweaks</h6>
+@if (prefs.showTweaks()) {
+<div
+  class="ew-tweaks"
+  aria-label="Display preferences"
+  [class.ew-tweaks--dragging]="tweaksDragging()"
+  [style.left.px]="tweaksPos().x"
+  [style.top.px]="tweaksPos().y"
+>
+  <div class="ew-tweaks-drag-handle" (mousedown)="startDrag($event)" aria-hidden="true">
+    <div class="ew-tweaks-drag-dots">
+      <i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+    <h6 class="ew-tweaks-title">Tweaks</h6>
+  </div>
 
-  <button
-    class="ew-switch"
-    type="button"
-    role="switch"
-    [attr.aria-checked]="darkTheme()"
-    (click)="toggleTheme()"
-  >
-    <span>Dark theme</span>
-    <i class="ew-switch-track" [class.ew-switch-track--on]="darkTheme()"></i>
-  </button>
+  <div class="ew-tweaks-body">
+    <button
+      class="ew-switch"
+      type="button"
+      role="switch"
+      [attr.aria-checked]="prefs.darkTheme()"
+      (click)="toggleTheme()"
+    >
+      <span>Dark theme</span>
+      <i class="ew-switch-track" [class.ew-switch-track--on]="prefs.darkTheme()"></i>
+    </button>
 
-  <button
-    class="ew-switch"
-    type="button"
-    role="switch"
-    [attr.aria-checked]="privacyMode()"
-    (click)="togglePrivacy()"
-  >
-    <span>Privacy mode</span>
-    <i class="ew-switch-track" [class.ew-switch-track--on]="privacyMode()"></i>
-  </button>
+    <button
+      class="ew-switch"
+      type="button"
+      role="switch"
+      [attr.aria-checked]="prefs.privacyMode()"
+      (click)="togglePrivacy()"
+    >
+      <span>Privacy mode</span>
+      <i class="ew-switch-track" [class.ew-switch-track--on]="prefs.privacyMode()"></i>
+    </button>
+
+    <button
+      class="ew-switch"
+      type="button"
+      role="switch"
+      [attr.aria-checked]="prefs.centeredLayout()"
+      (click)="toggleLayout()"
+    >
+      <span>Centered layout</span>
+      <i class="ew-switch-track" [class.ew-switch-track--on]="prefs.centeredLayout()"></i>
+    </button>
+  </div>
 </div>
+}

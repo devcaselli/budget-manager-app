@@ -175,3 +175,19 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+@media (max-width: 1280px) {
+  .ccp-main-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .ccp-filters-row {
+    gap: 8px;
+  }
+
+  .ccp-filter-select {
+    font-size: 10px;
+  }
+}

@@ -1,0 +1,131 @@
+<div class="icd-head" mat-dialog-title>
+  <div>
+    <h2 class="icd-title">New <em>installment</em></h2>
+    <p class="icd-subtitle">Standalone · credit card plan</p>
+  </div>
+  <button class="icd-close" type="button" mat-icon-button mat-dialog-close aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<form class="icd-form" [formGroup]="form" (ngSubmit)="submit()">
+  <mat-dialog-content class="icd-body">
+    <div class="ew-field">
+      <label for="icd-description">Description</label>
+      <input
+        id="icd-description"
+        #descriptionInput
+        class="ew-input"
+        formControlName="description"
+        placeholder="e.g. Laptop MacBook"
+      />
+      @if (form.controls.description.touched && form.controls.description.invalid) {
+        <p class="icd-error">Enter a description.</p>
+      }
+    </div>
+
+    <div class="ew-row-form">
+      <div class="ew-field">
+        <label for="icd-amount">
+          {{ valueModeLabel }}
+          <button class="icd-mode-toggle" type="button" (click)="toggleValueMode()">
+            switch
+          </button>
+        </label>
+        <input
+          id="icd-amount"
+          class="ew-input"
+          type="number"
+          min="0.01"
+          step="0.01"
+          formControlName="amount"
+          [placeholder]="valuePlaceholder"
+        />
+        @if (form.controls.amount.touched && form.controls.amount.invalid) {
+          <p class="icd-error">Enter an amount greater than zero.</p>
+        }
+      </div>
+
+      <div class="ew-field">
+        <label for="icd-currency">Currency</label>
+        <input
+          id="icd-currency"
+          class="ew-input"
+          formControlName="currency"
+          placeholder="BRL"
+          maxlength="3"
+        />
+        @if (form.controls.currency.touched && form.controls.currency.invalid) {
+          <p class="icd-error">Enter currency code.</p>
+        }
+      </div>
+    </div>
+
+    <div class="ew-row-form">
+      <div class="ew-field">
+        <label for="icd-charges">Charges (min. 2)</label>
+        <input
+          id="icd-charges"
+          class="ew-input"
+          type="number"
+          min="2"
+          max="120"
+          step="1"
+          formControlName="installmentNumber"
+          placeholder="e.g. 12"
+        />
+        @if (form.controls.installmentNumber.touched && form.controls.installmentNumber.invalid) {
+          <p class="icd-error">Enter 2–120 charges.</p>
+        }
+      </div>
+
+      <div class="ew-field">
+        <label for="icd-date">Purchase date</label>
+        <input id="icd-date" class="ew-input" type="date" formControlName="purchaseDate" />
+        @if (form.controls.purchaseDate.touched && form.controls.purchaseDate.invalid) {
+          <p class="icd-error">Enter a date.</p>
+        }
+      </div>
+    </div>
+
+    <div class="ew-field">
+      <label for="icd-effective-month">First billing month</label>
+      <input
+        id="icd-effective-month"
+        class="ew-input"
+        type="month"
+        formControlName="sourceEffectiveMonth"
+      />
+      @if (form.controls.sourceEffectiveMonth.touched && form.controls.sourceEffectiveMonth.invalid) {
+        <p class="icd-error">Select the first billing month.</p>
+      }
+    </div>
+
+    <div class="ew-field">
+      <label for="icd-card">Credit card</label>
+      <select id="icd-card" class="ew-select" formControlName="creditCardId">
+        <option value="">— Select a card —</option>
+        @for (card of data.creditCards; track card.id) {
+          <option [value]="card.id">{{ card.name }}</option>
+        }
+      </select>
+      @if (form.controls.creditCardId.touched && form.controls.creditCardId.invalid) {
+        <p class="icd-error">Select a credit card.</p>
+      }
+    </div>
+    <button
+      class="ew-checkbox"
+      type="button"
+      [class.ew-checkbox--on]="form.controls.keepOpen.value"
+      (click)="form.controls.keepOpen.setValue(!form.controls.keepOpen.value)"
+    >
+      <i></i>
+      <span>Keep modal open after saving</span>
+    </button>
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="icd-actions" align="end">
+    <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
+    <button class="ew-btn ew-btn--primary" type="submit">+ Add installment</button>
+  </mat-dialog-actions>
+</form>

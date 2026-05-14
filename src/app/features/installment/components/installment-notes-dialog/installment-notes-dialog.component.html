@@ -1,0 +1,40 @@
+<div class="ind-head" mat-dialog-title>
+  <div class="ind-head-icon">
+    <mat-icon aria-hidden="true">sticky_note_2</mat-icon>
+  </div>
+  <div>
+    <h2 class="ind-title">Notes</h2>
+    <p class="ind-subtitle">{{ data.description }}</p>
+  </div>
+  <button class="ind-close" type="button" mat-icon-button [mat-dialog-close]="null" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<form class="ind-form" [formGroup]="form" (ngSubmit)="submit()">
+  <mat-dialog-content class="ind-body">
+    <div class="ew-field">
+      <label for="ind-details">
+        Notes
+        <span class="ind-counter">{{ remaining }} left</span>
+      </label>
+      <textarea
+        id="ind-details"
+        class="ew-input ind-textarea"
+        formControlName="details"
+        placeholder="e.g. Bought at store X, 2 year warranty, receipt #4521…"
+        rows="6"
+        maxlength="500"
+        autofocus
+      ></textarea>
+      @if (form.controls.details.touched && form.controls.details.invalid) {
+        <p class="ind-error">Max 500 characters.</p>
+      }
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="ind-actions" align="end">
+    <button class="ew-btn ew-btn--ghost" type="button" [mat-dialog-close]="null">Cancel</button>
+    <button class="ew-btn ew-btn--primary" type="submit">Save note</button>
+  </mat-dialog-actions>
+</form>

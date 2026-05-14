@@ -6,7 +6,13 @@ export interface Expense {
   readonly remaining: number;
   readonly walletId: string;
   readonly paymentIds: readonly string[];
+  readonly bulletId?: string | null;
+  readonly creditCardId?: string | null;
+  readonly installment?: boolean;
+  readonly installmentNumber?: number | null;
 }
+
+export type ChartPeriod = '12' | '24';
 
 export interface CreateExpenseRequest {
   readonly name: string;

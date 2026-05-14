@@ -1,0 +1,6 @@
+// All visual styles live in styles.scss as global .ew-auth-* classes.
+// This file is intentionally empty — LoginPage renders the full-screen overlay
+// which uses only global EW tokens and the shared .ew-auth-* ruleset.
+:host {
+  display: block;
+}
