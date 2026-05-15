@@ -20,6 +20,7 @@ import {
   ExpenseCreateDialogResult,
 } from '@features/expense/components/expense-create-dialog/expense-create-dialog.component';
 import { ExpenseService } from '@features/expense/services/expense.service';
+import { Wallet } from '@features/wallet/models/wallet';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
@@ -56,6 +57,7 @@ export class ShellComponent {
   protected readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
+  protected readonly wallets = toSignal(this.walletService.wallets$, { initialValue: [] });
 
   protected readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   protected readonly bulletsLoading = toSignal(this.bulletService.loading$, { initialValue: false });
@@ -96,10 +98,11 @@ export class ShellComponent {
     { label: 'Expenses',      route: '/expenses',      num: '04' },
     { label: 'Installments',  route: '/installments',  num: '05' },
     { label: 'Payers',        route: '/payers',        num: '06' },
-    { label: 'Credit cards',  route: '/credit-cards',  num: '07' },
-    { label: 'Subscriptions', route: '/subscriptions', num: '08' },
-    { label: 'Payments',      route: '/payments',      num: '09' },
-    { label: 'Settings',      route: '/settings',      num: '10' },
+    { label: 'Shares',        route: '/shares',        num: '07' },
+    { label: 'Credit cards',  route: '/credit-cards',  num: '08' },
+    { label: 'Subscriptions', route: '/subscriptions', num: '09' },
+    { label: 'Payments',      route: '/payments',      num: '10' },
+    { label: 'Settings',      route: '/settings',      num: '11' },
   ];
 
   /** Percentage of wallet budget already committed. */
@@ -108,6 +111,12 @@ export class ShellComponent {
     if (!wallet || wallet.budget <= 0) return 0;
     const committed = wallet.budget - wallet.remaining;
     return Math.round((committed / wallet.budget) * 100);
+  });
+  protected readonly walletQuickChoices = computed(() => {
+    const selectedId = this.selectedWallet()?.id ?? null;
+    return this.wallets()
+      .filter((wallet) => wallet.id !== selectedId)
+      .slice(0, 4);
   });
 
   constructor() {
@@ -165,6 +174,15 @@ export class ShellComponent {
   }
 
   protected closeWalletPop(): void {
+    this.walletPopOpen.set(false);
+  }
+
+  protected switchWallet(wallet: Wallet): void {
+    if (this.selectedWallet()?.id === wallet.id) {
+      return;
+    }
+
+    this.walletService.selectWallet(wallet);
     this.walletPopOpen.set(false);
   }
 

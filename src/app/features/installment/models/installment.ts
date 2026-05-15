@@ -11,6 +11,10 @@ export interface Installment {
   readonly creditCardId: string;
   readonly sourceWalletId: string;
   readonly sourceEffectiveMonth: string;
+  readonly shared: boolean;
+  readonly ownerRatio: number | null;
+  readonly effectiveOriginalValue: number;
+  readonly effectiveInstallmentValue: number;
 }
 
 export interface CreditCard {

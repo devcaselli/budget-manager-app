@@ -3,6 +3,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject } from 'rxjs';
+import { CreditCardService } from '@features/credit-card/services/credit-card.service';
 
 import {
   SubscriptionFutureConfirmDialogComponent,
@@ -20,6 +21,7 @@ interface SubscriptionListItem {
   readonly id: string;
   readonly description: string;
   readonly currency: string;
+  readonly creditCardId: string | null;
   readonly state: SubscriptionState;
   readonly stateLabel: string;
   readonly flag: SubscriptionFlag;
@@ -48,8 +50,10 @@ export class SubscriptionPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly dialog = inject(MatDialog);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly creditCardService = inject(CreditCardService);
   private readonly subscriptionService = inject(SubscriptionService);
 
+  protected readonly creditCards = toSignal(this.creditCardService.cards$, { initialValue: [] });
   private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {
     initialValue: [],
   });
@@ -74,6 +78,7 @@ export class SubscriptionPage {
     description: ['', [Validators.required, Validators.maxLength(120)]],
     amount: [0, [Validators.required, Validators.min(0.01)]],
     currency: ['BRL', [Validators.required, Validators.minLength(3), Validators.maxLength(3)]],
+    creditCardId: [''],
     effectiveMonth: [this.currentMonth(), Validators.required],
     state: ['PRODUCTION' as SubscriptionState, Validators.required],
     specialSubscription: [false],
@@ -122,6 +127,7 @@ export class SubscriptionPage {
   protected readonly hasEditingSubscription = computed(() => this.editingSubscriptionId() !== null);
 
   constructor() {
+    this.creditCardService.loadAll();
     this.subscriptionService.loadSubscriptions();
   }
 
@@ -146,6 +152,7 @@ export class SubscriptionPage {
       description: value.description.trim(),
       amount: value.amount,
       currency: value.currency.toUpperCase(),
+      ...(value.creditCardId ? { creditCardId: value.creditCardId } : {}),
       effectiveMonth: value.effectiveMonth,
       state: value.state,
       flag: value.specialSubscription ? 'SUBSCRIPTION_DELETE_IGNORE_DATE_VALIDATION' as const : 'NONE' as const,
@@ -180,11 +187,13 @@ export class SubscriptionPage {
       description: sub.description,
       amount: sub.amountValue,
       currency: sub.currency,
+      creditCardId: sub.creditCardId ?? '',
       effectiveMonth: sub.startMonthValue,
       state: sub.state,
       specialSubscription: sub.isSpecial,
     });
     this.form.controls.currency.disable();
+    this.form.controls.creditCardId.disable();
     this.form.controls.effectiveMonth.disable();
     this.form.controls.state.disable();
     this.form.controls.specialSubscription.disable();
@@ -231,6 +240,7 @@ export class SubscriptionPage {
       id: sub.id,
       description: sub.description,
       currency: sub.currency,
+      creditCardId: sub.creditCardId,
       state: sub.state,
       stateLabel: sub.state === 'PREVIEW' ? 'Preview' : 'Production',
       flag: sub.flag,
@@ -260,6 +270,7 @@ export class SubscriptionPage {
   private resetForm(): void {
     this.editingSubscriptionId$.next(null);
     this.form.controls.currency.enable();
+    this.form.controls.creditCardId.enable();
     this.form.controls.effectiveMonth.enable();
     this.form.controls.state.enable();
     this.form.controls.specialSubscription.enable();
@@ -267,6 +278,7 @@ export class SubscriptionPage {
       description: '',
       amount: 0,
       currency: 'BRL',
+      creditCardId: '',
       effectiveMonth: this.currentMonth(),
       state: 'PRODUCTION',
       specialSubscription: false,
@@ -285,6 +297,7 @@ export class SubscriptionPage {
     readonly description: string;
     readonly amount: number;
     readonly currency: string;
+    readonly creditCardId?: string;
     readonly effectiveMonth: string;
     readonly state: SubscriptionState;
     readonly flag: SubscriptionFlag;

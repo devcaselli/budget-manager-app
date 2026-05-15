@@ -1,7 +1,7 @@
 <div class="pcd-head" mat-dialog-title>
   <div>
     <h2 class="pcd-title">New <em>payer</em></h2>
-    <p class="pcd-subtitle">Add a recurring obligation</p>
+    <p class="pcd-subtitle">Add a standing or transient payer</p>
   </div>
   <button class="pcd-close" type="button" mat-icon-button mat-dialog-close aria-label="Close">
     <mat-icon>close</mat-icon>
@@ -57,10 +57,21 @@
       />
     </div>
 
+    @if (needsWallet()) {
+      <div class="pcd-error">
+        Transient payers are bound to the currently selected wallet.
+        @if (!data.walletId) {
+          Select a wallet before saving.
+        }
+      </div>
+    }
+
   </mat-dialog-content>
 
   <mat-dialog-actions class="pcd-actions" align="end">
     <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
-    <button class="ew-btn ew-btn--primary" type="submit">+ Add payer</button>
+    <button class="ew-btn ew-btn--primary" type="submit" [disabled]="needsWallet() && !data.walletId">
+      + Add payer
+    </button>
   </mat-dialog-actions>
 </form>

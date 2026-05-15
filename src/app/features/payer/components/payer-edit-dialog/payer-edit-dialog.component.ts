@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -14,6 +15,8 @@ export interface PayerEditDialogData {
   readonly id: string;
   readonly name: string;
   readonly type: PayerType;
+  readonly walletId: string | null;
+  readonly selectedWalletId?: string | null;
   readonly paymentDate: string;
   readonly subscriptionId: string | null;
 }
@@ -21,10 +24,8 @@ export interface PayerEditDialogData {
 export type PayerEditDialogResult = PatchPayerRequest;
 
 const PAYER_TYPES: readonly { value: PayerType; label: string }[] = [
-  { value: 'INDIVIDUAL', label: 'Individual' },
-  { value: 'COMPANY',    label: 'Company' },
-  { value: 'DEPENDENT',  label: 'Dependent' },
-  { value: 'OTHER',      label: 'Other' },
+  { value: 'STANDING', label: 'Standing' },
+  { value: 'TRANSIENT', label: 'Transient' },
 ];
 
 @Component({
@@ -40,6 +41,7 @@ export class PayerEditDialogComponent {
 
   protected readonly data = inject<PayerEditDialogData>(MAT_DIALOG_DATA);
   protected readonly payerTypes = PAYER_TYPES;
+  protected readonly needsWallet = computed(() => this.form.controls.type.getRawValue() === 'TRANSIENT');
 
   protected readonly form = this.formBuilder.nonNullable.group({
     name:           [this.data.name, [Validators.required, Validators.maxLength(120)]],
@@ -49,6 +51,10 @@ export class PayerEditDialogComponent {
   });
 
   protected submit(): void {
+    if (this.needsWallet() && !this.data.selectedWalletId && !this.data.walletId) {
+      return;
+    }
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;

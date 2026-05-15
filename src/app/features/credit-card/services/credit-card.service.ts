@@ -14,18 +14,17 @@ import { environment } from '@environments/environment';
 
 import {
   CreditCard,
-  CreditCardCharge,
-  CreditCardExpensesResponse,
+  CreditCardChargesResponse,
   CreateCreditCardRequest,
+  EMPTY_CREDIT_CARD_CHARGES,
   PagedCreditCardResponse,
 } from '../models/credit-card';
 
 export interface LoadChargesParams {
-  /** Credit card ID (required — API endpoint is /credit-cards/{id}/expenses) */
+  /** Credit card ID (required — API endpoint is /credit-cards/{id}/charges) */
   readonly creditCardId: string;
   /** ISO year-month string e.g. "2026-05" — maps to ?effectiveMonth=YYYY-MM */
   readonly effectiveMonth?: string;
-  readonly name?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -34,21 +33,25 @@ export class CreditCardService {
   private readonly creditCardsUrl = `${environment.apiUrl}/credit-cards`;
 
   private readonly cardsSubject = new BehaviorSubject<readonly CreditCard[]>([]);
-  private readonly chargesSubject = new BehaviorSubject<readonly CreditCardCharge[]>([]);
-  private readonly loadingSubject = new BehaviorSubject(false);
+  private readonly chargesSubject = new BehaviorSubject<CreditCardChargesResponse>(
+    EMPTY_CREDIT_CARD_CHARGES,
+  );
+  private readonly cardsLoadingSubject = new BehaviorSubject(false);
+  private readonly chargesLoadingSubject = new BehaviorSubject(false);
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
 
   readonly cards$ = this.cardsSubject.asObservable();
   readonly charges$ = this.chargesSubject.asObservable();
-  readonly loading$ = this.loadingSubject.asObservable();
+  readonly cardsLoading$ = this.cardsLoadingSubject.asObservable();
+  readonly chargesLoading$ = this.chargesLoadingSubject.asObservable();
   readonly saving$ = this.savingSubject.asObservable();
   readonly deleting$ = this.deletingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
 
   loadAll(): void {
-    this.loadingSubject.next(true);
+    this.cardsLoadingSubject.next(true);
     this.errorSubject.next(null);
 
     const params = new HttpParams().set('page', 0).set('size', 100);
@@ -61,46 +64,44 @@ export class CreditCardService {
           this.errorSubject.next('Could not load credit cards.');
           return EMPTY;
         }),
-        finalize(() => this.loadingSubject.next(false)),
+        finalize(() => this.cardsLoadingSubject.next(false)),
       )
       .subscribe();
   }
 
   /**
    * Loads charges for a specific credit card.
-   * API: GET /credit-cards/{id}/expenses?effectiveMonth=YYYY-MM&name=...&page=0&size=200
+   * API: GET /credit-cards/{id}/charges?effectiveMonth=YYYY-MM
    */
   loadCharges(params: LoadChargesParams): void {
-    this.loadingSubject.next(true);
+    this.chargesLoadingSubject.next(true);
     this.errorSubject.next(null);
 
-    let httpParams = new HttpParams().set('page', 0).set('size', 100);
+    let httpParams = new HttpParams();
 
     if (params.effectiveMonth) {
       httpParams = httpParams.set('effectiveMonth', params.effectiveMonth);
     }
-    if (params.name) {
-      httpParams = httpParams.set('name', params.name);
-    }
 
     this.http
-      .get<CreditCardExpensesResponse>(
-        `${this.creditCardsUrl}/${params.creditCardId}/expenses`,
+      .get<CreditCardChargesResponse>(
+        `${this.creditCardsUrl}/${params.creditCardId}/charges`,
         { params: httpParams },
       )
       .pipe(
-        tap((response) => this.chargesSubject.next(response.content)),
+        tap((response) => this.chargesSubject.next(response)),
         catchError(() => {
           this.errorSubject.next('Could not load charges.');
+          this.chargesSubject.next(EMPTY_CREDIT_CARD_CHARGES);
           return EMPTY;
         }),
-        finalize(() => this.loadingSubject.next(false)),
+        finalize(() => this.chargesLoadingSubject.next(false)),
       )
       .subscribe();
   }
 
   clearCharges(): void {
-    this.chargesSubject.next([]);
+    this.chargesSubject.next(EMPTY_CREDIT_CARD_CHARGES);
   }
 
   create(input: CreateCreditCardRequest): Observable<CreditCard> {

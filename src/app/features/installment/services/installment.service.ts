@@ -96,7 +96,7 @@ export class InstallmentService {
               });
             }),
             catchError(() => {
-              this.errorSubject.next('Nao foi possivel carregar os parcelamentos.');
+              this.errorSubject.next('Unable to load installments.');
               return EMPTY;
             }),
             finalize(() => this.stopLoading()),
@@ -137,7 +137,7 @@ export class InstallmentService {
             // Reload current page to reflect server-side sort/filter
             this.walletIdSubject.next(this.walletIdSubject.getValue());
           },
-          error: () => this.errorSubject.next('Nao foi possivel salvar o parcelamento.'),
+          error: () => this.errorSubject.next('Unable to save the installment.'),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -165,7 +165,7 @@ export class InstallmentService {
             const current = this.installmentsSubject.getValue();
             this.installmentsSubject.next(current.map((i) => (i.id === id ? updated : i)));
           },
-          error: () => this.errorSubject.next('Nao foi possivel atualizar o parcelamento.'),
+          error: () => this.errorSubject.next('Unable to update the installment.'),
         }),
       )
       .subscribe({
@@ -193,7 +193,7 @@ export class InstallmentService {
             // Reload to get correct pagination after delete
             this.walletIdSubject.next(this.walletIdSubject.getValue());
           },
-          error: () => this.errorSubject.next('Nao foi possivel remover o parcelamento.'),
+          error: (error) => this.errorSubject.next(this.resolveDeleteErrorMessage(error)),
         }),
         finalize(() => this.deletingSubject.next(null)),
       )
@@ -230,6 +230,22 @@ export class InstallmentService {
         catchError(() => EMPTY),
       )
       .subscribe();
+  }
+
+  private resolveDeleteErrorMessage(error: unknown): string {
+    const detail =
+      typeof error === 'object' && error !== null
+        ? (error as { error?: { detail?: unknown } }).error?.detail
+        : null;
+
+    if (
+      typeof detail === 'string'
+      && detail.includes('is referenced by an active share; revert the share before deleting')
+    ) {
+      return 'This installment is referenced by an active share. Revert the share before deleting it.';
+    }
+
+    return 'Unable to delete the installment.';
   }
 
   private startLoading(): void {

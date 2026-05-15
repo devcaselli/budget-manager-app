@@ -5,11 +5,11 @@ export interface Expense {
   readonly purchaseDate: string;
   readonly remaining: number;
   readonly walletId: string;
-  readonly paymentIds: readonly string[];
   readonly bulletId?: string | null;
   readonly creditCardId?: string | null;
-  readonly installment?: boolean;
+  readonly installment: boolean;
   readonly installmentNumber?: number | null;
+  readonly installmentId?: string | null;
 }
 
 export type ChartPeriod = '12' | '24';

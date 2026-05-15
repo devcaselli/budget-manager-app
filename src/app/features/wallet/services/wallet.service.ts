@@ -15,6 +15,7 @@ import {
 import { environment } from '@environments/environment';
 
 import { CreateWalletRequest, Wallet } from '../models/wallet';
+import { Payer } from '@features/payer/models/payer';
 
 @Injectable({
   providedIn: 'root',
@@ -88,6 +89,10 @@ export class WalletService {
 
   findById(id: string): Observable<Wallet> {
     return this.http.get<Wallet>(`${this.walletsUrl}/${id}`);
+  }
+
+  findPayersByWalletId(walletId: string): Observable<Payer[]> {
+    return this.http.get<Payer[]>(`${this.walletsUrl}/${walletId}/payers`);
   }
 
   create(input: CreateWalletRequest): Observable<Wallet> {

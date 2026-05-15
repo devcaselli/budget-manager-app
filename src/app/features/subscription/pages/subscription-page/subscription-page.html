@@ -181,6 +181,16 @@
             </div>
           </div>
 
+          <div class="ew-field">
+            <label for="sp-credit-card">Credit card</label>
+            <select id="sp-credit-card" class="ew-select" formControlName="creditCardId">
+              <option value="">No credit card</option>
+              @for (card of creditCards(); track card.id) {
+                <option [value]="card.id">{{ card.name }}</option>
+              }
+            </select>
+          </div>
+
           <div class="ew-row-form">
             <div class="ew-field">
               <label for="sp-effective">Effective</label>

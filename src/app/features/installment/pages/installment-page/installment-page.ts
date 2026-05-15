@@ -106,6 +106,21 @@ export class InstallmentPage {
     const cardMap = this.buildCreditCardMap();
     return this.installments().map((inst) => this.toListItem(inst, cardMap));
   });
+  protected readonly hasCreditCards = computed(() => this.creditCards().length > 0);
+  protected readonly createInstallmentBlockerMessage = computed(() => {
+    if (!this.selectedWallet()) {
+      return 'Select a wallet before creating an installment.';
+    }
+
+    if (!this.hasCreditCards()) {
+      return 'You need at least one registered credit card before creating installments.';
+    }
+
+    return null;
+  });
+  protected readonly canOpenCreateDialog = computed(() =>
+    !!this.selectedWallet() && this.hasCreditCards() && !this.isSaving(),
+  );
 
   // ── Hero KPIs ────────────────────────────────────────────────────────────
 
@@ -114,14 +129,14 @@ export class InstallmentPage {
   protected readonly outstanding = computed(() =>
     this.installments().reduce((acc, inst) => {
       const remaining = this.remainingCharges(inst);
-      return acc + inst.installmentValue * remaining;
+      return acc + inst.effectiveInstallmentValue * remaining;
     }, 0),
   );
 
   protected readonly thisCycleTotal = computed(() =>
     this.installments()
       .filter((inst) => this.isActiveInMonth(inst, this.currentMonthKey))
-      .reduce((acc, inst) => acc + inst.installmentValue, 0),
+      .reduce((acc, inst) => acc + inst.effectiveInstallmentValue, 0),
   );
 
   protected readonly nextFinish = computed(() => {
@@ -151,7 +166,7 @@ export class InstallmentPage {
     const months = this.buildMonthRange(this.currentMonthKey, lastMonth);
     const totals = months.map((key) =>
       installments.reduce(
-        (acc, inst) => acc + (this.isActiveInMonth(inst, key) ? inst.installmentValue : 0),
+        (acc, inst) => acc + (this.isActiveInMonth(inst, key) ? inst.effectiveInstallmentValue : 0),
         0,
       ),
     );
@@ -195,6 +210,10 @@ export class InstallmentPage {
   // ── Dialog actions ────────────────────────────────────────────────────────
 
   protected onNewClick(): void {
+    if (!this.canOpenCreateDialog()) {
+      return;
+    }
+
     const data: InstallmentCreateDialogData = { creditCards: this.creditCards() };
 
     const dialogRef = this.dialog.open<
@@ -345,8 +364,8 @@ export class InstallmentPage {
       currentInstallment: current,
       totalInstallments: inst.installmentNumber,
       progressPct,
-      installmentValue: inst.installmentValue,
-      remainingAmount: inst.installmentValue * Math.max(remaining, 0),
+      installmentValue: inst.effectiveInstallmentValue,
+      remainingAmount: inst.effectiveInstallmentValue * Math.max(remaining, 0),
       lastInstallmentDate: this.formatMonthKey(inst.lastInstallmentDate),
     };
   }

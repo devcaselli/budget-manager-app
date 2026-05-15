@@ -2,15 +2,18 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  computed,
   effect,
+  computed,
   inject,
+  signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { catchError, of } from 'rxjs';
 
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { ExpenseService } from '@features/expense/services/expense.service';
+import { Payer } from '@features/payer/models/payer';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 
@@ -33,11 +36,16 @@ interface PaymentListItem {
   readonly amount: string;
   readonly amountRaw: number;
   readonly paymentDate: string;
+  readonly kind: string;
+  readonly kindTone: 'normal' | 'shared' | 'reversal';
   readonly details: string;
-  readonly expenseId: string;
-  readonly bulletId: string;
+  readonly expenseId: string | null;
+  readonly bulletId: string | null;
   readonly expenseName: string;
   readonly bulletName: string;
+  readonly payerName: string;
+  readonly shareLabel: string;
+  readonly reversalLabel: string;
 }
 
 @Component({
@@ -61,6 +69,7 @@ export class PaymentPage {
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
+  private readonly walletPayers = signal<readonly Payer[]>([]);
 
   protected readonly wallet = this.selectedWallet;
   protected readonly isLoading = toSignal(this.paymentService.loading$, { initialValue: false });
@@ -98,6 +107,7 @@ export class PaymentPage {
     this.payments().map((p) => {
       const expense = this.expenses().find((candidate) => candidate.id === p.expenseId);
       const bullet = this.bullets().find((candidate) => candidate.id === p.bulletId);
+      const payer = this.walletPayers().find((candidate) => candidate.id === p.payerId);
 
       return {
         id: p.id,
@@ -107,11 +117,16 @@ export class PaymentPage {
           dateStyle: 'short',
           timeStyle: 'short',
         }).format(new Date(p.paymentDate)),
+        kind: p.reversal ? 'Reversal' : p.kind === 'SHARED' ? 'Shared' : 'Normal',
+        kindTone: p.reversal ? 'reversal' : p.kind === 'SHARED' ? 'shared' : 'normal',
         details: p.details || '—',
         expenseId: p.expenseId,
         bulletId: p.bulletId,
-        expenseName: expense?.name ?? p.expenseId.slice(0, 8),
-        bulletName: bullet?.description ?? p.bulletId.slice(0, 8),
+        expenseName: expense?.name ?? (p.expenseId ? p.expenseId.slice(0, 8) : '—'),
+        bulletName: bullet?.description ?? (p.bulletId ? p.bulletId.slice(0, 8) : '—'),
+        payerName: payer?.name ?? (p.payerId ? p.payerId.slice(0, 8) : 'Owner flow'),
+        shareLabel: p.shareId ? p.shareId.slice(0, 8) : '—',
+        reversalLabel: p.reversedPaymentId ? p.reversedPaymentId.slice(0, 8) : '—',
       };
     }),
   );
@@ -124,6 +139,22 @@ export class PaymentPage {
     effect(() => {
       this.reloadWalletData();
       this.resetForm();
+    });
+
+    effect(() => {
+      const walletId = this.selectedWallet()?.id;
+      if (!walletId) {
+        this.walletPayers.set([]);
+        return;
+      }
+
+      this.walletService
+        .findPayersByWalletId(walletId)
+        .pipe(
+          takeUntilDestroyed(this.destroyRef),
+          catchError(() => of([])),
+        )
+        .subscribe((payers) => this.walletPayers.set(payers));
     });
   }
 

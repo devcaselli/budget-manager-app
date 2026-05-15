@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   DestroyRef,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -11,6 +12,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
+import { WalletService } from '@features/wallet/services/wallet.service';
 import { PayerService } from '../../services/payer.service';
 import { Payer } from '../../models/payer';
 import {
@@ -31,10 +33,8 @@ const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
 });
 
 const TYPE_LABEL: Record<string, string> = {
-  INDIVIDUAL: 'Individual',
-  COMPANY:    'Company',
-  DEPENDENT:  'Dependent',
-  OTHER:      'Other',
+  STANDING: 'Standing',
+  TRANSIENT: 'Transient',
 };
 
 @Component({
@@ -48,12 +48,16 @@ export class PayerPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly dialog = inject(MatDialog);
   private readonly payerService = inject(PayerService);
+  private readonly walletService = inject(WalletService);
 
   protected readonly payers = toSignal(this.payerService.payers$, { initialValue: [] });
   protected readonly isLoading = toSignal(this.payerService.loading$, { initialValue: false });
   protected readonly isSaving = toSignal(this.payerService.saving$, { initialValue: false });
   protected readonly deletingId = toSignal(this.payerService.deleting$, { initialValue: null });
   protected readonly errorMessage = toSignal(this.payerService.error$, { initialValue: null });
+  protected readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
+    initialValue: null,
+  });
 
   /** null means "All" selected */
   protected readonly selectedPayerId = signal<string | null>(null);
@@ -83,7 +87,10 @@ export class PayerPage {
   });
 
   constructor() {
-    this.payerService.load();
+    effect(() => {
+      this.selectedPayerId.set(null);
+      this.payerService.loadByWalletId(this.selectedWallet()?.id ?? null);
+    });
   }
 
   protected typeLabel(type: string): string {
@@ -101,16 +108,24 @@ export class PayerPage {
 
   protected onNewClick(): void {
     this.dialog
-      .open<PayerCreateDialogComponent, undefined, PayerCreateDialogResult>(
+      .open<PayerCreateDialogComponent, { walletId: string | null }, PayerCreateDialogResult>(
         PayerCreateDialogComponent,
-        { width: '30rem', maxWidth: 'calc(100vw - 2rem)' },
+        {
+          width: '30rem',
+          maxWidth: 'calc(100vw - 2rem)',
+          data: { walletId: this.selectedWallet()?.id ?? null },
+        },
       )
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result) {
+          const request =
+            result.type === 'TRANSIENT'
+              ? { ...result, walletId: this.selectedWallet()?.id ?? undefined }
+              : result;
           this.payerService
-            .save(result)
+            .save(request)
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({ error: () => undefined });
         }
@@ -122,6 +137,8 @@ export class PayerPage {
       id:             payer.id,
       name:           payer.name,
       type:           payer.type,
+      walletId:       payer.walletId,
+      selectedWalletId: this.selectedWallet()?.id ?? null,
       paymentDate:    payer.paymentDate,
       subscriptionId: payer.subscriptionId,
     };
@@ -135,8 +152,12 @@ export class PayerPage {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result) {
+          const request =
+            result.type === 'TRANSIENT'
+              ? { ...result, walletId: this.selectedWallet()?.id ?? payer.walletId ?? undefined }
+              : { ...result, walletId: undefined };
           this.payerService
-            .patch(payer.id, result)
+            .patch(payer.id, request)
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({ error: () => undefined });
         }

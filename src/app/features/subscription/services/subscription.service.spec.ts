@@ -151,6 +151,7 @@ const subscription: Subscription = {
   flag: 'NONE',
   startMonth: '2026-05',
   endMonth: null,
+  creditCardId: null,
   versions: [
     {
       effectiveMonth: '2026-05',

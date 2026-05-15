@@ -86,6 +86,18 @@ export class ExpensePage {
   protected readonly paymentErrorMessage = toSignal(this.paymentService.error$, {
     initialValue: null,
   });
+  protected readonly hasCreditCards = computed(() => this.creditCards().length > 0);
+  protected readonly createExpenseBlockerMessage = computed(() => {
+    if (!this.wallet()) {
+      return 'Selecione uma wallet para cadastrar uma expense.';
+    }
+
+    if (!this.hasCreditCards()) {
+      return 'Voce precisa ter um cartao de credito cadastrado para cadastrar expenses.';
+    }
+
+    return null;
+  });
 
   protected readonly form = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
@@ -99,6 +111,12 @@ export class ExpensePage {
   protected readonly showInstallments = toSignal(
     this.form.controls.isInstallment.valueChanges,
     { initialValue: false },
+  );
+  private readonly formStatus = toSignal(this.form.statusChanges, {
+    initialValue: this.form.status,
+  });
+  protected readonly canSubmitExpense = computed(() =>
+    !!this.wallet() && this.hasCreditCards() && this.formStatus() === 'VALID' && !this.isSaving(),
   );
 
   protected readonly expenseItems = computed<readonly ExpenseListItem[]>(() =>
@@ -173,7 +191,7 @@ export class ExpensePage {
 
   protected createExpense(): void {
     const wallet = this.selectedWallet();
-    if (!wallet || this.form.invalid) {
+    if (!wallet || !this.hasCreditCards() || this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }

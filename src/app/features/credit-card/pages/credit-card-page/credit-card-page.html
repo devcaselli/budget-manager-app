@@ -125,7 +125,7 @@
 
       @if (selectedCardId() === 'all') {
         <div class="ew-empty">Select a card to view charges</div>
-      } @else if (isLoading()) {
+      } @else if (isLoadingCharges()) {
         <div class="ew-empty">Loading...</div>
       } @else {
         <div class="ew-panel-table-wrap">
@@ -133,8 +133,8 @@
           <thead>
             <tr>
               <th>Name</th>
-              <th>Date</th>
-              <th>Card</th>
+              <th>Type</th>
+              <th>Reference</th>
               <th>Amount</th>
             </tr>
           </thead>
@@ -142,9 +142,9 @@
             @for (charge of filteredCharges(); track charge.id) {
               <tr>
                 <td>{{ charge.name }}</td>
-                <td>{{ charge.purchaseDate | brDate }}</td>
-                <td>{{ cardName(charge.creditCardId) }}</td>
-                <td class="ccp-amount ew-blur">{{ charge.cost | brlCurrency }}</td>
+                <td>{{ chargeKindLabel(charge.kind) }}</td>
+                <td>{{ charge.reference }}</td>
+                <td class="ccp-amount ew-blur">{{ charge.amount | brlCurrency }}</td>
               </tr>
             } @empty {
               <tr>

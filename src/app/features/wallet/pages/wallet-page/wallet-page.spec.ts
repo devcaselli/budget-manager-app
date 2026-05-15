@@ -137,10 +137,9 @@ describe('WalletPage', () => {
     service.loadingSubject.next(true);
     fixture.detectChanges();
 
-    const refreshButton = fixture.nativeElement.querySelector(
-      '.wallet-page__header button',
-    ) as HTMLButtonElement;
-    expect(refreshButton.disabled).toBe(true);
+    const detail = fixture.debugElement.query(By.directive(WalletDetailComponent))
+      .componentInstance as WalletDetailComponent;
+    expect(detail.isLoading()).toBe(true);
 
     service.errorSubject.next('Nao foi possivel carregar as wallets.');
     fixture.detectChanges();

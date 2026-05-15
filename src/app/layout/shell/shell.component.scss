@@ -542,6 +542,72 @@
   flex-direction: column;
 }
 
+.ew-wp-wallets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ew-wp-wallet {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--ew-line);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.08));
+  color: var(--ew-ink);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+
+  &:hover {
+    border-color: rgba(214, 163, 113, 0.45);
+    background: rgba(214, 163, 113, 0.08);
+    transform: translateX(2px);
+  }
+}
+
+.ew-wp-wallet-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  b {
+    font-family: var(--ew-serif);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  small {
+    font-family: var(--ew-mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ew-ink-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.ew-wp-wallet-val {
+  flex: 0 0 auto;
+  font-family: var(--ew-serif);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
 .ew-wp-bullet {
   display: grid;
   grid-template-columns: 1fr 56px 80px;

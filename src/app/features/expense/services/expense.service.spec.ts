@@ -56,6 +56,7 @@ describe('ExpenseService', () => {
       cost: 250,
       purchaseDate: '2026-04-29',
       walletId: 'wallet-1',
+      creditCardId: 'card-1',
     };
     const createdExpense: Expense = {
       id: 'expense-2',
@@ -64,7 +65,7 @@ describe('ExpenseService', () => {
       remaining: input.cost,
       purchaseDate: input.purchaseDate,
       walletId: input.walletId,
-      paymentIds: [],
+      installment: false,
     };
     const emittedExpenses: (readonly Expense[])[] = [];
 
@@ -103,7 +104,7 @@ const expense: Expense = {
   purchaseDate: '2026-04-29',
   remaining: 100,
   walletId: 'wallet-1',
-  paymentIds: ['payment-1'],
+  installment: false,
 };
 
 function pagedResponse(content: readonly Expense[]): PagedExpenseResponse {

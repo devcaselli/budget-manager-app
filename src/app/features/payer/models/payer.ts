@@ -1,9 +1,10 @@
-export type PayerType = 'INDIVIDUAL' | 'COMPANY' | 'DEPENDENT' | 'OTHER';
+export type PayerType = 'STANDING' | 'TRANSIENT';
 
 export interface Payer {
   readonly id: string;
   readonly name: string;
   readonly type: PayerType;
+  readonly walletId: string | null;
   readonly subscriptionId: string | null;
   readonly paymentDate: string;
   readonly amountDue: number;
@@ -14,6 +15,7 @@ export interface Payer {
 export interface CreatePayerRequest {
   readonly name: string;
   readonly type: PayerType;
+  readonly walletId?: string;
   readonly paymentDate: string;
   readonly subscriptionId?: string;
 }
@@ -21,6 +23,7 @@ export interface CreatePayerRequest {
 export interface PatchPayerRequest {
   readonly name?: string;
   readonly type?: PayerType;
+  readonly walletId?: string;
   readonly paymentDate?: string;
   readonly subscriptionId?: string;
 }

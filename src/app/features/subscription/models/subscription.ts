@@ -15,6 +15,7 @@ export interface Subscription {
   readonly startMonth: string;
   readonly endMonth: string | null;
   readonly versions: readonly SubscriptionVersion[];
+  readonly creditCardId: string | null;
 }
 
 export interface CreateSubscriptionRequest {
@@ -24,6 +25,7 @@ export interface CreateSubscriptionRequest {
   readonly effectiveMonth?: string;
   readonly state?: SubscriptionState;
   readonly flag?: SubscriptionFlag;
+  readonly creditCardId?: string;
 }
 
 export interface UpdateSubscriptionRequest {

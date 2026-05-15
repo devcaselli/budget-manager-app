@@ -69,6 +69,14 @@ export const routes: Routes = [
         title: 'Payers | Budget Manager',
       },
       {
+        path: 'shares',
+        loadComponent: () =>
+          import('@features/share/pages/share-page/share-page').then(
+            (c) => c.SharePage,
+          ),
+        title: 'Shares | Budget Manager',
+      },
+      {
         path: 'credit-cards',
         loadComponent: () =>
           import('@features/credit-card/pages/credit-card-page/credit-card-page').then(

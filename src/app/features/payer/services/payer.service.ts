@@ -18,6 +18,7 @@ import { CreatePayerRequest, Payer, PatchPayerRequest } from '../models/payer';
 export class PayerService {
   private readonly http = inject(HttpClient);
   private readonly payersUrl = `${environment.apiUrl}/payers`;
+  private readonly walletsUrl = `${environment.apiUrl}/wallets`;
 
   private readonly payersSubject = new BehaviorSubject<readonly Payer[]>([]);
   private readonly loadingSubject = new BehaviorSubject(false);
@@ -31,16 +32,22 @@ export class PayerService {
   readonly deleting$ = this.deletingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
 
-  load(): void {
+  loadByWalletId(walletId: string | null): void {
     this.loadingSubject.next(true);
     this.errorSubject.next(null);
 
+    if (!walletId) {
+      this.payersSubject.next([]);
+      this.loadingSubject.next(false);
+      return;
+    }
+
     this.http
-      .get<Payer[]>(this.payersUrl)
+      .get<Payer[]>(`${this.walletsUrl}/${walletId}/payers`)
       .pipe(
         tap((payers) => this.payersSubject.next(payers)),
         catchError(() => {
-          this.errorSubject.next('Could not load payers.');
+          this.errorSubject.next('Nao foi possivel carregar os payers.');
           return EMPTY;
         }),
         finalize(() => this.loadingSubject.next(false)),
@@ -62,7 +69,7 @@ export class PayerService {
             const current = this.payersSubject.getValue();
             this.payersSubject.next([...current, created]);
           },
-          error: () => this.errorSubject.next('Could not create payer.'),
+          error: () => this.errorSubject.next('Nao foi possivel criar o payer.'),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -90,7 +97,7 @@ export class PayerService {
             const current = this.payersSubject.getValue();
             this.payersSubject.next(current.map((p) => (p.id === id ? updated : p)));
           },
-          error: () => this.errorSubject.next('Could not update payer.'),
+          error: () => this.errorSubject.next('Nao foi possivel atualizar o payer.'),
         }),
       )
       .subscribe({
@@ -118,7 +125,7 @@ export class PayerService {
             const current = this.payersSubject.getValue();
             this.payersSubject.next(current.filter((p) => p.id !== id));
           },
-          error: () => this.errorSubject.next('Could not delete payer.'),
+          error: () => this.errorSubject.next('Nao foi possivel remover o payer.'),
         }),
         finalize(() => this.deletingSubject.next(null)),
       )

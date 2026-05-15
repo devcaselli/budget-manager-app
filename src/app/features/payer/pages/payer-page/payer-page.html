@@ -6,7 +6,7 @@
       <div class="ew-eyebrow">06 · Payers</div>
       <h1 class="ew-page-title">Who <em>pays.</em></h1>
       <p class="ew-page-sub">
-        Manage individuals and entities with recurring payment obligations.
+        Manage standing and transient payers used by payments and share allocations.
       </p>
     </div>
     <div class="payer-head-right">
@@ -107,6 +107,9 @@
                 <span class="payer-type-pill">{{ typeLabel(payer.type) }}</span>
                 @if (payer.subscriptionId) {
                   · sub: {{ payer.subscriptionId }}
+                }
+                @if (payer.walletId) {
+                  · wallet-bound
                 }
               </small>
             </div>

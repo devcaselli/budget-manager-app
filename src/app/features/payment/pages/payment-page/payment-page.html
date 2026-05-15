@@ -2,7 +2,7 @@
   <!-- ── Page header ──────────────────────────────────────────────── -->
   <div class="ew-page-head">
     <div>
-      <div class="ew-eyebrow">06 · Payments</div>
+      <div class="ew-eyebrow">10 · Payments</div>
       <h1 class="ew-page-title">The <em>settlement.</em></h1>
       <p class="ew-page-sub">Each time an open expense closes, a payment lands here.</p>
     </div>
@@ -22,7 +22,7 @@
       <div class="ew-panel-head">
         <div>
           <h3>Payment history</h3>
-          <p>{{ paymentItems().length }} payment(s)</p>
+          <p>{{ paymentItems().length }} ledger event(s)</p>
         </div>
       </div>
 
@@ -35,6 +35,9 @@
             <tr>
               <th>Expense</th>
               <th>Bullet</th>
+              <th>Kind</th>
+              <th>Payer</th>
+              <th>Share</th>
               <th>When</th>
               <th>Amount</th>
             </tr>
@@ -44,12 +47,19 @@
               <tr>
                 <td>{{ payment.expenseName }}</td>
                 <td>{{ payment.bulletName }}</td>
+                <td>
+                  <span class="ew-pill" [class.ew-pill--danger]="payment.kindTone === 'reversal'">
+                    {{ payment.kind }}
+                  </span>
+                </td>
+                <td>{{ payment.payerName }}</td>
+                <td>{{ payment.shareLabel }}</td>
                 <td>{{ payment.paymentDate }}</td>
                 <td class="ew-blur">{{ payment.amount }}</td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="4" class="ew-empty">No payments yet</td>
+                <td colspan="7" class="ew-empty">No payments yet</td>
               </tr>
             }
           </tbody>

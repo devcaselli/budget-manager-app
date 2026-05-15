@@ -6,7 +6,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -14,14 +13,13 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
-import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 
 import {
   CreditCardDeleteDialogComponent,
   CreditCardDeleteDialogData,
 } from '../../components/credit-card-delete-dialog/credit-card-delete-dialog.component';
 import { CreditCardService } from '../../services/credit-card.service';
-import { CreditCard } from '../../models/credit-card';
+import { CreditCard, EMPTY_CREDIT_CARD_CHARGES } from '../../models/credit-card';
 
 interface MonthOption {
   readonly label: string;
@@ -36,14 +34,20 @@ interface ChartBar {
   readonly total: number;
 }
 
+interface ChargeListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: 'EXPENSE' | 'INSTALLMENT' | 'SUBSCRIPTION';
+  readonly reference: string;
+  readonly amount: number;
+}
+
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
 @Component({
   selector: 'app-credit-card-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    DecimalPipe,
-    BrDatePipe,
     BrlCurrencyPipe,
     MatDialogModule,
     MatIconModule,
@@ -70,8 +74,12 @@ export class CreditCardPage {
   protected readonly searchQuery = signal('');
 
   protected readonly cards = toSignal(this.creditCardService.cards$, { initialValue: [] });
-  protected readonly charges = toSignal(this.creditCardService.charges$, { initialValue: [] });
-  protected readonly isLoading = toSignal(this.creditCardService.loading$, { initialValue: false });
+  protected readonly chargesResponse = toSignal(this.creditCardService.charges$, {
+    initialValue: EMPTY_CREDIT_CARD_CHARGES,
+  });
+  protected readonly isLoadingCharges = toSignal(this.creditCardService.chargesLoading$, {
+    initialValue: false,
+  });
   protected readonly isSaving = toSignal(this.creditCardService.saving$, { initialValue: false });
   protected readonly deletingId = toSignal(this.creditCardService.deleting$, { initialValue: null });
   protected readonly errorMessage = toSignal(this.creditCardService.error$, { initialValue: null });
@@ -104,18 +112,50 @@ export class CreditCardPage {
     return opt?.label ?? '';
   });
 
-  /** Charges filtered for the table (client-side name filter on top of server data) */
+  protected readonly selectedEffectiveMonth = computed(
+    () => `${this.selectedYear()}-${String(this.selectedMonth()).padStart(2, '0')}`,
+  );
+
+  protected readonly allCharges = computed<readonly ChargeListItem[]>(() => {
+    const response = this.chargesResponse();
+
+    return [
+      ...response.expenses.map((expense) => ({
+        id: expense.id,
+        name: expense.name,
+        kind: 'EXPENSE' as const,
+        reference: `Purchased ${this.formatDate(expense.purchaseDate)}`,
+        amount: Number(expense.cost),
+      })),
+      ...response.installments.map((installment) => ({
+        id: installment.id,
+        name: installment.description,
+        kind: 'INSTALLMENT' as const,
+        reference: `${installment.installmentNumber} charges · purchased ${this.formatDate(installment.purchaseDate)}`,
+        amount: Number(installment.effectiveInstallmentValue),
+      })),
+      ...response.subscriptions.map((subscription) => ({
+        id: subscription.id,
+        name: `Subscription ${subscription.subscriptionId.slice(0, 8)}`,
+        kind: 'SUBSCRIPTION' as const,
+        reference: `${subscription.month} · ${subscription.shared ? 'shared' : 'direct'}`,
+        amount: Number(subscription.effectiveOwnerAmount ?? subscription.amount),
+      })),
+    ];
+  });
+
   protected readonly filteredCharges = computed(() => {
     const query = this.searchQuery().toLowerCase().trim();
-    if (!query) return this.charges();
-    return this.charges().filter((c) => c.name.toLowerCase().includes(query));
+    if (!query) return this.allCharges();
+    return this.allCharges().filter((charge) => charge.name.toLowerCase().includes(query));
   });
 
   protected readonly chargesTotal = computed(() =>
-    this.filteredCharges().reduce((acc, c) => acc + Number(c.cost), 0),
+    this.filteredCharges().reduce((acc, charge) => acc + charge.amount, 0),
   );
 
   protected readonly chargesCount = computed(() => this.filteredCharges().length);
+  protected readonly totalChargesCount = computed(() => this.allCharges().length);
 
   /** Card name lookup map — O(n) build, O(1) lookup */
   protected readonly cardMap = computed<ReadonlyMap<string, string>>(() =>
@@ -129,7 +169,6 @@ export class CreditCardPage {
    * TODO: load all 12 months in parallel on card selection for a full chart.
    */
   protected readonly chartBars = computed<readonly ChartBar[]>(() => {
-    const allCharges = this.charges();
     const currentYear = this.selectedYear();
     const currentMonth = this.selectedMonth();
 
@@ -141,11 +180,7 @@ export class CreditCardPage {
       const label = `${String(m).padStart(2, '0')}/${String(y).slice(2)}`;
       const isCurrent = i === 0;
 
-      // We only have loaded data for the selected month
-      const monthPrefix = `${y}-${String(m).padStart(2, '0')}`;
-      const total = allCharges
-        .filter((c) => c.purchaseDate.startsWith(monthPrefix))
-        .reduce((acc, c) => acc + Number(c.cost), 0);
+      const total = isCurrent ? this.chargesResponse().totalCost : 0;
 
       bars.push({ label, heightPct: 0, isCurrent, total });
     }
@@ -164,7 +199,7 @@ export class CreditCardPage {
     const nonZero = totals.filter((t) => t > 0);
     const avgCycle = nonZero.length > 0 ? nonZero.reduce((a, b) => a + b, 0) / nonZero.length : 0;
     const peak = Math.max(...totals, 0);
-    return { cycleTotal, avgCycle, peak, chargesCount: this.chargesCount() };
+    return { cycleTotal, avgCycle, peak, chargesCount: this.totalChargesCount() };
   });
 
   constructor() {
@@ -221,8 +256,8 @@ export class CreditCardPage {
       });
   }
 
-  protected cardName(creditCardId: string): string {
-    return this.cardMap().get(creditCardId) ?? creditCardId;
+  protected chargeKindLabel(kind: ChargeListItem['kind']): string {
+    return kind[0] + kind.slice(1).toLowerCase();
   }
 
   private deleteCard(id: string): void {
@@ -236,10 +271,18 @@ export class CreditCardPage {
     const cardId = this.selectedCardId();
     if (cardId === 'all') return;
 
-    const y = this.selectedYear();
-    const m = this.selectedMonth();
-    const effectiveMonth = `${y}-${String(m).padStart(2, '0')}`;
+    this.creditCardService.loadCharges({
+      creditCardId: cardId,
+      effectiveMonth: this.selectedEffectiveMonth(),
+    });
+  }
 
-    this.creditCardService.loadCharges({ creditCardId: cardId, effectiveMonth });
+  private formatDate(isoDate: string): string {
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(`${isoDate}T00:00:00Z`));
   }
 }

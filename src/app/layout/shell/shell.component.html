@@ -156,6 +156,25 @@
       </div>
     </div>
 
+    @if (walletQuickChoices().length > 0) {
+      <div class="ew-wp-sec">Switch wallet</div>
+      <div class="ew-wp-wallets">
+        @for (option of walletQuickChoices(); track option.id) {
+          <button
+            class="ew-wp-wallet"
+            type="button"
+            (click)="switchWallet(option)"
+          >
+            <span class="ew-wp-wallet-main">
+              <b>{{ option.description }}</b>
+              <small>{{ option.effectiveMonth }} · {{ option.state.toLowerCase() }}</small>
+            </span>
+            <span class="ew-wp-wallet-val ew-blur">{{ option.remaining | brlCurrency }}</span>
+          </button>
+        }
+      </div>
+    }
+
     <div class="ew-wp-sec">Top bullets</div>
     @if (bulletsLoading()) {
       <div class="ew-wp-loading">Loading…</div>

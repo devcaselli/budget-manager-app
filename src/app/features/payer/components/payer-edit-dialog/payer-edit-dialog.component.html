@@ -1,7 +1,7 @@
 <div class="ped-head" mat-dialog-title>
   <div>
     <h2 class="ped-title">Edit <em>payer</em></h2>
-    <p class="ped-subtitle">Update obligation details</p>
+    <p class="ped-subtitle">Update payer lifecycle and settlement details</p>
   </div>
   <button class="ped-close" type="button" mat-icon-button mat-dialog-close aria-label="Close">
     <mat-icon>close</mat-icon>
@@ -57,10 +57,22 @@
       />
     </div>
 
+    @if (needsWallet()) {
+      <div class="ped-error">
+        Transient payers stay linked to the selected wallet.
+      </div>
+    }
+
   </mat-dialog-content>
 
   <mat-dialog-actions class="ped-actions" align="end">
     <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
-    <button class="ew-btn ew-btn--primary" type="submit">Save changes</button>
+    <button
+      class="ew-btn ew-btn--primary"
+      type="submit"
+      [disabled]="needsWallet() && !data.selectedWalletId && !data.walletId"
+    >
+      Save changes
+    </button>
   </mat-dialog-actions>
 </form>

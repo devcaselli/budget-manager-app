@@ -16,7 +16,7 @@
       <button
         class="installment-new-btn"
         type="button"
-        [disabled]="isSaving()"
+        [disabled]="!canOpenCreateDialog()"
         (click)="onNewClick()"
       >
         <mat-icon aria-hidden="true">add</mat-icon>
@@ -27,6 +27,8 @@
 
   @if (errorMessage()) {
     <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  } @else if (createInstallmentBlockerMessage()) {
+    <div class="ew-alert" role="alert">{{ createInstallmentBlockerMessage() }}</div>
   }
 
   <!-- ── Hero strip ───────────────────────────────────────────────── -->

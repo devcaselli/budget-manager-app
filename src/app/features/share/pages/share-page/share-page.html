@@ -1,0 +1,294 @@
+<div class="share-page">
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">07 · Shares</div>
+      <h1 class="ew-page-title">Split the <em>burden.</em></h1>
+      <p class="ew-page-sub">
+        Allocate expenses, subscriptions and installments across payers without breaking the ledger.
+      </p>
+    </div>
+    <div class="ew-head-meta">
+      active · <b>{{ activeShareCount() }}</b><br>
+      assigned · <b class="ew-blur">{{ sharedTotal() | brlCurrency }}</b>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  }
+
+  <div class="ew-hero">
+    <div>
+      <div class="ew-hero-lbl">Active shares</div>
+      <div class="ew-hero-val">{{ activeShareCount() }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">currently affecting the ledger</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Reverted</div>
+      <div class="ew-hero-val">{{ revertedShareCount() }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">kept as audit history</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Wallet scope</div>
+      <div class="ew-hero-val">{{ wallet()?.description ?? 'No wallet' }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">transient payers use this wallet</div>
+    </div>
+  </div>
+
+  <div class="share-layout">
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Create <em>share</em></h3>
+          <p>One active share per source</p>
+        </div>
+      </div>
+
+      <div class="ew-panel-body">
+        <form class="share-form" [formGroup]="form" (ngSubmit)="createShare()">
+          <div class="share-grid">
+            <div class="ew-field">
+              <label for="sp-source-type">Source type</label>
+              <select id="sp-source-type" class="ew-select" formControlName="sourceType">
+                <option value="EXPENSE">Expense</option>
+                <option value="SUBSCRIPTION">Subscription</option>
+                <option value="INSTALLMENT">Installment</option>
+              </select>
+            </div>
+
+            <div class="ew-field">
+              <label for="sp-source-id">Source</label>
+              <select id="sp-source-id" class="ew-select" formControlName="sourceId">
+                @for (option of sourceOptions(); track option.id) {
+                  <option [value]="option.id">
+                    {{ option.label }} · {{ option.meta }}
+                  </option>
+                } @empty {
+                  <option value="">No source available</option>
+                }
+              </select>
+            </div>
+          </div>
+
+          <div class="share-grid">
+            <div class="ew-field">
+              <label for="sp-total">Total amount</label>
+              <input
+                id="sp-total"
+                class="ew-input"
+                type="number"
+                step="0.01"
+                formControlName="totalAmount"
+                readonly
+              />
+            </div>
+
+            <div class="ew-field">
+              <label for="sp-owner-share">Owner share</label>
+              <input
+                id="sp-owner-share"
+                class="ew-input"
+                type="number"
+                min="0"
+                step="0.01"
+                formControlName="ownerShare"
+              />
+            </div>
+          </div>
+
+          <div class="share-quota-head">
+            <div>
+              <h4>Payer quotas</h4>
+              <p>{{ existingPayers().length }} existing payer(s) available for this source</p>
+              @if (!transientQuotaAllowed()) {
+                <p>Transient payer is only available for expense shares.</p>
+              }
+            </div>
+            <button class="ew-btn ew-btn--ghost" type="button" (click)="addQuota()">
+              + Add quota
+            </button>
+          </div>
+
+          <div class="share-quotas" formArrayName="quotas">
+            @for (quota of quotaControls(); track $index; let index = $index) {
+              <div class="share-quota" [formGroupName]="index">
+                <div class="share-grid share-grid--quota">
+                  <div class="ew-field">
+                    <label [for]="'sp-mode-' + index">Quota mode</label>
+                    <select
+                      [id]="'sp-mode-' + index"
+                      class="ew-select"
+                      formControlName="mode"
+                    >
+                      @for (mode of quotaModeOptions; track mode.value) {
+                        <option [value]="mode.value" [disabled]="quotaModeDisabled(mode.value)">
+                          {{ mode.label }}
+                        </option>
+                      }
+                    </select>
+                  </div>
+
+                  <div class="ew-field">
+                    <label [for]="'sp-amount-' + index">Amount</label>
+                    <input
+                      [id]="'sp-amount-' + index"
+                      class="ew-input"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      formControlName="amount"
+                    />
+                  </div>
+                </div>
+
+                @if (!isTransientQuota(index)) {
+                  <div class="ew-field">
+                    <label [for]="'sp-payer-' + index">Payer</label>
+                    <select
+                      [id]="'sp-payer-' + index"
+                      class="ew-select"
+                      formControlName="payerId"
+                    >
+                      <option value="">Select payer...</option>
+                      @for (payer of existingPayers(); track payer.id) {
+                        <option [value]="payer.id">
+                          {{ payer.name }} · {{ payer.type.toLowerCase() }}
+                        </option>
+                      }
+                    </select>
+                  </div>
+                } @else {
+                  <div class="share-grid share-grid--quota">
+                    <div class="ew-field">
+                      <label [for]="'sp-transient-name-' + index">Transient payer</label>
+                      <input
+                        [id]="'sp-transient-name-' + index"
+                        class="ew-input"
+                        formControlName="transientName"
+                        placeholder="e.g. Maria Silva"
+                      />
+                    </div>
+
+                    <div class="ew-field">
+                      <label [for]="'sp-transient-date-' + index">Payment date</label>
+                      <input
+                        [id]="'sp-transient-date-' + index"
+                        class="ew-input"
+                        type="date"
+                        formControlName="transientPaymentDate"
+                      />
+                    </div>
+                  </div>
+                }
+
+                <button
+                  class="share-remove"
+                  type="button"
+                  aria-label="Remove quota"
+                  (click)="removeQuota(index)"
+                >
+                  Remove quota
+                </button>
+              </div>
+            }
+          </div>
+
+          <div class="share-summary">
+            <div>
+              <small>Owner share</small>
+              <strong>{{ ownerShareValue() | brlCurrency }}</strong>
+            </div>
+            <div>
+              <small>Payer quotas</small>
+              <strong>{{ quotasTotal() | brlCurrency }}</strong>
+            </div>
+            <div [class.share-summary__warn]="unassignedAmount() !== 0">
+              <small>Delta</small>
+              <strong>{{ unassignedAmount() | brlCurrency }}</strong>
+            </div>
+          </div>
+
+          @if (submitBlockers().length > 0) {
+            <div class="share-validation" role="status" aria-live="polite">
+              <strong>What is still missing</strong>
+              <ul class="share-validation__list">
+                @for (blocker of submitBlockers(); track blocker) {
+                  <li>{{ blocker }}</li>
+                }
+              </ul>
+            </div>
+          }
+
+          <button class="ew-btn-submit" type="submit" [disabled]="!canSubmit() || isSaving()">
+            {{ isSaving() ? 'Saving share...' : 'Create share' }}
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Share <em>ledger</em></h3>
+          <p>{{ shareItems().length }} share(s) in this wallet</p>
+        </div>
+      </div>
+
+      <div class="share-list">
+        @if (isLoading()) {
+          <div class="ew-empty">Loading...</div>
+        } @else if (shareItems().length === 0) {
+          <div class="ew-empty">No shares yet for the selected wallet.</div>
+        } @else {
+          @for (share of shareItems(); track share.id) {
+            <article class="share-card">
+              <div class="share-card__top">
+                <div>
+                  <span class="share-card__type">{{ sourceLabel[share.sourceType] }}</span>
+                  <h4>{{ share.sourceLabel }}</h4>
+                  <p>{{ share.ownerRatioLabel }} · {{ share.paymentsCount }} payment(s)</p>
+                </div>
+                <div class="share-card__meta">
+                  <span class="share-badge" [class.share-badge--muted]="!share.active">
+                    {{ share.status }}
+                  </span>
+                  <strong class="ew-blur">{{ share.totalAmount | brlCurrency }}</strong>
+                </div>
+              </div>
+
+              <div class="share-card__body">
+                <div>
+                  <small>Owner</small>
+                  <strong>{{ share.ownerShare | brlCurrency }}</strong>
+                </div>
+                <div>
+                  <small>Quotas</small>
+                  <strong>{{ share.quotasLabel }}</strong>
+                </div>
+                <div>
+                  <small>Created</small>
+                  <strong>{{ share.createdAt }}</strong>
+                </div>
+                <div>
+                  <small>Reverted</small>
+                  <strong>{{ share.revertedAt ?? '—' }}</strong>
+                </div>
+              </div>
+
+              @if (share.active) {
+                <button
+                  class="ew-btn ew-btn--ghost"
+                  type="button"
+                  [disabled]="revertingId() === share.id"
+                  (click)="revertShare(share.id)"
+                >
+                  {{ revertingId() === share.id ? 'Reverting...' : 'Revert share' }}
+                </button>
+              }
+            </article>
+          }
+        }
+      </div>
+    </div>
+  </div>
+</div>

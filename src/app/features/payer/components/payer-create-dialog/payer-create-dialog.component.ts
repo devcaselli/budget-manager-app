@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -11,16 +12,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { CreatePayerRequest, PayerType } from '../../models/payer';
 
 export interface PayerCreateDialogData {
-  readonly placeholder?: never;
+  readonly walletId: string | null;
 }
 
 export type PayerCreateDialogResult = CreatePayerRequest;
 
 const PAYER_TYPES: readonly { value: PayerType; label: string }[] = [
-  { value: 'INDIVIDUAL', label: 'Individual' },
-  { value: 'COMPANY',    label: 'Company' },
-  { value: 'DEPENDENT',  label: 'Dependent' },
-  { value: 'OTHER',      label: 'Other' },
+  { value: 'STANDING', label: 'Standing' },
+  { value: 'TRANSIENT', label: 'Transient' },
 ];
 
 @Component({
@@ -36,15 +35,20 @@ export class PayerCreateDialogComponent {
 
   protected readonly data = inject<PayerCreateDialogData>(MAT_DIALOG_DATA);
   protected readonly payerTypes = PAYER_TYPES;
+  protected readonly needsWallet = computed(() => this.form.controls.type.getRawValue() === 'TRANSIENT');
 
   protected readonly form = this.formBuilder.nonNullable.group({
     name:           ['', [Validators.required, Validators.maxLength(120)]],
-    type:           ['INDIVIDUAL' as PayerType, Validators.required],
+    type:           ['STANDING' as PayerType, Validators.required],
     paymentDate:    [this.today(), Validators.required],
     subscriptionId: [''],
   });
 
   protected submit(): void {
+    if (this.needsWallet() && !this.data.walletId) {
+      return;
+    }
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;

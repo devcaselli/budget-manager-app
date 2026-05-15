@@ -107,6 +107,12 @@ const payment: Payment = {
   expenseId: 'expense-1',
   walletId: 'wallet-1',
   bulletId: 'bullet-1',
+  flag: 'NONE',
+  kind: 'NORMAL',
+  payerId: null,
+  shareId: null,
+  reversal: false,
+  reversedPaymentId: null,
 };
 
 function pagedResponse(content: readonly Payment[]): PagedPaymentResponse {

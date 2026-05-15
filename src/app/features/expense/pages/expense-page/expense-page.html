@@ -16,6 +16,8 @@
 
   @if (errorMessage()) {
     <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  } @else if (createExpenseBlockerMessage()) {
+    <div class="ew-alert" role="alert">{{ createExpenseBlockerMessage() }}</div>
   }
   @if (paymentErrorMessage()) {
     <div class="ew-alert" role="alert">{{ paymentErrorMessage() }}</div>
@@ -135,7 +137,7 @@
             <div class="ew-field">
               <label for="ep-card">Credit card</label>
               <select id="ep-card" class="ew-select" formControlName="creditCardId">
-                <option value="">— Cash / debit —</option>
+                <option value="">Select card...</option>
                 @for (card of creditCards(); track card.id) {
                   <option [value]="card.id">{{ card.name }}</option>
                 }
@@ -174,7 +176,7 @@
           <button
             class="ew-btn-submit"
             type="submit"
-            [disabled]="!wallet() || isSaving()"
+            [disabled]="!canSubmitExpense()"
           >
             {{ isSaving() ? 'Creating...' : 'Create expense' }}
           </button>
