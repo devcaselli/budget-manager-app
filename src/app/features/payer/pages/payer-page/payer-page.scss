@@ -1,0 +1,254 @@
+.payer-page {
+  display: grid;
+  gap: 0;
+}
+
+// ── Page head ─────────────────────────────────────────────────────────────────
+
+.payer-head-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.payer-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-acc);
+  background: var(--ew-acc);
+  color: #1c1814;
+  font-family: var(--ew-sans);
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--ew-acc-2);
+    border-color: var(--ew-acc-2);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ── Selector strip ────────────────────────────────────────────────────────────
+
+.payer-selector-strip {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 20px 0 16px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.payer-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--ew-line-2);
+  background: var(--ew-panel-2);
+  color: var(--ew-ink);
+  cursor: pointer;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  min-width: 148px;
+  text-align: left;
+
+  &:hover {
+    border-color: var(--ew-acc);
+  }
+
+  &--active {
+    border-color: var(--ew-acc);
+    box-shadow: 0 0 0 1px var(--ew-acc);
+  }
+}
+
+.payer-card-name {
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ew-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.payer-card-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-family: var(--ew-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(214, 163, 113, 0.12);
+  color: var(--ew-acc);
+  border: 1px solid rgba(214, 163, 113, 0.22);
+
+  &--all {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--ew-ink-3);
+    border-color: var(--ew-line-2);
+  }
+}
+
+.payer-card-amount {
+  font-family: var(--ew-mono);
+  font-size: 13px;
+  color: var(--ew-ink-2);
+}
+
+// ── List body ─────────────────────────────────────────────────────────────────
+
+.payer-list-body {
+  padding: 6px 26px 26px;
+}
+
+.payer-alloc {
+  grid-template-columns: 1fr 140px 120px auto;
+}
+
+.payer-type-pill {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-family: var(--ew-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(214, 163, 113, 0.1);
+  color: var(--ew-acc);
+  border: 1px solid rgba(214, 163, 113, 0.2);
+}
+
+.payer-alloc-date {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  small {
+    font-family: var(--ew-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ew-ink-3);
+  }
+}
+
+.payer-date-label {
+  font-family: var(--ew-mono);
+  font-size: 12px;
+  color: var(--ew-ink-2);
+}
+
+.payer-alloc-nums {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+
+  b {
+    font-family: var(--ew-serif);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ew-ink);
+  }
+
+  small {
+    font-family: var(--ew-mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ew-ink-3);
+  }
+}
+
+.payer-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.payer-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink-3);
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+  flex: 0 0 36px;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+    background-color: rgba(214, 163, 113, 0.06);
+  }
+
+  &--danger {
+    &:hover:not(:disabled) {
+      color: var(--ew-bad);
+      border-color: var(--ew-bad);
+      background-color: rgba(217, 122, 108, 0.06);
+    }
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+// ── Responsive ────────────────────────────────────────────────────────────────
+
+@media (max-width: 1280px) {
+  .payer-alloc {
+    grid-template-columns: 1fr auto !important;
+  }
+
+  .payer-alloc-date {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .payer-alloc {
+    grid-template-columns: 1fr !important;
+  }
+
+  .payer-alloc-nums {
+    align-items: flex-start;
+  }
+}

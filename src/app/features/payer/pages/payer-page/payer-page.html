@@ -1,0 +1,152 @@
+<div class="payer-page">
+
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">06 · Payers</div>
+      <h1 class="ew-page-title">Who <em>pays.</em></h1>
+      <p class="ew-page-sub">
+        Manage individuals and entities with recurring payment obligations.
+      </p>
+    </div>
+    <div class="payer-head-right">
+      <div class="ew-head-meta">
+        payers · <b>{{ totalCount() }}</b><br>
+        total due · <b class="ew-blur">{{ totalAmountDue() | brlCurrency }}</b>
+      </div>
+      <button
+        class="payer-new-btn"
+        type="button"
+        [disabled]="isSaving()"
+        (click)="onNewClick()"
+      >
+        <mat-icon aria-hidden="true">add</mat-icon>
+        New payer
+      </button>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  }
+
+  <!-- ── Hero strip ───────────────────────────────────────────────── -->
+  <div class="ew-hero">
+    <div>
+      <div class="ew-hero-lbl">Total payers</div>
+      <div class="ew-hero-val">{{ totalCount() }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">registered obligations</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Total due</div>
+      <div class="ew-hero-val ew-blur">{{ totalAmountDue() | brlCurrency }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">combined amount</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Next payment</div>
+      <div class="ew-hero-val">{{ nextPaymentDate() }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">earliest due date</div>
+    </div>
+  </div>
+
+  <!-- ── Payer selector cards ─────────────────────────────────────── -->
+  @if (payers().length > 0) {
+    <div class="payer-selector-strip">
+      <!-- All card -->
+      <button
+        class="payer-card"
+        type="button"
+        [class.payer-card--active]="selectedPayerId() === null"
+        (click)="selectPayer(null)"
+      >
+        <span class="payer-card-name">All</span>
+        <span class="payer-card-badge payer-card-badge--all">{{ totalCount() }} payers</span>
+      </button>
+
+      @for (payer of payers(); track payer.id) {
+        <button
+          class="payer-card"
+          type="button"
+          [class.payer-card--active]="selectedPayerId() === payer.id"
+          (click)="selectPayer(payer.id)"
+        >
+          <span class="payer-card-name">{{ payer.name }}</span>
+          <span class="payer-card-badge">{{ typeLabel(payer.type) }}</span>
+          <span class="payer-card-amount ew-blur">{{ payer.amountDue | brlCurrency }}</span>
+        </button>
+      }
+    </div>
+  }
+
+  <!-- ── List panel ───────────────────────────────────────────────── -->
+  <div class="ew-panel">
+    <div class="ew-panel-head">
+      <div>
+        <h3>Payer <em>obligations</em></h3>
+        <p>Showing {{ selectedPayerName() }}</p>
+      </div>
+    </div>
+
+    <div class="payer-list-body">
+      @if (isLoading()) {
+        <div class="ew-empty">Loading...</div>
+      } @else if (filteredPayers().length === 0) {
+        <div class="ew-empty">
+          @if (payers().length === 0) {
+            No payers yet. Add one to get started.
+          } @else {
+            No payer selected.
+          }
+        </div>
+      } @else {
+        @for (payer of filteredPayers(); track payer.id) {
+          <div class="ew-alloc payer-alloc">
+            <div class="ew-alloc-name">
+              <span>{{ payer.name }}</span>
+              <small>
+                <span class="payer-type-pill">{{ typeLabel(payer.type) }}</span>
+                @if (payer.subscriptionId) {
+                  · sub: {{ payer.subscriptionId }}
+                }
+              </small>
+            </div>
+            <div class="payer-alloc-date">
+              <span class="payer-date-label">{{ formatDate(payer.paymentDate) }}</span>
+              <small>payment date</small>
+            </div>
+            <div class="payer-alloc-nums">
+              <b class="ew-blur">{{ payer.amountDue | brlCurrency }}</b>
+              <small>{{ payer.currency }}</small>
+            </div>
+            <div class="payer-row-actions">
+              <button
+                class="payer-action-btn"
+                type="button"
+                aria-label="Edit payer"
+                title="Edit payer"
+                (click)="onEditClick(payer)"
+              >
+                <mat-icon aria-hidden="true">edit_note</mat-icon>
+              </button>
+              <button
+                class="payer-action-btn payer-action-btn--danger"
+                type="button"
+                aria-label="Delete payer"
+                title="Delete payer"
+                [disabled]="deletingId() === payer.id"
+                (click)="onDeleteClick(payer)"
+              >
+                @if (deletingId() === payer.id) {
+                  <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+                } @else {
+                  <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                }
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+
+</div>

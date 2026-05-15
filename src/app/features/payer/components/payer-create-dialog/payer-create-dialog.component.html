@@ -1,0 +1,66 @@
+<div class="pcd-head" mat-dialog-title>
+  <div>
+    <h2 class="pcd-title">New <em>payer</em></h2>
+    <p class="pcd-subtitle">Add a recurring obligation</p>
+  </div>
+  <button class="pcd-close" type="button" mat-icon-button mat-dialog-close aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<form class="pcd-form" [formGroup]="form" (ngSubmit)="submit()">
+  <mat-dialog-content class="pcd-body">
+
+    <div class="ew-field">
+      <label for="pcd-name">Name</label>
+      <input
+        id="pcd-name"
+        class="ew-input"
+        formControlName="name"
+        placeholder="e.g. John Doe"
+        maxlength="120"
+      />
+      @if (form.controls.name.touched && form.controls.name.invalid) {
+        <p class="pcd-error">Enter a name (max 120 chars).</p>
+      }
+    </div>
+
+    <div class="ew-row-form">
+      <div class="ew-field">
+        <label for="pcd-type">Type</label>
+        <select id="pcd-type" class="ew-select" formControlName="type">
+          @for (t of payerTypes; track t.value) {
+            <option [value]="t.value">{{ t.label }}</option>
+          }
+        </select>
+        @if (form.controls.type.touched && form.controls.type.invalid) {
+          <p class="pcd-error">Select a type.</p>
+        }
+      </div>
+
+      <div class="ew-field">
+        <label for="pcd-date">Payment date</label>
+        <input id="pcd-date" class="ew-input" type="date" formControlName="paymentDate" />
+        @if (form.controls.paymentDate.touched && form.controls.paymentDate.invalid) {
+          <p class="pcd-error">Enter a payment date.</p>
+        }
+      </div>
+    </div>
+
+    <div class="ew-field">
+      <label for="pcd-subscription">Subscription ID (optional)</label>
+      <input
+        id="pcd-subscription"
+        class="ew-input"
+        formControlName="subscriptionId"
+        placeholder="Link to a subscription"
+      />
+    </div>
+
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="pcd-actions" align="end">
+    <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
+    <button class="ew-btn ew-btn--primary" type="submit">+ Add payer</button>
+  </mat-dialog-actions>
+</form>

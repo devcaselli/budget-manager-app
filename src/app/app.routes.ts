@@ -61,6 +61,14 @@ export const routes: Routes = [
         title: 'Installments | Budget Manager',
       },
       {
+        path: 'payers',
+        loadComponent: () =>
+          import('@features/payer/pages/payer-page/payer-page').then(
+            (c) => c.PayerPage,
+          ),
+        title: 'Payers | Budget Manager',
+      },
+      {
         path: 'credit-cards',
         loadComponent: () =>
           import('@features/credit-card/pages/credit-card-page/credit-card-page').then(

@@ -95,10 +95,11 @@ export class ShellComponent {
   protected readonly activityNav: readonly NavEntry[] = [
     { label: 'Expenses',      route: '/expenses',      num: '04' },
     { label: 'Installments',  route: '/installments',  num: '05' },
-    { label: 'Credit cards',  route: '/credit-cards',  num: '06' },
-    { label: 'Subscriptions', route: '/subscriptions', num: '07' },
-    { label: 'Payments',      route: '/payments',      num: '08' },
-    { label: 'Settings',      route: '/settings',      num: '09' },
+    { label: 'Payers',        route: '/payers',        num: '06' },
+    { label: 'Credit cards',  route: '/credit-cards',  num: '07' },
+    { label: 'Subscriptions', route: '/subscriptions', num: '08' },
+    { label: 'Payments',      route: '/payments',      num: '09' },
+    { label: 'Settings',      route: '/settings',      num: '10' },
   ];
 
   /** Percentage of wallet budget already committed. */
