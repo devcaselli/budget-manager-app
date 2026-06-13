@@ -1,0 +1,217 @@
+<div class="reserved-budget-page">
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">06 · Reserved Budgets</div>
+      <h1 class="ew-page-title">Standing <em>reserves.</em></h1>
+      <p class="ew-page-sub">
+        Recurring amounts set aside each month &mdash; rent, utilities, fixed commitments.
+      </p>
+    </div>
+    <div class="ew-head-meta">
+      reserves · <b>{{ activeCount() }}</b><br>
+      total · {{ reservedTotal() }}
+    </div>
+  </div>
+
+  <!-- ── Hero ─────────────────────────────────────────────────────── -->
+  <div class="ew-hero ew-hero--3col">
+    <div>
+      <div class="ew-hero-lbl">Reserves</div>
+      <div class="ew-hero-val">{{ activeCount() }}</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Total reserved</div>
+      <div class="ew-hero-val ew-blur">{{ reservedTotal() }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">per month</div>
+    </div>
+    <div>
+      <div class="ew-hero-lbl">Variation</div>
+      <div class="ew-hero-val" style="color: var(--ew-acc)">history</div>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  }
+
+  <div class="ew-row">
+    <!-- Reserved budget list -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>Registered</h3>
+          <p>{{ activeCount() }} reserve(s)</p>
+        </div>
+      </div>
+
+      <div class="rb-list-body">
+        @if (isLoading()) {
+          <div class="ew-empty">Loading...</div>
+        } @else if (reservedBudgetItems().length === 0) {
+          <div class="ew-empty">No reserved budgets yet</div>
+        } @else {
+          @for (budget of reservedBudgetItems(); track budget.id) {
+            <div class="ew-sub">
+              <div class="ew-sub-avatar">{{ budget.description.charAt(0).toUpperCase() }}</div>
+              <div class="ew-sub-info">
+                <b>{{ budget.description }}</b>
+                <span>
+                  since {{ budget.startMonth }} · {{ budget.versionCount }} version(s)
+                </span>
+                @if (budget.details) {
+                  <span class="rb-details">{{ budget.details }}</span>
+                }
+              </div>
+              <div class="ew-sub-amount">
+                <b class="ew-blur">{{ budget.amount }}</b>
+                <span>per month</span>
+              </div>
+              <div class="rb-actions">
+                <button
+                  class="rb-action-btn"
+                  type="button"
+                  title="Edit"
+                  [disabled]="updatingReservedBudgetId() === budget.id || deletingReservedBudgetId() === budget.id"
+                  (click)="editReservedBudget(budget)"
+                >✎</button>
+                <button
+                  class="rb-action-btn rb-action-btn--danger"
+                  type="button"
+                  title="Delete"
+                  [disabled]="deletingReservedBudgetId() === budget.id"
+                  (click)="deleteReservedBudget(budget)"
+                >×</button>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <!-- Reserved budget form -->
+    <div class="ew-panel">
+      <div class="ew-panel-head">
+        <div>
+          <h3>{{ hasEditingReservedBudget() ? 'Edit' : 'New' }} <em>reserve</em></h3>
+          <p>{{ hasEditingReservedBudget() ? 'Set a new amount from a chosen month on' : 'Auto-loads each cycle' }}</p>
+        </div>
+      </div>
+      <div class="ew-panel-body">
+        <form class="ew-form" [formGroup]="form" (ngSubmit)="submitReservedBudget()">
+          <div class="ew-field">
+            <label for="rb-description">Description</label>
+            <input
+              id="rb-description"
+              class="ew-input"
+              formControlName="description"
+              placeholder="e.g. Rent"
+            />
+            @if (form.controls.description.touched && form.controls.description.invalid) {
+              <p class="rb-field-error">
+                @if (form.controls.description.hasError('required')) {
+                  Description is required.
+                } @else {
+                  Description must be 120 characters or fewer.
+                }
+              </p>
+            }
+          </div>
+
+          <div class="ew-field">
+            <label for="rb-details">Details</label>
+            <input
+              id="rb-details"
+              class="ew-input"
+              formControlName="details"
+              placeholder="Optional notes"
+            />
+            @if (form.controls.details.touched && form.controls.details.invalid) {
+              <p class="rb-field-error">Details must be 255 characters or fewer.</p>
+            }
+          </div>
+
+          <div class="ew-row-form">
+            <div class="ew-field">
+              <label for="rb-budget">{{ hasEditingReservedBudget() ? 'New amount' : 'Amount' }}</label>
+              <input
+                id="rb-budget"
+                class="ew-input"
+                type="number"
+                min="0.01"
+                step="0.01"
+                formControlName="budget"
+                placeholder="R$ 0.00"
+              />
+              @if (form.controls.budget.touched && form.controls.budget.invalid) {
+                <p class="rb-field-error">
+                  @if (form.controls.budget.hasError('pattern')) {
+                    Use up to 2 decimal places.
+                  } @else {
+                    Amount must be greater than zero.
+                  }
+                </p>
+              }
+            </div>
+            <div class="ew-field">
+              <label for="rb-currency">Currency</label>
+              <select id="rb-currency" class="ew-select" formControlName="currency">
+                <option value="BRL">BRL</option>
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="ew-field">
+            <label for="rb-effective">{{ hasEditingReservedBudget() ? 'New amount effective from' : 'Effective' }}</label>
+            <input
+              id="rb-effective"
+              class="ew-input"
+              type="month"
+              formControlName="effectiveMonth"
+              [min]="editMinEffectiveMonth()"
+            />
+            @if (form.controls.effectiveMonth.touched && form.controls.effectiveMonth.invalid) {
+              <p class="rb-field-error">
+                @if (form.controls.effectiveMonth.hasError('required')) {
+                  Effective month is required.
+                } @else if (form.controls.effectiveMonth.hasError('minMonth')) {
+                  Choose a month on or after {{ editMinEffectiveMonthLabel() }}.
+                }
+              </p>
+            }
+          </div>
+
+          @if (hasEditingReservedBudget()) {
+            <p class="rb-version-hint">
+              Changing the amount records a new version effective from the chosen
+              month onward; earlier months keep their previous amount. The currency stays fixed.
+            </p>
+
+            @if (editingReservedBudget(); as editing) {
+              <div class="rb-version-history">
+                <div class="rb-version-history-head">Amount history</div>
+                @for (version of editing.versions; track version.effectiveMonth) {
+                  <div class="rb-version-row">
+                    <span class="rb-version-month">{{ version.effectiveMonth }}</span>
+                    <span class="rb-version-amount ew-blur">{{ version.amount }}</span>
+                  </div>
+                }
+              </div>
+            }
+          }
+
+          <div class="rb-form-actions">
+            <button class="ew-btn-submit" type="submit" [disabled]="isSaving()">
+              {{ hasEditingReservedBudget() ? 'Save new amount' : 'Create reserve' }}
+            </button>
+            @if (hasEditingReservedBudget()) {
+              <button class="rb-cancel-btn" type="button" (click)="cancelEdit()">Cancel</button>
+            }
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

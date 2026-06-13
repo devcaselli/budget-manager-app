@@ -18,6 +18,16 @@ export const APP_NAVIGATION: readonly NavigationItem[] = [
     icon: 'track_changes',
   },
   {
+    label: 'Extra Budgets',
+    route: '/extra-budgets',
+    icon: 'add_card',
+  },
+  {
+    label: 'Reserved Budgets',
+    route: '/reserved-budgets',
+    icon: 'savings',
+  },
+  {
     label: 'Expenses',
     route: '/expenses',
     icon: 'receipt_long',

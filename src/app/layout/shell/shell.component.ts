@@ -92,17 +92,19 @@ export class ShellComponent {
     { label: 'Dashboard', route: '/dashboard', num: '01', exact: true },
     { label: 'Wallets',   route: '/wallets',   num: '02' },
     { label: 'Bullets',   route: '/bullets',   num: '03' },
+    { label: 'Extra budgets', route: '/extra-budgets', num: '04' },
+    { label: 'Reserved budgets', route: '/reserved-budgets', num: '05' },
   ];
 
   protected readonly activityNav: readonly NavEntry[] = [
-    { label: 'Expenses',      route: '/expenses',      num: '04' },
-    { label: 'Installments',  route: '/installments',  num: '05' },
-    { label: 'Payers',        route: '/payers',        num: '06' },
-    { label: 'Shares',        route: '/shares',        num: '07' },
-    { label: 'Credit cards',  route: '/credit-cards',  num: '08' },
-    { label: 'Subscriptions', route: '/subscriptions', num: '09' },
-    { label: 'Payments',      route: '/payments',      num: '10' },
-    { label: 'Settings',      route: '/settings',      num: '11' },
+    { label: 'Expenses',      route: '/expenses',      num: '05' },
+    { label: 'Installments',  route: '/installments',  num: '06' },
+    { label: 'Payers',        route: '/payers',        num: '07' },
+    { label: 'Shares',        route: '/shares',        num: '08' },
+    { label: 'Credit cards',  route: '/credit-cards',  num: '09' },
+    { label: 'Subscriptions', route: '/subscriptions', num: '10' },
+    { label: 'Payments',      route: '/payments',      num: '11' },
+    { label: 'Settings',      route: '/settings',      num: '12' },
   ];
 
   /** Percentage of wallet budget already committed. */

@@ -1,0 +1,121 @@
+.reserved-budget-page {
+  display: grid;
+  gap: 0;
+}
+
+.rb-list-body {
+  padding: 6px 26px 22px;
+}
+
+.rb-details {
+  color: var(--ew-ink-2);
+  font-size: 11px;
+}
+
+.rb-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.rb-action-btn {
+  font-size: 16px;
+  color: var(--ew-ink-3);
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s;
+  cursor: pointer;
+  background: none;
+  border: none;
+
+  &:hover:not(:disabled) {
+    color: var(--ew-acc);
+  }
+
+  &--danger:hover:not(:disabled) {
+    color: var(--ew-bad);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.rb-form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rb-field-error {
+  margin: 7px 0 0;
+  color: var(--ew-bad);
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rb-version-hint {
+  margin: 0;
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.rb-version-history {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--ew-line-2);
+  border-radius: 8px;
+}
+
+.rb-version-history-head {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+}
+
+.rb-version-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rb-version-month {
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  color: var(--ew-ink-2);
+}
+
+.rb-version-amount {
+  font-family: var(--ew-mono);
+  font-size: 13px;
+  color: var(--ew-ink);
+}
+
+.rb-cancel-btn {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--ew-ink-2);
+  border: 1px solid var(--ew-line-2);
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+
+  &:hover {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+}

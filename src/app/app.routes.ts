@@ -45,6 +45,22 @@ export const routes: Routes = [
         title: 'Bullets | Budget Manager',
       },
       {
+        path: 'extra-budgets',
+        loadComponent: () =>
+          import('@features/extra-budget/pages/extra-budget-page/extra-budget-page').then(
+            (c) => c.ExtraBudgetPage,
+          ),
+        title: 'Extra Budgets | Budget Manager',
+      },
+      {
+        path: 'reserved-budgets',
+        loadComponent: () =>
+          import('@features/reserved-budget/pages/reserved-budget-page/reserved-budget-page').then(
+            (c) => c.ReservedBudgetPage,
+          ),
+        title: 'Reserved Budgets | Budget Manager',
+      },
+      {
         path: 'expenses',
         loadComponent: () =>
           import('@features/expense/pages/expense-page/expense-page').then(
