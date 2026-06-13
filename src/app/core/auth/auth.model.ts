@@ -18,6 +18,12 @@ export interface TokenResponse {
   readonly accessToken: string;
   readonly tokenType: string;
   readonly expiresIn: number;
+  readonly refreshToken: string;
+  readonly refreshExpiresIn: number;
+}
+
+export interface RefreshRequest {
+  readonly refreshToken: string;
 }
 
 export interface RegisterResponse {
@@ -29,4 +35,5 @@ export interface RegisterResponse {
 export interface StoredSession {
   readonly email: string;
   readonly token: string;
+  readonly refreshToken: string;
 }

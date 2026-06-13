@@ -1,11 +1,15 @@
 import { inject } from '@angular/core';
-import { HttpInterceptorFn } from '@angular/common/http';
+import { HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { catchError, switchMap, throwError } from 'rxjs';
 
 import { AuthService } from '@core/auth/auth.service';
 
-const PUBLIC_AUTH_PATHS = ['/auth/token', '/auth/register'];
+const PUBLIC_AUTH_PATHS = ['/auth/token', '/auth/register', '/auth/refresh'];
+
+function withBearer<T>(req: HttpRequest<T>, token: string): HttpRequest<T> {
+  return req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
+}
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
@@ -18,22 +22,23 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   const token = authService.getToken();
   if (!token) {
-    // getToken() already called logout() if token was expired
     router.navigate(['/login']);
     return throwError(() => new Error('Sessão expirada.'));
   }
 
-  const authedReq = req.clone({
-    setHeaders: { Authorization: `Bearer ${token}` },
-  });
-
-  return next(authedReq).pipe(
+  return next(withBearer(req, token)).pipe(
     catchError((error) => {
-      if (error?.status === 401) {
-        authService.logout();
-        router.navigate(['/login']);
+      if (error?.status !== 401) {
+        return throwError(() => error);
       }
-      return throwError(() => error);
+
+      return authService.refreshAccessToken().pipe(
+        switchMap((newToken) => next(withBearer(req, newToken))),
+        catchError((refreshError) => {
+          router.navigate(['/login']);
+          return throwError(() => refreshError);
+        }),
+      );
     }),
   );
 };

@@ -1,12 +1,22 @@
 import { computed, inject, Injectable, Signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { BehaviorSubject, catchError, map, Observable, switchMap, throwError } from 'rxjs';
+import {
+  BehaviorSubject,
+  catchError,
+  finalize,
+  map,
+  Observable,
+  shareReplay,
+  switchMap,
+  throwError,
+} from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
 
 import { environment } from '@environments/environment';
 import {
   AuthUser,
   LoginRequest,
+  RefreshRequest,
   RegisterResponse,
   StoredSession,
   TokenResponse,
@@ -86,6 +96,9 @@ export class AuthService {
 
   readonly isAuthenticated = computed(() => this.currentUserSignal() != null);
 
+  /** Shared single-flight refresh, deduping concurrent 401-driven callers. */
+  private refreshInFlight$: Observable<string> | null = null;
+
   constructor() {
     const session = readSession();
     if (session) {
@@ -99,12 +112,7 @@ export class AuthService {
 
   getToken(): string | null {
     const session = readSession();
-    if (!session) return null;
-    if (isTokenExpired(session.token)) {
-      this.logout();
-      return null;
-    }
-    return session.token;
+    return session?.token ?? null;
   }
 
   /** Returns true if stored token exists and is not expired. */
@@ -119,11 +127,57 @@ export class AuthService {
 
     return this.http.post<TokenResponse>(`${this.authUrl}/token`, body).pipe(
       map((response) => {
-        writeSession({ email, token: response.accessToken });
+        writeSession({
+          email,
+          token: response.accessToken,
+          refreshToken: response.refreshToken,
+        });
         this.currentUserSubject.next(deriveUser(email));
       }),
       catchError((error: HttpErrorResponse) => mapHttpError(error)),
     );
+  }
+
+  /**
+   * Exchanges the stored (rotated, single-use) refresh token for a new token
+   * pair. Concurrent callers share one in-flight request via shareReplay so a
+   * burst of 401s triggers a single /auth/refresh call.
+   */
+  refreshAccessToken(): Observable<string> {
+    if (this.refreshInFlight$) {
+      return this.refreshInFlight$;
+    }
+
+    const session = readSession();
+    if (!session?.refreshToken) {
+      this.logout();
+      return throwError(() => new Error('Sessão expirada.'));
+    }
+
+    const body: RefreshRequest = { refreshToken: session.refreshToken };
+
+    this.refreshInFlight$ = this.http
+      .post<TokenResponse>(`${this.authUrl}/refresh`, body)
+      .pipe(
+        map((response) => {
+          writeSession({
+            email: session.email,
+            token: response.accessToken,
+            refreshToken: response.refreshToken,
+          });
+          return response.accessToken;
+        }),
+        catchError((error: HttpErrorResponse) => {
+          this.logout();
+          return throwError(() => error);
+        }),
+        finalize(() => {
+          this.refreshInFlight$ = null;
+        }),
+        shareReplay({ bufferSize: 1, refCount: true }),
+      );
+
+    return this.refreshInFlight$;
   }
 
   register(email: string, password: string): Observable<void> {
