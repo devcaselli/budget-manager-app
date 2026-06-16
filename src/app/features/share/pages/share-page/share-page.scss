@@ -52,6 +52,12 @@
     radial-gradient(circle at top left, rgba(34, 197, 94, 0.12), transparent 40%);
 }
 
+.share-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
 .share-remove {
   justify-self: flex-start;
   border: 0;

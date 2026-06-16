@@ -13,6 +13,12 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
+import {
+  ExtraBudgetAllocationDialogComponent,
+  ExtraBudgetAllocationDialogData,
+  ExtraBudgetAllocationDialogResult,
+} from '@features/extra-budget/components/extra-budget-allocation-dialog/extra-budget-allocation-dialog.component';
+import { ExtraBudgetService } from '@features/extra-budget/services/extra-budget.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
 
 import { BulletService } from '../../services/bullet.service';
@@ -42,6 +48,7 @@ export class BulletPage {
   private readonly dialog = inject(MatDialog);
   private readonly formBuilder = inject(FormBuilder);
   private readonly bulletService = inject(BulletService);
+  private readonly extraBudgetService = inject(ExtraBudgetService);
   private readonly walletService = inject(WalletService);
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
@@ -52,6 +59,9 @@ export class BulletPage {
   protected readonly wallet = this.selectedWallet;
   protected readonly isLoading = toSignal(this.bulletService.loading$, { initialValue: false });
   protected readonly isSaving = toSignal(this.bulletService.saving$, { initialValue: false });
+  protected readonly isAllocatingExtraBudget = toSignal(this.extraBudgetService.saving$, {
+    initialValue: false,
+  });
   protected readonly deletingBulletId = toSignal(this.bulletService.deleting$, {
     initialValue: null,
   });
@@ -133,12 +143,66 @@ export class BulletPage {
       });
   }
 
+  protected openExtraBudgetDialog(bullet: BulletListItem): void {
+    const wallet = this.selectedWallet();
+    if (!wallet) return;
+
+    const data: ExtraBudgetAllocationDialogData = {
+      walletDescription: wallet.description,
+      bullet: {
+        id: bullet.id,
+        description: bullet.description,
+        budget: bullet.budget,
+        remaining: bullet.remaining,
+      },
+    };
+
+    this.dialog
+      .open<
+        ExtraBudgetAllocationDialogComponent,
+        ExtraBudgetAllocationDialogData,
+        ExtraBudgetAllocationDialogResult
+      >(ExtraBudgetAllocationDialogComponent, {
+        width: '32rem',
+        maxWidth: 'calc(100vw - 2rem)',
+        data,
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result) this.createExtraBudget(wallet.id, bullet.id, result);
+      });
+  }
+
   private deleteBullet(id: string): void {
     this.bulletService
       .delete(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => this.walletService.loadWallets(),
+        error: () => undefined,
+      });
+  }
+
+  private createExtraBudget(
+    walletId: string,
+    bulletId: string,
+    result: ExtraBudgetAllocationDialogResult,
+  ): void {
+    this.extraBudgetService
+      .create({
+        description: result.description,
+        walletId,
+        amount: result.amount,
+        allocations: [{ bulletId, amount: result.amount }],
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.bulletService.loadByWalletId(walletId);
+          this.walletService.loadWallets();
+          this.extraBudgetService.loadByWalletId(walletId);
+        },
         error: () => undefined,
       });
   }

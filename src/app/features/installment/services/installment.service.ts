@@ -6,6 +6,7 @@ import {
   combineLatest,
   EMPTY,
   finalize,
+  forkJoin,
   Observable,
   ReplaySubject,
   Subject,
@@ -48,6 +49,7 @@ export class InstallmentService {
   private readonly creditCardsUrl = `${environment.apiUrl}/credit-cards`;
 
   private readonly installmentsSubject = new BehaviorSubject<readonly Installment[]>([]);
+  private readonly allInstallmentsSubject = new BehaviorSubject<readonly Installment[]>([]);
   private readonly paginationSubject = new BehaviorSubject<Omit<PagedInstallmentResponse, 'content'>>({
     page: 0,
     size: 7,
@@ -64,6 +66,7 @@ export class InstallmentService {
   private activeLoadingRequests = 0;
 
   readonly installments$ = this.installmentsSubject.asObservable();
+  readonly allInstallments$ = this.allInstallmentsSubject.asObservable();
   readonly pagination$ = this.paginationSubject.asObservable();
   readonly creditCards$ = this.creditCardsSubject.asObservable();
   readonly loading$ = this.loadingSubject.asObservable();
@@ -79,20 +82,25 @@ export class InstallmentService {
           this.errorSubject.next(null);
           if (!walletId) {
             this.installmentsSubject.next([]);
+            this.allInstallmentsSubject.next([]);
             return;
           }
           this.startLoading();
         }),
         switchMap(([walletId, filter]) => {
           if (!walletId) return EMPTY;
-          return this.fetchByWalletId(walletId, filter).pipe(
-            tap((response) => {
-              this.installmentsSubject.next(response.content);
+          return forkJoin({
+            paged: this.fetchByWalletId(walletId, filter),
+            all: this.fetchAllByWalletId(walletId, filter),
+          }).pipe(
+            tap(({ paged, all }) => {
+              this.installmentsSubject.next(paged.content);
+              this.allInstallmentsSubject.next(all);
               this.paginationSubject.next({
-                page: response.page,
-                size: response.size,
-                totalElements: response.totalElements,
-                totalPages: response.totalPages,
+                page: paged.page,
+                size: paged.size,
+                totalElements: paged.totalElements,
+                totalPages: paged.totalPages,
               });
             }),
             catchError(() => {
@@ -162,8 +170,10 @@ export class InstallmentService {
       .pipe(
         tap({
           next: (updated) => {
-            const current = this.installmentsSubject.getValue();
-            this.installmentsSubject.next(current.map((i) => (i.id === id ? updated : i)));
+            const currentPaged = this.installmentsSubject.getValue();
+            this.installmentsSubject.next(currentPaged.map((i) => (i.id === id ? updated : i)));
+            const currentAll = this.allInstallmentsSubject.getValue();
+            this.allInstallmentsSubject.next(currentAll.map((i) => (i.id === id ? updated : i)));
           },
           error: () => this.errorSubject.next('Unable to update the installment.'),
         }),
@@ -219,6 +229,16 @@ export class InstallmentService {
     }
 
     return this.http.get<PagedInstallmentResponse>(`${this.installmentsUrl}/wallet/${walletId}`, { params });
+  }
+
+  private fetchAllByWalletId(walletId: string, filter: InstallmentFilter): Observable<readonly Installment[]> {
+    let params = new HttpParams().set('sort', filter.sort);
+
+    if (filter.creditCardId) {
+      params = params.set('creditCardId', filter.creditCardId);
+    }
+
+    return this.http.get<readonly Installment[]>(`${this.installmentsUrl}/wallet/${walletId}/all`, { params });
   }
 
   private loadCreditCards(): void {

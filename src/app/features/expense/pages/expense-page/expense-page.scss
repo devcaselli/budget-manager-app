@@ -3,6 +3,71 @@
   gap: 0;
 }
 
+.ep-panel-head-main {
+  min-width: 220px;
+}
+
+.ep-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  column-gap: 12px;
+  row-gap: 10px;
+  align-items: end;
+  padding: 14px 24px 16px;
+  border-bottom: 1px solid var(--ew-line-2);
+}
+
+.ep-filter-field {
+  display: grid;
+  gap: 6px;
+
+  label {
+    font-family: var(--ew-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ew-ink-3);
+    margin: 0;
+  }
+}
+
+.ep-filter-field--range {
+  min-width: 0;
+  grid-column: span 2;
+
+  @media (max-width: 480px) {
+    grid-column: span 1;
+  }
+}
+
+.ep-date-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ep-date-field {
+  display: grid;
+  gap: 6px;
+
+  span {
+    font-family: var(--ew-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ew-ink-3);
+  }
+}
+
+.ep-filters .ew-input,
+.ep-filters .ew-select {
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  padding: 6px 0;
+}
+
 .ep-amount {
   text-align: right;
   color: var(--ew-ink) !important;

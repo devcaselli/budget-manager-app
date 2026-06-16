@@ -24,6 +24,8 @@ export interface Share {
   readonly paymentIds: readonly string[];
   readonly createdAt: string;
   readonly revertedAt: string | null;
+  /** YearMonth ("2026-06") from which the recurring share is stopped, or null. */
+  readonly stoppedFromMonth: string | null;
 }
 
 export interface TransientSharePayerRequest {

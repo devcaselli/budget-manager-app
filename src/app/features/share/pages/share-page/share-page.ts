@@ -56,6 +56,8 @@ interface ShareListItem {
   readonly paymentsCount: number;
   readonly createdAt: string;
   readonly revertedAt: string | null;
+  readonly stoppedFromMonth: string | null;
+  readonly stoppable: boolean;
 }
 
 interface ShareQuotaIssue {
@@ -115,7 +117,7 @@ export class SharePage {
   private readonly walletService = inject(WalletService);
 
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
-  private readonly installments = toSignal(this.installmentService.installments$, { initialValue: [] });
+  private readonly installments = toSignal(this.installmentService.allInstallments$, { initialValue: [] });
   private readonly shares = toSignal(this.shareService.shares$, { initialValue: [] });
   private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {
     initialValue: [],
@@ -129,6 +131,7 @@ export class SharePage {
   protected readonly isLoading = toSignal(this.shareService.loading$, { initialValue: false });
   protected readonly isSaving = toSignal(this.shareService.saving$, { initialValue: false });
   protected readonly revertingId = toSignal(this.shareService.reverting$, { initialValue: null });
+  protected readonly stoppingId = toSignal(this.shareService.stopping$, { initialValue: null });
   protected readonly errorMessage = toSignal(this.shareService.error$, { initialValue: null });
   protected readonly quotaModeOptions = QUOTA_MODE_OPTIONS;
   protected readonly existingPayers = computed<readonly Payer[]>(() =>
@@ -198,13 +201,13 @@ export class SharePage {
   );
 
   protected readonly shareItems = computed<readonly ShareListItem[]>(() => {
-    const walletId = this.selectedWallet()?.id;
-    if (!walletId) {
+    if (!this.selectedWallet()?.id) {
       return [];
     }
 
+    // The per-wallet endpoint already scopes shares to this wallet's month,
+    // including recurring shares created in earlier wallets.
     return this.shares()
-      .filter((share) => share.walletId === walletId)
       .map((share) => this.toShareListItem(share))
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   });
@@ -281,7 +284,7 @@ export class SharePage {
       const walletId = this.selectedWallet()?.id ?? null;
       this.expenseService.loadByWalletId(walletId);
       this.installmentService.loadByWalletId(walletId);
-      this.shareService.load();
+      this.shareService.loadByWalletId(walletId);
 
       if (!walletId) {
         this.walletPayers.set([]);
@@ -432,6 +435,18 @@ export class SharePage {
       .subscribe({ error: () => undefined });
   }
 
+  protected stopShare(shareId: string): void {
+    const walletId = this.selectedWallet()?.id;
+    if (!walletId) {
+      return;
+    }
+
+    this.shareService
+      .stop(walletId, shareId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ error: () => undefined });
+  }
+
   protected payerName(payerId: string): string {
     return this.walletPayers().find((payer) => payer.id === payerId)?.name ?? payerId.slice(0, 8);
   }
@@ -461,7 +476,15 @@ export class SharePage {
       paymentsCount: share.paymentIds.length,
       createdAt: this.fmtDateTime(share.createdAt),
       revertedAt: share.revertedAt ? this.fmtDateTime(share.revertedAt) : null,
+      stoppedFromMonth: share.stoppedFromMonth,
+      stoppable: this.isStoppable(share),
     };
+  }
+
+  // Recurring (subscription/installment) ACTIVE shares can be stopped month-forward.
+  // EXPENSE-sourced and REVERTED shares are not stoppable (backend returns 409).
+  private isStoppable(share: Share): boolean {
+    return share.status === 'ACTIVE' && share.sourceType !== 'EXPENSE';
   }
 
   private describeSource(sourceType: ShareSourceType, sourceId: string): string {

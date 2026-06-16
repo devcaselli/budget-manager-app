@@ -32,6 +32,8 @@ interface ExpenseListItem {
   readonly id: string;
   readonly name: string;
   readonly purchaseDate: string;
+  readonly creditCardId: string | null;
+  readonly creditCardLabel: string;
   readonly remainingValue: number;
   readonly cost: number;
   readonly remaining: number;
@@ -46,6 +48,9 @@ interface BulletOption {
   readonly description: string;
   readonly remaining: string;
 }
+
+type ExpenseSortOrder = 'DATE_DESC' | 'DATE_ASC' | 'VALUE_ASC' | 'VALUE_DESC';
+type ExpensePaymentStatus = 'ALL' | 'PAID' | 'OPEN';
 
 @Component({
   selector: 'app-expense-page',
@@ -108,6 +113,15 @@ export class ExpensePage {
     installmentCharges: [0],
   });
 
+  protected readonly filtersForm = this.formBuilder.nonNullable.group({
+    search: [''],
+    creditCardId: [''],
+    sortOrder: ['DATE_DESC' as ExpenseSortOrder],
+    paymentStatus: ['ALL' as ExpensePaymentStatus],
+    startDate: [''],
+    endDate: [''],
+  });
+
   protected readonly showInstallments = toSignal(
     this.form.controls.isInstallment.valueChanges,
     { initialValue: false },
@@ -115,12 +129,16 @@ export class ExpensePage {
   private readonly formStatus = toSignal(this.form.statusChanges, {
     initialValue: this.form.status,
   });
+  private readonly filtersValue = toSignal(this.filtersForm.valueChanges, {
+    initialValue: this.filtersForm.getRawValue(),
+  });
   protected readonly canSubmitExpense = computed(() =>
     !!this.wallet() && this.hasCreditCards() && this.formStatus() === 'VALID' && !this.isSaving(),
   );
 
-  protected readonly expenseItems = computed<readonly ExpenseListItem[]>(() =>
-    this.expenses().map((expense) => {
+  protected readonly expenseItems = computed<readonly ExpenseListItem[]>(() => {
+    const creditCardNameById = new Map(this.creditCards().map((card) => [card.id, card.name]));
+    return this.expenses().map((expense) => {
       const payment = this.payments().find((p) => p.expenseId === expense.id);
       const bullet = payment
         ? this.bullets().find((candidate) => candidate.id === payment.bulletId)
@@ -129,10 +147,13 @@ export class ExpensePage {
       const remaining = Number(expense.remaining);
       const paid = Math.max(cost - remaining, 0);
       const progress = cost > 0 ? Math.min((paid / cost) * 100, 100) : 0;
+      const creditCardId = expense.creditCardId ?? null;
       return {
         id: expense.id,
         name: expense.name,
         purchaseDate: expense.purchaseDate,
+        creditCardId,
+        creditCardLabel: creditCardId ? (creditCardNameById.get(creditCardId) ?? creditCardId) : '—',
         remainingValue: remaining,
         cost,
         remaining,
@@ -141,8 +162,57 @@ export class ExpensePage {
         statusLabel: remaining <= 0 ? 'PAID' : 'OPEN',
         bulletLabel: bullet?.description ?? '—',
       };
-    }),
-  );
+    });
+  });
+
+  protected readonly filteredExpenseItems = computed<readonly ExpenseListItem[]>(() => {
+    const { search, creditCardId, sortOrder, paymentStatus, startDate, endDate } = this.filtersValue();
+    const query = (search ?? '').trim().toLowerCase();
+
+    let items = this.expenseItems().filter((item) => {
+      if (query && !item.name.toLowerCase().includes(query)) {
+        return false;
+      }
+
+      if (creditCardId && item.creditCardId !== creditCardId) {
+        return false;
+      }
+
+      if (paymentStatus === 'PAID' && item.statusLabel !== 'PAID') {
+        return false;
+      }
+
+      if (paymentStatus === 'OPEN' && item.statusLabel !== 'OPEN') {
+        return false;
+      }
+
+      if (startDate && item.purchaseDate < startDate) {
+        return false;
+      }
+
+      if (endDate && item.purchaseDate > endDate) {
+        return false;
+      }
+
+      return true;
+    });
+
+    items = [...items].sort((left, right) => {
+      switch (sortOrder ?? 'DATE_DESC') {
+        case 'DATE_ASC':
+          return left.purchaseDate.localeCompare(right.purchaseDate);
+        case 'VALUE_ASC':
+          return left.remainingValue - right.remainingValue;
+        case 'VALUE_DESC':
+          return right.remainingValue - left.remainingValue;
+        case 'DATE_DESC':
+        default:
+          return right.purchaseDate.localeCompare(left.purchaseDate);
+      }
+    });
+
+    return items;
+  });
 
   protected readonly bulletOptions = computed<readonly BulletOption[]>(() =>
     this.bullets()

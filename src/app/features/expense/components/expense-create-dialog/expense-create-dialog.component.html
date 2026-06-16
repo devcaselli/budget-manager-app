@@ -71,6 +71,16 @@
           }
         </select>
       </div>
+
+      <button
+        class="ew-checkbox"
+        type="button"
+        [class.ew-checkbox--on]="form.controls.keepCreditCard.value"
+        (click)="form.controls.keepCreditCard.setValue(!form.controls.keepCreditCard.value)"
+      >
+        <i></i>
+        <span>Keep selected credit card</span>
+      </button>
     }
 
     <button

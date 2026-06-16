@@ -273,17 +273,36 @@
                   <small>Reverted</small>
                   <strong>{{ share.revertedAt ?? '—' }}</strong>
                 </div>
+                @if (share.stoppedFromMonth) {
+                  <div>
+                    <small>Encerrado a partir de</small>
+                    <strong>{{ share.stoppedFromMonth }}</strong>
+                  </div>
+                }
               </div>
 
               @if (share.active) {
-                <button
-                  class="ew-btn ew-btn--ghost"
-                  type="button"
-                  [disabled]="revertingId() === share.id"
-                  (click)="revertShare(share.id)"
-                >
-                  {{ revertingId() === share.id ? 'Reverting...' : 'Revert share' }}
-                </button>
+                <div class="share-card__actions">
+                  <button
+                    class="ew-btn ew-btn--ghost"
+                    type="button"
+                    [disabled]="revertingId() === share.id"
+                    (click)="revertShare(share.id)"
+                  >
+                    {{ revertingId() === share.id ? 'Reverting...' : 'Revert share' }}
+                  </button>
+
+                  @if (share.stoppable) {
+                    <button
+                      class="ew-btn ew-btn--ghost"
+                      type="button"
+                      [disabled]="stoppingId() === share.id"
+                      (click)="stopShare(share.id)"
+                    >
+                      {{ stoppingId() === share.id ? 'Encerrando...' : 'Encerrar deste mes em diante' }}
+                    </button>
+                  }
+                </div>
               }
             </article>
           }

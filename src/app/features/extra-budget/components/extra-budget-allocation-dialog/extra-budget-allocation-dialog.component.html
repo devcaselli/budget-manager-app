@@ -1,0 +1,60 @@
+<div class="ebad-head" mat-dialog-title>
+  <div>
+    <h2 class="ebad-title">Allocate <em>extra</em></h2>
+    <p class="ebad-subtitle">
+      {{ data.bullet.description }} · {{ data.walletDescription }}
+    </p>
+  </div>
+  <button class="ebad-close" type="button" mat-dialog-close aria-label="Close">×</button>
+</div>
+
+<mat-dialog-content class="ebad-body">
+  <form class="ebad-form" [formGroup]="form" (ngSubmit)="submit()">
+    <div class="ebad-snapshot">
+      <div>
+        <span>Current cap</span>
+        <b>{{ data.bullet.budget | brlCurrency }}</b>
+      </div>
+      <div>
+        <span>Remaining</span>
+        <b>{{ data.bullet.remaining | brlCurrency }}</b>
+      </div>
+    </div>
+
+    <div class="ew-field">
+      <label for="ebad-description">Description *</label>
+      <input
+        id="ebad-description"
+        class="ew-input"
+        formControlName="description"
+        placeholder="e.g. Freelance payout"
+      />
+      @if (form.controls.description.touched && form.controls.description.invalid) {
+        <p class="ebad-error">Enter a description.</p>
+      }
+    </div>
+
+    <div class="ew-field">
+      <label for="ebad-amount">Amount *</label>
+      <input
+        id="ebad-amount"
+        class="ew-input"
+        type="number"
+        min="0.01"
+        step="0.01"
+        formControlName="amount"
+      />
+      @if (form.controls.amount.touched && form.controls.amount.invalid) {
+        <p class="ebad-error">Enter a valid amount.</p>
+      }
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions class="ebad-actions" align="end">
+  <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
+  <button class="ew-btn ew-btn--primary" type="button" (click)="submit()">
+    <mat-icon aria-hidden="true">add_card</mat-icon>
+    Allocate
+  </button>
+</mat-dialog-actions>

@@ -42,6 +42,8 @@ interface InstallmentListItem {
   readonly id: string;
   readonly description: string;
   readonly details: string | null | undefined;
+  readonly currency: string;
+  readonly shared: boolean;
   readonly creditCardId: string;
   readonly creditCardName: string;
   readonly purchaseDate: string;
@@ -50,6 +52,7 @@ interface InstallmentListItem {
   readonly currentInstallment: number;
   readonly totalInstallments: number;
   readonly progressPct: number;
+  readonly originalInstallmentValue: number;
   readonly installmentValue: number;
   readonly remainingAmount: number;
   readonly lastInstallmentDate: string;
@@ -68,6 +71,8 @@ interface TooltipState {
   readonly y: number;
 }
 
+type MonthLoadScope = 'total' | 'paged';
+
 const MONTH_LABEL_FORMAT = new Intl.DateTimeFormat('en-US', { month: '2-digit', year: '2-digit', timeZone: 'UTC' });
 
 @Component({
@@ -84,6 +89,7 @@ export class InstallmentPage {
   private readonly walletService = inject(WalletService);
 
   private readonly installments = toSignal(this.installmentService.installments$, { initialValue: [] });
+  private readonly allInstallments = toSignal(this.installmentService.allInstallments$, { initialValue: [] });
   protected readonly creditCards = toSignal(this.installmentService.creditCards$, { initialValue: [] });
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, { initialValue: null });
 
@@ -93,6 +99,7 @@ export class InstallmentPage {
   protected readonly deletingId = toSignal(this.installmentService.deleting$, { initialValue: null });
   protected readonly isSaving = toSignal(this.installmentService.saving$, { initialValue: false });
   protected readonly errorMessage = toSignal(this.installmentService.error$, { initialValue: null });
+  protected readonly monthLoadScope = signal<MonthLoadScope>('total');
   protected readonly filter = toSignal(this.installmentService.filter$, {
     initialValue: { creditCardId: null, sort: 'ENDING_SOON' as InstallmentSortOrder, page: 0, size: 7 },
   });
@@ -126,18 +133,11 @@ export class InstallmentPage {
 
   protected readonly openCount = computed(() => this.pagination().totalElements);
 
-  protected readonly outstanding = computed(() =>
-    this.installments().reduce((acc, inst) => {
-      const remaining = this.remainingCharges(inst);
-      return acc + inst.effectiveInstallmentValue * remaining;
-    }, 0),
-  );
+  protected readonly outstandingTotal = computed(() => this.computeOutstanding(this.allInstallments()));
+  protected readonly outstandingPaged = computed(() => this.computeOutstanding(this.installments()));
 
-  protected readonly thisCycleTotal = computed(() =>
-    this.installments()
-      .filter((inst) => this.isActiveInMonth(inst, this.currentMonthKey))
-      .reduce((acc, inst) => acc + inst.effectiveInstallmentValue, 0),
-  );
+  protected readonly thisCycleTotal = computed(() => this.computeThisCycle(this.allInstallments()));
+  protected readonly thisCyclePaged = computed(() => this.computeThisCycle(this.installments()));
 
   protected readonly nextFinish = computed(() => {
     const dates = this.installments().map((inst) => inst.lastInstallmentDate);
@@ -158,8 +158,12 @@ export class InstallmentPage {
 
   // ── Schedule chart ────────────────────────────────────────────────────────
 
+  private readonly monthLoadInstallments = computed(() =>
+    this.monthLoadScope() === 'total' ? this.allInstallments() : this.installments(),
+  );
+
   protected readonly scheduleMonths = computed<readonly MonthlyLoad[]>(() => {
-    const installments = this.installments();
+    const installments = this.monthLoadInstallments();
     if (!installments.length) return [];
 
     const lastMonth = installments.map((inst) => inst.lastInstallmentDate).sort().at(-1)!;
@@ -195,6 +199,10 @@ export class InstallmentPage {
   protected onSortToggle(): void {
     const current = this.filter().sort;
     this.installmentService.setFilter({ sort: current === 'ENDING_SOON' ? 'ENDING_LATE' : 'ENDING_SOON' });
+  }
+
+  protected setMonthLoadScope(scope: MonthLoadScope): void {
+    this.monthLoadScope.set(scope);
   }
 
   protected onPrevPage(): void {
@@ -347,6 +355,7 @@ export class InstallmentPage {
   private toListItem(inst: Installment, cardMap: ReadonlyMap<string, string>): InstallmentListItem {
     const current = this.elapsedCharges(inst);
     const remaining = inst.installmentNumber - current;
+    const effectiveInstallmentValue = this.resolveEffectiveInstallmentValue(inst);
     const progressPct =
       inst.installmentNumber > 0
         ? Math.min(Math.round((current / inst.installmentNumber) * 100), 100)
@@ -356,6 +365,8 @@ export class InstallmentPage {
       id: inst.id,
       description: inst.description,
       details: inst.details,
+      currency: inst.currency,
+      shared: inst.shared,
       creditCardId: inst.creditCardId,
       creditCardName: cardMap.get(inst.creditCardId) ?? inst.creditCardId,
       purchaseDate: inst.purchaseDate,
@@ -364,10 +375,38 @@ export class InstallmentPage {
       currentInstallment: current,
       totalInstallments: inst.installmentNumber,
       progressPct,
-      installmentValue: inst.effectiveInstallmentValue,
-      remainingAmount: inst.effectiveInstallmentValue * Math.max(remaining, 0),
+      originalInstallmentValue: inst.installmentValue,
+      installmentValue: effectiveInstallmentValue,
+      remainingAmount: effectiveInstallmentValue * Math.max(remaining, 0),
       lastInstallmentDate: this.formatMonthKey(inst.lastInstallmentDate),
     };
+  }
+
+  protected sharedValueTooltip(item: InstallmentListItem): string {
+    const original = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: item.currency,
+    }).format(item.originalInstallmentValue);
+    return `Active value sharing is enabled. The original installment value is ${original}.`;
+  }
+
+  private computeOutstanding(installments: readonly Installment[]): number {
+    return installments.reduce((acc, inst) => {
+      const remaining = this.remainingCharges(inst);
+      return acc + this.resolveEffectiveInstallmentValue(inst) * remaining;
+    }, 0);
+  }
+
+  private computeThisCycle(installments: readonly Installment[]): number {
+    return installments
+      .filter((inst) => this.isActiveInMonth(inst, this.currentMonthKey))
+      .reduce((acc, inst) => acc + this.resolveEffectiveInstallmentValue(inst), 0);
+  }
+
+  private resolveEffectiveInstallmentValue(inst: Installment): number {
+    return Number.isFinite(inst.effectiveInstallmentValue)
+      ? inst.effectiveInstallmentValue
+      : inst.installmentValue;
   }
 
   private elapsedCharges(inst: Installment): number {

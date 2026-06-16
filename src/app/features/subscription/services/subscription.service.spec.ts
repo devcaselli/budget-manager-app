@@ -96,10 +96,12 @@ describe('SubscriptionService', () => {
     const input: UpdateSubscriptionRequest = {
       description: 'Streaming Premium',
       newAmount: 69.9,
+      creditCardId: 'card-2',
     };
     const updatedSubscription: Subscription = {
       ...subscription,
       description: input.description ?? subscription.description,
+      creditCardId: input.creditCardId ?? subscription.creditCardId,
       versions: [
         ...subscription.versions,
         {

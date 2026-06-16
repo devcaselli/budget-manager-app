@@ -91,6 +91,9 @@
                   {{ sub.isActive ? sub.startMonth : sub.endMonth }}
                   · {{ sub.versionCount }} version(s)
                 </span>
+                @if (sub.creditCardLabel) {
+                  <span class="sub-credit-card">card · {{ sub.creditCardLabel }}</span>
+                }
               </div>
               <div class="ew-sub-pills">
                 @if (sub.isActive) {

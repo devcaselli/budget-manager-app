@@ -6,6 +6,11 @@ export interface SubscriptionVersion {
   readonly amount: number;
 }
 
+export interface SubscriptionCreditCard {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface Subscription {
   readonly id: string;
   readonly description: string;
@@ -16,6 +21,7 @@ export interface Subscription {
   readonly endMonth: string | null;
   readonly versions: readonly SubscriptionVersion[];
   readonly creditCardId: string | null;
+  readonly creditCard?: SubscriptionCreditCard | null;
 }
 
 export interface CreateSubscriptionRequest {
@@ -31,6 +37,7 @@ export interface CreateSubscriptionRequest {
 export interface UpdateSubscriptionRequest {
   readonly description?: string;
   readonly newAmount?: number;
+  readonly creditCardId?: string;
 }
 
 export interface PagedSubscriptionResponse {

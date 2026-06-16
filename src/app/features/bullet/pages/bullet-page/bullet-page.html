@@ -49,8 +49,22 @@
                   <b class="ew-blur">{{ bullet.used | brlCurrency }}</b>
                   <small>of {{ bullet.budget | brlCurrency }}</small>
                 </div>
+                <div>
+                  <b class="ew-blur">{{ bullet.remaining | brlCurrency }}</b>
+                  <small>remaining</small>
+                </div>
                 <button
-                  class="bullet-delete-btn"
+                  class="bullet-action-btn"
+                  type="button"
+                  aria-label="Allocate extra budget"
+                  title="Allocate extra budget"
+                  [disabled]="isAllocatingExtraBudget()"
+                  (click)="openExtraBudgetDialog(bullet)"
+                >
+                  <mat-icon aria-hidden="true">add_card</mat-icon>
+                </button>
+                <button
+                  class="bullet-action-btn bullet-action-btn--danger"
                   type="button"
                   aria-label="Delete bullet"
                   title="Delete bullet"

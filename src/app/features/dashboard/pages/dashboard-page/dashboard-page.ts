@@ -104,7 +104,7 @@ export class DashboardPage implements OnInit {
     }
     return map;
   });
-  private readonly installments = toSignal(this.installmentService.installments$, {
+  private readonly installments = toSignal(this.installmentService.allInstallments$, {
     initialValue: [],
   });
   private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {

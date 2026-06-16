@@ -11,7 +11,7 @@
     <div class="installment-head-right">
       <div class="ew-head-meta">
         open · <b>{{ openCount() }}</b><br>
-        outstanding · <b class="ew-blur">{{ outstanding() | brlCurrency }}</b>
+        outstanding · <b class="ew-blur">{{ outstandingTotal() | brlCurrency }}</b>
       </div>
       <button
         class="installment-new-btn"
@@ -40,13 +40,13 @@
     </div>
     <div>
       <div class="ew-hero-lbl">Outstanding</div>
-      <div class="ew-hero-val ew-blur">{{ outstanding() | brlCurrency }}</div>
-      <div class="ew-hero-delta ew-hero-delta--dim">total remaining</div>
+      <div class="ew-hero-val ew-blur">{{ outstandingTotal() | brlCurrency }}</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">paged · {{ outstandingPaged() | brlCurrency }}</div>
     </div>
     <div>
       <div class="ew-hero-lbl">This cycle</div>
       <div class="ew-hero-val ew-blur">{{ thisCycleTotal() | brlCurrency }}</div>
-      <div class="ew-hero-delta ew-hero-delta--dim">due this month</div>
+      <div class="ew-hero-delta ew-hero-delta--dim">paged · {{ thisCyclePaged() | brlCurrency }}</div>
     </div>
     <div>
       <div class="ew-hero-lbl">Next finish</div>
@@ -119,7 +119,21 @@
             </div>
             <div class="ew-alloc-nums installment-alloc-actions">
               <div>
-                <b class="ew-blur">{{ item.installmentValue | brlCurrency }}/mo</b>
+                <div class="installment-value-row">
+                  @if (item.shared) {
+                    <small class="installment-value-original">{{ item.originalInstallmentValue | brlCurrency }}/mo</small>
+                  }
+                  <b class="ew-blur">{{ item.installmentValue | brlCurrency }}/mo</b>
+                  @if (item.shared) {
+                    <span
+                      class="installment-shared-indicator"
+                      [attr.title]="sharedValueTooltip(item)"
+                      aria-label="Shared value active"
+                    >
+                      <mat-icon aria-hidden="true">groups</mat-icon>
+                    </span>
+                  }
+                </div>
                 <small>{{ item.remainingAmount | brlCurrency }} left · ends {{ item.lastInstallmentDate }}</small>
               </div>
               <div class="installment-row-actions">
@@ -194,7 +208,28 @@
       <div class="ew-panel-head">
         <div>
           <h3>Monthly <em>load</em></h3>
-          <p>Projected installment charges per cycle</p>
+          <p>
+            Projected installment charges per cycle
+            · {{ monthLoadScope() === 'total' ? 'total view' : 'paged view' }}
+          </p>
+        </div>
+        <div class="installment-filters">
+          <div class="ew-tabs" aria-label="Month load scope">
+            <button
+              type="button"
+              [class.ew-tabs-on]="monthLoadScope() === 'total'"
+              (click)="setMonthLoadScope('total')"
+            >
+              Total
+            </button>
+            <button
+              type="button"
+              [class.ew-tabs-on]="monthLoadScope() === 'paged'"
+              (click)="setMonthLoadScope('paged')"
+            >
+              Paged
+            </button>
+          </div>
         </div>
       </div>
       <div class="ew-panel-body">

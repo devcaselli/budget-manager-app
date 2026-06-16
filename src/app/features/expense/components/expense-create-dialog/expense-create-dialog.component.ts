@@ -75,6 +75,7 @@ export class ExpenseCreateDialogComponent {
     isInstallment: [false],
     installmentCharges: [0],
     keepOpen: [false],
+    keepCreditCard: [false],
   });
 
   protected get hasBullets(): boolean {
@@ -133,6 +134,9 @@ export class ExpenseCreateDialogComponent {
   }
 
   private resetForNextTransaction(purchaseDate: string): void {
+    const currentCreditCardId = this.form.controls.creditCardId.getRawValue();
+    const keepCreditCard = this.form.controls.keepCreditCard.getRawValue();
+
     this.form.controls.installmentCharges.clearValidators();
     this.form.controls.installmentCharges.updateValueAndValidity();
     this.form.patchValue({
@@ -140,10 +144,11 @@ export class ExpenseCreateDialogComponent {
       cost: 0,
       purchaseDate,
       bulletId: '',
-      creditCardId: '',
+      creditCardId: keepCreditCard ? currentCreditCardId : '',
       isInstallment: false,
       installmentCharges: 0,
       keepOpen: true,
+      keepCreditCard,
     });
     this.form.markAsPristine();
     this.form.markAsUntouched();

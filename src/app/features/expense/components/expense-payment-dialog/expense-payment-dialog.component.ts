@@ -7,6 +7,8 @@ import {
 } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
+const LAST_BULLET_KEY = 'ew_last_bullet_id';
+
 export interface ExpensePaymentDialogExpense {
   readonly id: string;
   readonly name: string;
@@ -49,8 +51,15 @@ export class ExpensePaymentDialogComponent {
   private readonly formBuilder = inject(FormBuilder);
 
   protected readonly data = inject<ExpensePaymentDialogData>(MAT_DIALOG_DATA);
+
+  private resolveInitialBulletId(): string {
+    const lastId = localStorage.getItem(LAST_BULLET_KEY) ?? '';
+    const existsInList = this.data.bullets.some((b) => b.id === lastId);
+    return existsInList ? lastId : '';
+  }
+
   protected readonly form = this.formBuilder.nonNullable.group({
-    bulletId: ['', Validators.required],
+    bulletId: [this.resolveInitialBulletId(), Validators.required],
     amount: [
       this.data.expense.remainingValue,
       [
@@ -69,6 +78,7 @@ export class ExpensePaymentDialogComponent {
     }
 
     const value = this.form.getRawValue();
+    localStorage.setItem(LAST_BULLET_KEY, value.bulletId);
     this.dialogRef.close({
       bulletId: value.bulletId,
       amount: value.amount,

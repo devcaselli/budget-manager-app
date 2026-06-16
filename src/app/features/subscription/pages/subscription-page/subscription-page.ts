@@ -22,6 +22,7 @@ interface SubscriptionListItem {
   readonly description: string;
   readonly currency: string;
   readonly creditCardId: string | null;
+  readonly creditCardLabel: string | null;
   readonly state: SubscriptionState;
   readonly stateLabel: string;
   readonly flag: SubscriptionFlag;
@@ -142,7 +143,11 @@ export class SubscriptionPage {
 
     if (editingId) {
       this.subscriptionService
-        .update(editingId, { description: value.description.trim(), newAmount: value.amount })
+        .update(editingId, {
+          description: value.description.trim(),
+          newAmount: value.amount,
+          creditCardId: value.creditCardId || undefined,
+        })
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({ next: () => this.resetForm(), error: () => undefined });
       return;
@@ -193,7 +198,6 @@ export class SubscriptionPage {
       specialSubscription: sub.isSpecial,
     });
     this.form.controls.currency.disable();
-    this.form.controls.creditCardId.disable();
     this.form.controls.effectiveMonth.disable();
     this.form.controls.state.disable();
     this.form.controls.specialSubscription.disable();
@@ -229,6 +233,7 @@ export class SubscriptionPage {
   }
 
   private toListItem(sub: Subscription): SubscriptionListItem {
+    const creditCardNameById = new Map(this.creditCards().map((card) => [card.id, card.name]));
     const versions = [...sub.versions].sort((a, b) =>
       b.effectiveMonth.localeCompare(a.effectiveMonth),
     );
@@ -241,6 +246,9 @@ export class SubscriptionPage {
       description: sub.description,
       currency: sub.currency,
       creditCardId: sub.creditCardId,
+      creditCardLabel:
+        sub.creditCard?.name
+        ?? (sub.creditCardId ? (creditCardNameById.get(sub.creditCardId) ?? sub.creditCardId) : null),
       state: sub.state,
       stateLabel: sub.state === 'PREVIEW' ? 'Preview' : 'Production',
       flag: sub.flag,
