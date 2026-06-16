@@ -11,6 +11,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 
+import { formatBrl } from '@shared/utils/currency';
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
@@ -208,6 +209,6 @@ export class ExtraBudgetPage {
   }
 
   private formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return formatBrl(value);
   }
 }

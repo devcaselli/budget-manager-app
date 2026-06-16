@@ -16,6 +16,7 @@ import {
 } from '../../components/reserved-budget-delete-dialog/reserved-budget-delete-dialog.component';
 import { ReservedBudget, UpdateReservedBudgetRequest } from '../../models/reserved-budget';
 import { ReservedBudgetService } from '../../services/reserved-budget.service';
+import { formatBrl } from '@shared/utils/currency';
 
 interface ReservedBudgetVersionView {
   readonly effectiveMonth: string;
@@ -95,7 +96,7 @@ export class ReservedBudgetPage {
 
   protected readonly reservedTotal = computed(() => {
     const total = this.reservedBudgetItems().reduce((acc, item) => acc + item.amountValue, 0);
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total);
+    return formatBrl(total);
   });
 
   protected readonly hasEditingReservedBudget = computed(

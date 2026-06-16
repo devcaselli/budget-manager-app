@@ -6,9 +6,6 @@ import {
   signal,
   computed,
 } from '@angular/core';
-
-interface PopoverCoords { top: number; left: number; }
-interface TweaksPos { x: number; y: number; }
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
@@ -26,8 +23,19 @@ import { BulletService } from '@features/bullet/services/bullet.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
 import { DecimalPipe } from '@angular/common';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
+import { formatBrl } from '@shared/utils/currency';
 import { AuthService } from '@core/auth/auth.service';
 import { PreferencesService } from '@core/services/preferences.service';
+
+interface PopoverCoords {
+  top: number;
+  left: number;
+}
+
+interface TweaksPos {
+  x: number;
+  y: number;
+}
 
 interface NavEntry {
   readonly label: string;
@@ -219,10 +227,7 @@ export class ShellComponent {
       .map((b) => ({
         id: b.id,
         description: b.description,
-        remaining: new Intl.NumberFormat('pt-BR', {
-          style: 'currency',
-          currency: 'BRL',
-        }).format(Number(b.remaining)),
+        remaining: formatBrl(Number(b.remaining)),
       }));
 
     const creditCards = this.creditCards().map((c) => ({ id: c.id, name: c.name }));

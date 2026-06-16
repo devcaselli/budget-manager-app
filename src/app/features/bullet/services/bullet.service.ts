@@ -13,6 +13,7 @@ import {
 } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { LoadingCounter } from '@core/state/loading-counter';
 
 import { Bullet, CreateBulletRequest } from '../models/bullet';
 
@@ -24,15 +25,14 @@ export class BulletService {
   private readonly bulletsUrl = `${environment.apiUrl}/bullets`;
 
   private readonly bulletsSubject = new BehaviorSubject<readonly Bullet[]>([]);
-  private readonly loadingSubject = new BehaviorSubject(false);
+  private readonly loadingCounter = new LoadingCounter();
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
   private readonly loadBulletsTrigger$ = new Subject<string | null>();
-  private activeLoadingRequests = 0;
 
   readonly bullets$ = this.bulletsSubject.asObservable();
-  readonly loading$ = this.loadingSubject.asObservable();
+  readonly loading$ = this.loadingCounter.loading$;
   readonly saving$ = this.savingSubject.asObservable();
   readonly deleting$ = this.deletingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
@@ -48,7 +48,7 @@ export class BulletService {
             return;
           }
 
-          this.startLoading();
+          this.loadingCounter.start();
         }),
         switchMap((walletId) => {
           if (!walletId) {
@@ -58,10 +58,10 @@ export class BulletService {
           return this.findByWalletId(walletId).pipe(
             tap((bullets) => this.bulletsSubject.next(bullets)),
             catchError(() => {
-              this.errorSubject.next('Nao foi possivel carregar os bullets.');
+              this.errorSubject.next('Não foi possível carregar os bullets.');
               return EMPTY;
             }),
-            finalize(() => this.stopLoading()),
+            finalize(() => this.loadingCounter.stop()),
           );
         }),
       )
@@ -89,7 +89,7 @@ export class BulletService {
               ...currentBullets.filter((currentBullet) => currentBullet.id !== bullet.id),
             ]);
           },
-          error: () => this.errorSubject.next('Nao foi possivel criar o bullet.'),
+          error: () => this.errorSubject.next('Não foi possível criar o bullet.'),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -118,7 +118,7 @@ export class BulletService {
             const currentBullets = this.bulletsSubject.getValue();
             this.bulletsSubject.next(currentBullets.filter((bullet) => bullet.id !== id));
           },
-          error: () => this.errorSubject.next('Nao foi possivel remover o bullet.'),
+          error: () => this.errorSubject.next('Não foi possível remover o bullet.'),
         }),
         finalize(() => this.deletingSubject.next(null)),
       )
@@ -135,15 +135,5 @@ export class BulletService {
 
   loadByWalletId(walletId: string | null): void {
     this.loadBulletsTrigger$.next(walletId);
-  }
-
-  private startLoading(): void {
-    this.activeLoadingRequests += 1;
-    this.loadingSubject.next(true);
-  }
-
-  private stopLoading(): void {
-    this.activeLoadingRequests = Math.max(this.activeLoadingRequests - 1, 0);
-    this.loadingSubject.next(this.activeLoadingRequests > 0);
   }
 }

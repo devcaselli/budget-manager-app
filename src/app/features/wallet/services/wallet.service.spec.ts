@@ -237,7 +237,7 @@ describe('WalletService', () => {
     const request = httpMock.expectOne('/api/wallets');
     request.flush({ message: 'Internal server error' }, { status: 500, statusText: 'Server Error' });
 
-    expect(errors.at(-1)).toBe('Nao foi possivel carregar as wallets.');
+    expect(errors.at(-1)).toBe('Não foi possível carregar as wallets.');
   });
 
   it('should populate selectedWallet$ with selectWallet API response', () => {

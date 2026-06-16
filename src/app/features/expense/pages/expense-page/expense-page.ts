@@ -13,6 +13,12 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
+import { formatBrl } from '@shared/utils/currency';
+import {
+  ExpensePaymentStatus,
+  ExpenseSortOrder,
+  filterAndSortExpenses,
+} from '@features/expense/expense-list.filters';
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { PaymentService } from '@features/payment/services/payment.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
@@ -48,9 +54,6 @@ interface BulletOption {
   readonly description: string;
   readonly remaining: string;
 }
-
-type ExpenseSortOrder = 'DATE_DESC' | 'DATE_ASC' | 'VALUE_ASC' | 'VALUE_DESC';
-type ExpensePaymentStatus = 'ALL' | 'PAID' | 'OPEN';
 
 @Component({
   selector: 'app-expense-page',
@@ -98,7 +101,7 @@ export class ExpensePage {
     }
 
     if (!this.hasCreditCards()) {
-      return 'Voce precisa ter um cartao de credito cadastrado para cadastrar expenses.';
+      return 'Você precisa ter um cartão de crédito cadastrado para cadastrar expenses.';
     }
 
     return null;
@@ -165,54 +168,9 @@ export class ExpensePage {
     });
   });
 
-  protected readonly filteredExpenseItems = computed<readonly ExpenseListItem[]>(() => {
-    const { search, creditCardId, sortOrder, paymentStatus, startDate, endDate } = this.filtersValue();
-    const query = (search ?? '').trim().toLowerCase();
-
-    let items = this.expenseItems().filter((item) => {
-      if (query && !item.name.toLowerCase().includes(query)) {
-        return false;
-      }
-
-      if (creditCardId && item.creditCardId !== creditCardId) {
-        return false;
-      }
-
-      if (paymentStatus === 'PAID' && item.statusLabel !== 'PAID') {
-        return false;
-      }
-
-      if (paymentStatus === 'OPEN' && item.statusLabel !== 'OPEN') {
-        return false;
-      }
-
-      if (startDate && item.purchaseDate < startDate) {
-        return false;
-      }
-
-      if (endDate && item.purchaseDate > endDate) {
-        return false;
-      }
-
-      return true;
-    });
-
-    items = [...items].sort((left, right) => {
-      switch (sortOrder ?? 'DATE_DESC') {
-        case 'DATE_ASC':
-          return left.purchaseDate.localeCompare(right.purchaseDate);
-        case 'VALUE_ASC':
-          return left.remainingValue - right.remainingValue;
-        case 'VALUE_DESC':
-          return right.remainingValue - left.remainingValue;
-        case 'DATE_DESC':
-        default:
-          return right.purchaseDate.localeCompare(left.purchaseDate);
-      }
-    });
-
-    return items;
-  });
+  protected readonly filteredExpenseItems = computed<readonly ExpenseListItem[]>(() =>
+    filterAndSortExpenses(this.expenseItems(), this.filtersValue()),
+  );
 
   protected readonly bulletOptions = computed<readonly BulletOption[]>(() =>
     this.bullets()
@@ -220,7 +178,7 @@ export class ExpensePage {
       .map((b) => ({
         id: b.id,
         description: b.description,
-        remaining: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(b.remaining)),
+        remaining: formatBrl(Number(b.remaining)),
       })),
   );
 

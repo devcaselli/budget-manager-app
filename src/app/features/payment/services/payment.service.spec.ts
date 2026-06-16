@@ -94,7 +94,7 @@ describe('PaymentService', () => {
     const httpRequest = httpMock.expectOne('/api/pay?walletId=wallet-1');
     httpRequest.flush({ message: 'Conflict' }, { status: 409, statusText: 'Conflict' });
 
-    expect(errors.at(-1)).toBe('Nao foi possivel registrar o pagamento.');
+    expect(errors.at(-1)).toBe('Não foi possível registrar o pagamento.');
   });
 });
 

@@ -13,6 +13,7 @@ import {
 } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { LoadingCounter } from '@core/state/loading-counter';
 
 import {
   CreateReservedBudgetRequest,
@@ -29,16 +30,15 @@ export class ReservedBudgetService {
   private readonly reservedBudgetsUrl = `${environment.apiUrl}/reserved-budgets`;
 
   private readonly reservedBudgetsSubject = new BehaviorSubject<readonly ReservedBudget[]>([]);
-  private readonly loadingSubject = new BehaviorSubject(false);
+  private readonly loadingCounter = new LoadingCounter();
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly updatingSubject = new BehaviorSubject<string | null>(null);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
   private readonly loadReservedBudgetsTrigger$ = new Subject<void>();
-  private activeLoadingRequests = 0;
 
   readonly reservedBudgets$ = this.reservedBudgetsSubject.asObservable();
-  readonly loading$ = this.loadingSubject.asObservable();
+  readonly loading$ = this.loadingCounter.loading$;
   readonly saving$ = this.savingSubject.asObservable();
   readonly updating$ = this.updatingSubject.asObservable();
   readonly deleting$ = this.deletingSubject.asObservable();
@@ -49,16 +49,16 @@ export class ReservedBudgetService {
       .pipe(
         tap(() => {
           this.errorSubject.next(null);
-          this.startLoading();
+          this.loadingCounter.start();
         }),
         switchMap(() =>
           this.findAll().pipe(
             tap((response) => this.reservedBudgetsSubject.next(response.content)),
             catchError(() => {
-              this.errorSubject.next('Nao foi possivel carregar os reserved budgets.');
+              this.errorSubject.next('Não foi possível carregar os reserved budgets.');
               return EMPTY;
             }),
-            finalize(() => this.stopLoading()),
+            finalize(() => this.loadingCounter.stop()),
           ),
         ),
       )
@@ -94,7 +94,7 @@ export class ReservedBudgetService {
       .pipe(
         tap({
           next: (reservedBudget) => this.upsertReservedBudget(reservedBudget),
-          error: () => this.errorSubject.next('Nao foi possivel criar o reserved budget.'),
+          error: () => this.errorSubject.next('Não foi possível criar o reserved budget.'),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -120,7 +120,7 @@ export class ReservedBudgetService {
       .pipe(
         tap({
           next: (reservedBudget) => this.upsertReservedBudget(reservedBudget),
-          error: () => this.errorSubject.next('Nao foi possivel atualizar o reserved budget.'),
+          error: () => this.errorSubject.next('Não foi possível atualizar o reserved budget.'),
         }),
         finalize(() => this.updatingSubject.next(null)),
       )
@@ -152,7 +152,7 @@ export class ReservedBudgetService {
             );
             this.loadReservedBudgets();
           },
-          error: () => this.errorSubject.next('Nao foi possivel remover o reserved budget.'),
+          error: () => this.errorSubject.next('Não foi possível remover o reserved budget.'),
         }),
         finalize(() => this.deletingSubject.next(null)),
       )
@@ -180,15 +180,5 @@ export class ReservedBudgetService {
         (currentReservedBudget) => currentReservedBudget.id !== reservedBudget.id,
       ),
     ]);
-  }
-
-  private startLoading(): void {
-    this.activeLoadingRequests += 1;
-    this.loadingSubject.next(true);
-  }
-
-  private stopLoading(): void {
-    this.activeLoadingRequests = Math.max(this.activeLoadingRequests - 1, 0);
-    this.loadingSubject.next(this.activeLoadingRequests > 0);
   }
 }

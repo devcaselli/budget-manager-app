@@ -13,6 +13,7 @@ import {
 } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { LoadingCounter } from '@core/state/loading-counter';
 
 import { CreateExtraBudgetRequest, ExtraBudget } from '../models/extra-budget';
 
@@ -24,15 +25,14 @@ export class ExtraBudgetService {
   private readonly extraBudgetsUrl = `${environment.apiUrl}/extra-budgets`;
 
   private readonly extraBudgetsSubject = new BehaviorSubject<readonly ExtraBudget[]>([]);
-  private readonly loadingSubject = new BehaviorSubject(false);
+  private readonly loadingCounter = new LoadingCounter();
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
   private readonly loadExtraBudgetsTrigger$ = new Subject<string | null>();
-  private activeLoadingRequests = 0;
 
   readonly extraBudgets$ = this.extraBudgetsSubject.asObservable();
-  readonly loading$ = this.loadingSubject.asObservable();
+  readonly loading$ = this.loadingCounter.loading$;
   readonly saving$ = this.savingSubject.asObservable();
   readonly deleting$ = this.deletingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
@@ -48,7 +48,7 @@ export class ExtraBudgetService {
             return;
           }
 
-          this.startLoading();
+          this.loadingCounter.start();
         }),
         switchMap((walletId) => {
           if (!walletId) {
@@ -58,10 +58,10 @@ export class ExtraBudgetService {
           return this.findByWalletId(walletId).pipe(
             tap((extraBudgets) => this.extraBudgetsSubject.next(extraBudgets)),
             catchError(() => {
-              this.errorSubject.next('Nao foi possivel carregar os extra budgets.');
+              this.errorSubject.next('Não foi possível carregar os extra budgets.');
               return EMPTY;
             }),
-            finalize(() => this.stopLoading()),
+            finalize(() => this.loadingCounter.stop()),
           );
         }),
       )
@@ -97,7 +97,7 @@ export class ExtraBudgetService {
               ...current.filter((candidate) => candidate.id !== extraBudget.id),
             ]);
           },
-          error: () => this.errorSubject.next('Nao foi possivel criar o extra budget.'),
+          error: () => this.errorSubject.next('Não foi possível criar o extra budget.'),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -126,7 +126,7 @@ export class ExtraBudgetService {
             const current = this.extraBudgetsSubject.getValue();
             this.extraBudgetsSubject.next(current.filter((extraBudget) => extraBudget.id !== id));
           },
-          error: () => this.errorSubject.next('Nao foi possivel reverter o extra budget.'),
+          error: () => this.errorSubject.next('Não foi possível reverter o extra budget.'),
         }),
         finalize(() => this.deletingSubject.next(null)),
       )
@@ -143,15 +143,5 @@ export class ExtraBudgetService {
 
   loadByWalletId(walletId: string | null): void {
     this.loadExtraBudgetsTrigger$.next(walletId);
-  }
-
-  private startLoading(): void {
-    this.activeLoadingRequests += 1;
-    this.loadingSubject.next(true);
-  }
-
-  private stopLoading(): void {
-    this.activeLoadingRequests = Math.max(this.activeLoadingRequests - 1, 0);
-    this.loadingSubject.next(this.activeLoadingRequests > 0);
   }
 }

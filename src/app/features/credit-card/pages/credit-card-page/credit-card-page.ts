@@ -42,7 +42,6 @@ interface ChargeListItem {
   readonly amount: number;
 }
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
 @Component({
   selector: 'app-credit-card-page',

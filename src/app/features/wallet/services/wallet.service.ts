@@ -13,6 +13,7 @@ import {
 } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { LoadingCounter } from '@core/state/loading-counter';
 
 import { CreateWalletRequest, Wallet } from '../models/wallet';
 import { Payer } from '@features/payer/models/payer';
@@ -26,16 +27,15 @@ export class WalletService {
 
   private readonly walletsSubject = new BehaviorSubject<readonly Wallet[]>([]);
   private readonly selectedWalletSubject = new BehaviorSubject<Wallet | null>(null);
-  private readonly loadingSubject = new BehaviorSubject(false);
+  private readonly loadingCounter = new LoadingCounter();
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
   private readonly loadWalletsTrigger$ = new Subject<void>();
   private readonly selectWalletTrigger$ = new Subject<Wallet>();
-  private activeLoadingRequests = 0;
 
   readonly wallets$ = this.walletsSubject.asObservable();
   readonly selectedWallet$ = this.selectedWalletSubject.asObservable();
-  readonly loading$ = this.loadingSubject.asObservable();
+  readonly loading$ = this.loadingCounter.loading$;
   readonly saving$ = this.savingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
 
@@ -43,7 +43,7 @@ export class WalletService {
     this.loadWalletsTrigger$
       .pipe(
         tap(() => {
-          this.startLoading();
+          this.loadingCounter.start();
           this.errorSubject.next(null);
         }),
         switchMap(() =>
@@ -53,10 +53,10 @@ export class WalletService {
               this.syncSelectedWallet(wallets);
             }),
             catchError(() => {
-              this.errorSubject.next('Nao foi possivel carregar as wallets.');
+              this.errorSubject.next('Não foi possível carregar as wallets.');
               return EMPTY;
             }),
-            finalize(() => this.stopLoading()),
+            finalize(() => this.loadingCounter.stop()),
           ),
         ),
       )
@@ -66,17 +66,17 @@ export class WalletService {
       .pipe(
         tap((wallet) => {
           this.selectedWalletSubject.next(wallet);
-          this.startLoading();
+          this.loadingCounter.start();
           this.errorSubject.next(null);
         }),
         switchMap((wallet) =>
           this.findById(wallet.id).pipe(
             tap((details) => this.selectedWalletSubject.next(details)),
             catchError(() => {
-              this.errorSubject.next('Nao foi possivel carregar os detalhes da wallet.');
+              this.errorSubject.next('Não foi possível carregar os detalhes da wallet.');
               return EMPTY;
             }),
-            finalize(() => this.stopLoading()),
+            finalize(() => this.loadingCounter.stop()),
           ),
         ),
       )
@@ -113,7 +113,7 @@ export class WalletService {
             ]);
             this.selectedWalletSubject.next(wallet);
           },
-          error: () => this.errorSubject.next('Nao foi possivel abrir a wallet.'),
+          error: () => this.errorSubject.next('Não foi possível abrir a wallet.'),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -156,15 +156,5 @@ export class WalletService {
     this.selectedWalletSubject.next(
       wallets.find((wallet) => wallet.id === selectedWallet.id) ?? wallets[0],
     );
-  }
-
-  private startLoading(): void {
-    this.activeLoadingRequests += 1;
-    this.loadingSubject.next(true);
-  }
-
-  private stopLoading(): void {
-    this.activeLoadingRequests = Math.max(this.activeLoadingRequests - 1, 0);
-    this.loadingSubject.next(this.activeLoadingRequests > 0);
   }
 }

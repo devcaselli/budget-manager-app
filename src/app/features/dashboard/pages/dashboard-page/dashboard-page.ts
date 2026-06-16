@@ -2,20 +2,25 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   effect,
   inject,
   signal,
   OnInit,
 } from '@angular/core';
 import { UpperCasePipe } from '@angular/common';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { ExpenseService } from '@features/expense/services/expense.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
 import { SubscriptionService } from '@features/subscription/services/subscription.service';
-import { Subscription } from '@features/subscription/models/subscription';
 import { WalletService } from '@features/wallet/services/wallet.service';
+import {
+  heatmapLevel,
+  subscriptionsTotalForMonth,
+} from '@features/dashboard/dashboard.calculations';
+import { formatBrl } from '@shared/utils/currency';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 import { ChartPeriod } from '@features/expense/models/expense';
@@ -65,12 +70,10 @@ interface HeatmapCell {
 type ChartMode = 'line' | 'bars';
 
 const CHART_WIDTH = 600;
-const CHART_HEIGHT = 220;
 const CHART_LEFT = 28;
 const CHART_RIGHT = 572;
 const CHART_TOP = 24;
 const CHART_BOTTOM = 186;
-const MONTHS_IN_SERIES = 12;
 
 @Component({
   selector: 'app-dashboard-page',
@@ -85,6 +88,7 @@ export class DashboardPage implements OnInit {
   private readonly installmentService = inject(InstallmentService);
   private readonly subscriptionService = inject(SubscriptionService);
   private readonly walletService = inject(WalletService);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
@@ -173,13 +177,7 @@ export class DashboardPage implements OnInit {
 
     const raw = months.map((month) => {
       const walletSpent = spentByMonth.get(month.key) ?? 0;
-      const subsAmount = this.subscriptions().reduce(
-        (sum, sub) =>
-          sum + (this.isSubscriptionActiveInMonth(sub, month.key)
-            ? this.subscriptionAmountForMonth(sub, month.key)
-            : 0),
-        0,
-      );
+      const subsAmount = subscriptionsTotalForMonth(this.subscriptions(), month.key);
       return { label: month.label, monthKey: month.key, walletSpent, subsAmount };
     });
 
@@ -223,16 +221,9 @@ export class DashboardPage implements OnInit {
       .reduce((sum, e) => sum + Number(e.cost), 0);
   });
 
-  protected readonly subsCurrentMonthAmount = computed(() => {
-    const key = this.currentMonthKey();
-    return this.subscriptions().reduce(
-      (sum, sub) =>
-        sum + (this.isSubscriptionActiveInMonth(sub, key)
-          ? this.subscriptionAmountForMonth(sub, key)
-          : 0),
-      0,
-    );
-  });
+  protected readonly subsCurrentMonthAmount = computed(() =>
+    subscriptionsTotalForMonth(this.subscriptions(), this.currentMonthKey()),
+  );
 
   protected readonly subsSharePct = computed(() => {
     const wallet = this.selectedWallet()?.budget ?? 0;
@@ -305,7 +296,7 @@ export class DashboardPage implements OnInit {
         const activity = inYear ? totalsByDay.get(this.dayKey(date)) : null;
         const count = activity?.count ?? 0;
         cells.push({
-          className: inYear ? this.heatmapLevel(count) : 'is-outside',
+          className: inYear ? heatmapLevel(count) : 'is-outside',
           label: inYear
             ? `${this.formatHeatmapDate(date)} · ${count} transaction${count === 1 ? '' : 's'} · ${this.formatCurrency(activity?.total ?? 0)}`
             : '',
@@ -326,14 +317,22 @@ export class DashboardPage implements OnInit {
   }
 
   protected downloadExport(): void {
-    this.expenseService.exportMine().subscribe((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'expenses.csv';
-      a.click();
-      URL.revokeObjectURL(url);
-    });
+    this.expenseService
+      .exportMine()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (blob) => this.triggerDownload(blob),
+        error: () => undefined,
+      });
+  }
+
+  private triggerDownload(blob: Blob): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'expenses.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   protected showSpendingTooltip(point: SpendingPoint): void {
@@ -472,6 +471,7 @@ export class DashboardPage implements OnInit {
   protected readonly headlineText = computed(() => {
     const wallet = this.selectedWallet();
     if (!wallet) return 'No wallet selected';
+    if (wallet.budget <= 0) return 'A quiet month';
     const pct = Math.round(((wallet.budget - wallet.remaining) / wallet.budget) * 100);
     if (pct < 20) return 'A quiet month';
     if (pct < 50) return 'Building momentum';
@@ -548,33 +548,6 @@ export class DashboardPage implements OnInit {
     return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
   }
 
-  private heatmapLevel(count: number): string {
-    if (count <= 0) return '';
-    if (count === 1) return 'l1';
-    if (count === 2) return 'l2';
-    if (count === 3) return 'l3';
-    return 'l4';
-  }
-
-  private isSubscriptionInMonth(subscription: Subscription, monthKey: string): boolean {
-    if (monthKey < subscription.startMonth) return false;
-    if (subscription.endMonth && monthKey > subscription.endMonth) return false;
-    return true;
-  }
-
-  private isSubscriptionActiveInMonth(subscription: Subscription, monthKey: string): boolean {
-    if (subscription.endMonth !== null) return false;
-    return monthKey >= subscription.startMonth;
-  }
-
-  private subscriptionAmountForMonth(subscription: Subscription, monthKey: string): number {
-    const version = [...subscription.versions]
-      .filter((candidate) => candidate.effectiveMonth <= monthKey)
-      .sort((a, b) => b.effectiveMonth.localeCompare(a.effectiveMonth))[0];
-
-    return Number(version?.amount ?? 0);
-  }
-
   private formatHeatmapDate(date: Date): string {
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
@@ -585,6 +558,6 @@ export class DashboardPage implements OnInit {
   }
 
   private formatCurrency(value: number): string {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return formatBrl(value);
   }
 }

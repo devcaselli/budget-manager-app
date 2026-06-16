@@ -3,6 +3,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject } from 'rxjs';
+import { formatBrl } from '@shared/utils/currency';
 import { CreditCardService } from '@features/credit-card/services/credit-card.service';
 
 import {
@@ -13,7 +14,6 @@ import {
   Subscription,
   SubscriptionFlag,
   SubscriptionState,
-  SubscriptionVersion,
 } from '../../models/subscription';
 import { SubscriptionService } from '../../services/subscription.service';
 
@@ -116,13 +116,13 @@ export class SubscriptionPage {
     const total = this.subscriptionItems()
       .filter((s) => s.isActive && s.state === 'PRODUCTION')
       .reduce((acc, s) => acc + s.amountValue, 0);
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total);
+    return formatBrl(total);
   });
   protected readonly previewTotal = computed(() => {
     const total = this.subscriptionItems()
       .filter((s) => s.isActive && s.state === 'PREVIEW')
       .reduce((acc, s) => acc + s.amountValue, 0);
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total);
+    return formatBrl(total);
   });
 
   protected readonly hasEditingSubscription = computed(() => this.editingSubscriptionId() !== null);

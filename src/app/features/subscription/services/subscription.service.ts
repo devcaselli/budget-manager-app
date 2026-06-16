@@ -13,6 +13,7 @@ import {
 } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { LoadingCounter } from '@core/state/loading-counter';
 
 import {
   CreateSubscriptionRequest,
@@ -29,16 +30,15 @@ export class SubscriptionService {
   private readonly subscriptionsUrl = `${environment.apiUrl}/subscriptions`;
 
   private readonly subscriptionsSubject = new BehaviorSubject<readonly Subscription[]>([]);
-  private readonly loadingSubject = new BehaviorSubject(false);
+  private readonly loadingCounter = new LoadingCounter();
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly updatingSubject = new BehaviorSubject<string | null>(null);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
   private readonly loadSubscriptionsTrigger$ = new Subject<void>();
-  private activeLoadingRequests = 0;
 
   readonly subscriptions$ = this.subscriptionsSubject.asObservable();
-  readonly loading$ = this.loadingSubject.asObservable();
+  readonly loading$ = this.loadingCounter.loading$;
   readonly saving$ = this.savingSubject.asObservable();
   readonly updating$ = this.updatingSubject.asObservable();
   readonly deleting$ = this.deletingSubject.asObservable();
@@ -49,16 +49,16 @@ export class SubscriptionService {
       .pipe(
         tap(() => {
           this.errorSubject.next(null);
-          this.startLoading();
+          this.loadingCounter.start();
         }),
         switchMap(() =>
           this.findAll().pipe(
             tap((response) => this.subscriptionsSubject.next(response.content)),
             catchError(() => {
-              this.errorSubject.next('Nao foi possivel carregar as subscriptions.');
+              this.errorSubject.next('Não foi possível carregar as subscriptions.');
               return EMPTY;
             }),
-            finalize(() => this.stopLoading()),
+            finalize(() => this.loadingCounter.stop()),
           ),
         ),
       )
@@ -84,7 +84,7 @@ export class SubscriptionService {
       .pipe(
         tap({
           next: (subscription) => this.upsertSubscription(subscription),
-          error: () => this.errorSubject.next('Nao foi possivel criar a subscription.'),
+          error: () => this.errorSubject.next('Não foi possível criar a subscription.'),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -110,7 +110,7 @@ export class SubscriptionService {
       .pipe(
         tap({
           next: (subscription) => this.upsertSubscription(subscription),
-          error: () => this.errorSubject.next('Nao foi possivel atualizar a subscription.'),
+          error: () => this.errorSubject.next('Não foi possível atualizar a subscription.'),
         }),
         finalize(() => this.updatingSubject.next(null)),
       )
@@ -142,7 +142,7 @@ export class SubscriptionService {
             );
             this.loadSubscriptions();
           },
-          error: () => this.errorSubject.next('Nao foi possivel remover a subscription.'),
+          error: () => this.errorSubject.next('Não foi possível remover a subscription.'),
         }),
         finalize(() => this.deletingSubject.next(null)),
       )
@@ -170,15 +170,5 @@ export class SubscriptionService {
         (currentSubscription) => currentSubscription.id !== subscription.id,
       ),
     ]);
-  }
-
-  private startLoading(): void {
-    this.activeLoadingRequests += 1;
-    this.loadingSubject.next(true);
-  }
-
-  private stopLoading(): void {
-    this.activeLoadingRequests = Math.max(this.activeLoadingRequests - 1, 0);
-    this.loadingSubject.next(this.activeLoadingRequests > 0);
   }
 }

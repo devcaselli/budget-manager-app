@@ -9,12 +9,12 @@ import {
   forkJoin,
   Observable,
   ReplaySubject,
-  Subject,
   switchMap,
   tap,
 } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { LoadingCounter } from '@core/state/loading-counter';
 
 import {
   CreditCard,
@@ -57,19 +57,18 @@ export class InstallmentService {
     totalPages: 0,
   });
   private readonly creditCardsSubject = new BehaviorSubject<readonly CreditCard[]>([]);
-  private readonly loadingSubject = new BehaviorSubject(false);
+  private readonly loadingCounter = new LoadingCounter();
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
   private readonly walletIdSubject = new BehaviorSubject<string | null>(null);
   private readonly filterSubject = new BehaviorSubject<InstallmentFilter>(DEFAULT_FILTER);
-  private activeLoadingRequests = 0;
 
   readonly installments$ = this.installmentsSubject.asObservable();
   readonly allInstallments$ = this.allInstallmentsSubject.asObservable();
   readonly pagination$ = this.paginationSubject.asObservable();
   readonly creditCards$ = this.creditCardsSubject.asObservable();
-  readonly loading$ = this.loadingSubject.asObservable();
+  readonly loading$ = this.loadingCounter.loading$;
   readonly saving$ = this.savingSubject.asObservable();
   readonly deleting$ = this.deletingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
@@ -85,7 +84,7 @@ export class InstallmentService {
             this.allInstallmentsSubject.next([]);
             return;
           }
-          this.startLoading();
+          this.loadingCounter.start();
         }),
         switchMap(([walletId, filter]) => {
           if (!walletId) return EMPTY;
@@ -107,7 +106,7 @@ export class InstallmentService {
               this.errorSubject.next('Unable to load installments.');
               return EMPTY;
             }),
-            finalize(() => this.stopLoading()),
+            finalize(() => this.loadingCounter.stop()),
           );
         }),
       )
@@ -266,15 +265,5 @@ export class InstallmentService {
     }
 
     return 'Unable to delete the installment.';
-  }
-
-  private startLoading(): void {
-    this.activeLoadingRequests += 1;
-    this.loadingSubject.next(true);
-  }
-
-  private stopLoading(): void {
-    this.activeLoadingRequests = Math.max(this.activeLoadingRequests - 1, 0);
-    this.loadingSubject.next(this.activeLoadingRequests > 0);
   }
 }

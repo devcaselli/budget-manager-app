@@ -7,7 +7,6 @@ import {
   finalize,
   Observable,
   ReplaySubject,
-  Subject,
   tap,
 } from 'rxjs';
 
@@ -47,7 +46,7 @@ export class PayerService {
       .pipe(
         tap((payers) => this.payersSubject.next(payers)),
         catchError(() => {
-          this.errorSubject.next('Nao foi possivel carregar os payers.');
+          this.errorSubject.next('Não foi possível carregar os payers.');
           return EMPTY;
         }),
         finalize(() => this.loadingSubject.next(false)),
@@ -69,7 +68,7 @@ export class PayerService {
             const current = this.payersSubject.getValue();
             this.payersSubject.next([...current, created]);
           },
-          error: () => this.errorSubject.next('Nao foi possivel criar o payer.'),
+          error: () => this.errorSubject.next('Não foi possível criar o payer.'),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -97,7 +96,7 @@ export class PayerService {
             const current = this.payersSubject.getValue();
             this.payersSubject.next(current.map((p) => (p.id === id ? updated : p)));
           },
-          error: () => this.errorSubject.next('Nao foi possivel atualizar o payer.'),
+          error: () => this.errorSubject.next('Não foi possível atualizar o payer.'),
         }),
       )
       .subscribe({
@@ -125,7 +124,7 @@ export class PayerService {
             const current = this.payersSubject.getValue();
             this.payersSubject.next(current.filter((p) => p.id !== id));
           },
-          error: () => this.errorSubject.next('Nao foi possivel remover o payer.'),
+          error: () => this.errorSubject.next('Não foi possível remover o payer.'),
         }),
         finalize(() => this.deletingSubject.next(null)),
       )

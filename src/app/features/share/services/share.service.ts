@@ -62,7 +62,7 @@ export class ShareService {
       .pipe(
         tap((shares) => this.sharesSubject.next(shares)),
         catchError(() => {
-          this.errorSubject.next('Nao foi possivel carregar os compartilhamentos.');
+          this.errorSubject.next('Não foi possível carregar os compartilhamentos.');
           return EMPTY;
         }),
         finalize(() => this.loadingSubject.next(false)),
@@ -87,7 +87,7 @@ export class ShareService {
               ...current.filter((share) => share.id !== created.id),
             ]);
           },
-          error: () => this.errorSubject.next('Nao foi possivel criar o compartilhamento.'),
+          error: () => this.errorSubject.next('Não foi possível criar o compartilhamento.'),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -113,7 +113,7 @@ export class ShareService {
       .pipe(
         tap({
           next: () => this.reloadCurrentWallet(),
-          error: () => this.errorSubject.next('Nao foi possivel reverter o compartilhamento.'),
+          error: () => this.errorSubject.next('Não foi possível reverter o compartilhamento.'),
         }),
         finalize(() => this.revertingSubject.next(null)),
       )
@@ -166,6 +166,6 @@ export class ShareService {
     if (error instanceof HttpErrorResponse && error.status === 409) {
       return SHARE_STOP_CONFLICT_MESSAGE;
     }
-    return 'Nao foi possivel interromper o compartilhamento.';
+    return 'Não foi possível interromper o compartilhamento.';
   }
 }

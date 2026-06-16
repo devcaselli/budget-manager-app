@@ -90,7 +90,7 @@ describe('ShareService', () => {
         .expectOne('/api/wallets/wallet-1/shares')
         .flush({ message: 'boom' }, { status: 500, statusText: 'Server Error' });
 
-      expect(errors.at(-1)).toBe('Nao foi possivel carregar os compartilhamentos.');
+      expect(errors.at(-1)).toBe('Não foi possível carregar os compartilhamentos.');
     });
   });
 
@@ -137,7 +137,7 @@ describe('ShareService', () => {
         .expectOne('/api/wallets/wallet-1/shares/share-1/stop')
         .flush({ message: 'gone' }, { status: 404, statusText: 'Not Found' });
 
-      expect(errors.at(-1)).toBe('Nao foi possivel interromper o compartilhamento.');
+      expect(errors.at(-1)).toBe('Não foi possível interromper o compartilhamento.');
     });
 
     it('should toggle stopping$ with the share id during the request', () => {

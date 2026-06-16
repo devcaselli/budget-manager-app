@@ -24,6 +24,9 @@ import {
 
 const STORAGE_KEY_SESSION = 'bm_session';
 
+/** Treat a token as expired this many seconds early to absorb clock skew. */
+const TOKEN_EXPIRY_SKEW_SECONDS = 30;
+
 function deriveUser(email: string): AuthUser {
   const localPart = email.split('@')[0];
   const name = localPart.charAt(0).toUpperCase() + localPart.slice(1);
@@ -62,7 +65,7 @@ function getTokenExp(token: string): number {
 function isTokenExpired(token: string): boolean {
   const exp = getTokenExp(token);
   if (exp === 0) return true;
-  return Date.now() / 1000 >= exp;
+  return Date.now() / 1000 >= exp - TOKEN_EXPIRY_SKEW_SECONDS;
 }
 
 function mapHttpError(error: HttpErrorResponse): Observable<never> {

@@ -11,6 +11,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 
+import { formatBrl } from '@shared/utils/currency';
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { ExpenseService } from '@features/expense/services/expense.service';
 import { Payer } from '@features/payer/models/payer';
@@ -202,6 +203,6 @@ export class PaymentPage {
   }
 
   private fmt(value: number): string {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    return formatBrl(value);
   }
 }

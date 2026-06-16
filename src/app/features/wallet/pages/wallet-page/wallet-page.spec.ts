@@ -141,11 +141,11 @@ describe('WalletPage', () => {
       .componentInstance as WalletDetailComponent;
     expect(detail.isLoading()).toBe(true);
 
-    service.errorSubject.next('Nao foi possivel carregar as wallets.');
+    service.errorSubject.next('Não foi possível carregar as wallets.');
     fixture.detectChanges();
 
     const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
-    expect(alert.textContent).toContain('Nao foi possivel carregar as wallets.');
+    expect(alert.textContent).toContain('Não foi possível carregar as wallets.');
   });
 
   it('should expose an error state when creating a wallet fails', () => {
@@ -159,7 +159,7 @@ describe('WalletPage', () => {
   state: 'PRODUCTION',
     };
     service.create.mockImplementation(() => {
-      service.errorSubject.next('Nao foi possivel abrir a wallet.');
+      service.errorSubject.next('Não foi possível abrir a wallet.');
       return throwError(() => new Error('Server error'));
     });
 
@@ -172,6 +172,6 @@ describe('WalletPage', () => {
     fixture.detectChanges();
 
     const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
-    expect(alert.textContent).toContain('Nao foi possivel abrir a wallet.');
+    expect(alert.textContent).toContain('Não foi possível abrir a wallet.');
   });
 });

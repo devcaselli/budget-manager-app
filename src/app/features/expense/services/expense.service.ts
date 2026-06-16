@@ -13,6 +13,7 @@ import {
 } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { LoadingCounter } from '@core/state/loading-counter';
 
 import { ChartPeriod, CreateExpenseRequest, Expense, PagedExpenseResponse } from '../models/expense';
 
@@ -25,16 +26,15 @@ export class ExpenseService {
 
   private readonly expensesSubject = new BehaviorSubject<readonly Expense[]>([]);
   private readonly allExpensesSubject = new BehaviorSubject<readonly Expense[]>([]);
-  private readonly loadingSubject = new BehaviorSubject(false);
+  private readonly loadingCounter = new LoadingCounter();
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
   private readonly loadExpensesTrigger$ = new Subject<string | null>();
-  private activeLoadingRequests = 0;
 
   readonly expenses$ = this.expensesSubject.asObservable();
   readonly allExpenses$ = this.allExpensesSubject.asObservable();
-  readonly loading$ = this.loadingSubject.asObservable();
+  readonly loading$ = this.loadingCounter.loading$;
   readonly saving$ = this.savingSubject.asObservable();
   readonly deleting$ = this.deletingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
@@ -50,7 +50,7 @@ export class ExpenseService {
             return;
           }
 
-          this.startLoading();
+          this.loadingCounter.start();
         }),
         switchMap((walletId) => {
           if (!walletId) {
@@ -60,10 +60,10 @@ export class ExpenseService {
           return this.findByWalletId(walletId).pipe(
             tap((response) => this.expensesSubject.next(response.content)),
             catchError(() => {
-              this.errorSubject.next('Nao foi possivel carregar as expenses.');
+              this.errorSubject.next('Não foi possível carregar as expenses.');
               return EMPTY;
             }),
-            finalize(() => this.stopLoading()),
+            finalize(() => this.loadingCounter.stop()),
           );
         }),
       )
@@ -115,7 +115,7 @@ export class ExpenseService {
               ...currentExpenses.filter((currentExpense) => currentExpense.id !== expense.id),
             ]);
           },
-          error: () => this.errorSubject.next('Nao foi possivel criar a expense.'),
+          error: () => this.errorSubject.next('Não foi possível criar a expense.'),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -144,7 +144,7 @@ export class ExpenseService {
             const currentExpenses = this.expensesSubject.getValue();
             this.expensesSubject.next(currentExpenses.filter((expense) => expense.id !== id));
           },
-          error: () => this.errorSubject.next('Nao foi possivel remover a expense.'),
+          error: () => this.errorSubject.next('Não foi possível remover a expense.'),
         }),
         finalize(() => this.deletingSubject.next(null)),
       )
@@ -161,15 +161,5 @@ export class ExpenseService {
 
   loadByWalletId(walletId: string | null): void {
     this.loadExpensesTrigger$.next(walletId);
-  }
-
-  private startLoading(): void {
-    this.activeLoadingRequests += 1;
-    this.loadingSubject.next(true);
-  }
-
-  private stopLoading(): void {
-    this.activeLoadingRequests = Math.max(this.activeLoadingRequests - 1, 0);
-    this.loadingSubject.next(this.activeLoadingRequests > 0);
   }
 }
