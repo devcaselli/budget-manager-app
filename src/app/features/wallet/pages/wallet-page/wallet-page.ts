@@ -16,6 +16,7 @@ import { WalletFormComponent } from '../../components/wallet-form/wallet-form.co
 import { WalletListComponent } from '../../components/wallet-list/wallet-list.component';
 import { CreateWalletRequest, Wallet } from '../../models/wallet';
 import { WalletService } from '../../services/wallet.service';
+import { PreferencesService } from '@core/services/preferences.service';
 
 @Component({
   selector: 'app-wallet-page',
@@ -27,6 +28,9 @@ import { WalletService } from '../../services/wallet.service';
 export class WalletPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly walletService = inject(WalletService);
+  private readonly preferences = inject(PreferencesService);
+
+  protected readonly favoriteWalletId = this.preferences.favoriteWalletId;
 
   protected readonly wallets = toSignal(this.walletService.wallets$, { initialValue: [] });
   protected readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
@@ -43,6 +47,10 @@ export class WalletPage {
 
   protected selectWallet(wallet: Wallet): void {
     this.walletService.selectWallet(wallet);
+  }
+
+  protected toggleFavorite(wallet: Wallet): void {
+    this.preferences.toggleFavoriteWallet(wallet.id);
   }
 
   protected createWallet(request: CreateWalletRequest): void {

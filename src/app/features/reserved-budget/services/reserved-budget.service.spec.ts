@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 
 import {
   CreateReservedBudgetRequest,
+  LinkReservedBudgetSourceRequest,
   PagedReservedBudgetResponse,
   ReservedBudget,
   UpdateReservedBudgetRequest,
@@ -26,6 +27,15 @@ describe('ReservedBudgetService', () => {
   afterEach(() => {
     httpMock.verify();
   });
+
+  // loadReservedBudgets() now lists via ?activeAt=<currentMonth> so consumed/remaining come populated.
+  function expectActiveListRequest() {
+    return httpMock.expectOne(
+      (candidate) =>
+        candidate.url === '/api/reserved-budgets' &&
+        candidate.params.get('activeAt') === currentMonth(),
+    );
+  }
 
   it('should return reserved budgets via GET /api/reserved-budgets', () => {
     const response = pagedResponse([reservedBudget]);
@@ -72,11 +82,42 @@ describe('ReservedBudgetService', () => {
     service.reservedBudgets$.subscribe((value) => emitted.push(value));
     service.loadReservedBudgets();
 
-    const request = httpMock.expectOne('/api/reserved-budgets?page=0&size=100');
+    const request = expectActiveListRequest();
     expect(request.request.method).toBe('GET');
+    expect(request.request.params.get('activeAt')).toBe(currentMonth());
     request.flush(pagedResponse([reservedBudget]));
 
     expect(emitted.at(-1)).toEqual([reservedBudget]);
+  });
+
+  it('should list reserved budgets for the given activeAt month (wallet effectiveMonth)', () => {
+    const walletMonth = '2026-03';
+
+    service.loadReservedBudgets(walletMonth);
+
+    const request = httpMock.expectOne(
+      (candidate) =>
+        candidate.url === '/api/reserved-budgets' &&
+        candidate.params.get('activeAt') === walletMonth,
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush(pagedResponse([reservedBudget]));
+  });
+
+  it('should reuse the last activeAt month for internal reloads (no explicit month)', () => {
+    const walletMonth = '2026-02';
+
+    // First load fixes the remembered month...
+    service.loadReservedBudgets(walletMonth);
+    httpMock
+      .expectOne((c) => c.params.get('activeAt') === walletMonth)
+      .flush(pagedResponse([reservedBudget]));
+
+    // ...so a subsequent argument-less reload targets the same month, not the real-world now.
+    service.loadReservedBudgets();
+    const reload = httpMock.expectOne((c) => c.params.get('activeAt') === walletMonth);
+    expect(reload.request.method).toBe('GET');
+    reload.flush(pagedResponse([reservedBudget]));
   });
 
   it('should create a reserved budget and prepend it to reservedBudgets$', () => {
@@ -129,7 +170,7 @@ describe('ReservedBudgetService', () => {
 
     service.reservedBudgets$.subscribe((value) => emitted.push(value));
     service.loadReservedBudgets();
-    httpMock.expectOne('/api/reserved-budgets?page=0&size=100').flush(pagedResponse([reservedBudget]));
+    expectActiveListRequest().flush(pagedResponse([reservedBudget]));
 
     service.update(reservedBudget.id, input).subscribe((result) => expect(result).toEqual(updated));
 
@@ -161,19 +202,112 @@ describe('ReservedBudgetService', () => {
     request.flush(updated);
   });
 
+  it('should link a source via POST /:id/links and replace the RB in reservedBudgets$', () => {
+    const emitted: (readonly ReservedBudget[])[] = [];
+    const input: LinkReservedBudgetSourceRequest = {
+      sourceType: 'SUBSCRIPTION',
+      sourceId: 'sub-1',
+      fromMonth: '2026-06',
+    };
+    const linked: ReservedBudget = { ...reservedBudget, links: [input] };
+
+    service.reservedBudgets$.subscribe((value) => emitted.push(value));
+    service.loadReservedBudgets();
+    expectActiveListRequest().flush(pagedResponse([reservedBudget]));
+
+    service.link(reservedBudget.id, input).subscribe((result) => expect(result).toEqual(linked));
+
+    const request = httpMock.expectOne('/api/reserved-budgets/reserved-budget-1/links');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(input);
+    request.flush(linked);
+
+    expect(emitted.at(-1)).toEqual([linked]);
+  });
+
+  it('should unlink a source via DELETE /:id/links/:type/:sourceId and update the stream', () => {
+    const emitted: (readonly ReservedBudget[])[] = [];
+    const linked: ReservedBudget = {
+      ...reservedBudget,
+      links: [{ sourceType: 'SUBSCRIPTION', sourceId: 'sub-1', fromMonth: '2026-06' }],
+    };
+    const unlinked: ReservedBudget = { ...reservedBudget, links: [] };
+
+    service.reservedBudgets$.subscribe((value) => emitted.push(value));
+    service.loadReservedBudgets();
+    expectActiveListRequest().flush(pagedResponse([linked]));
+
+    service
+      .unlink(reservedBudget.id, 'SUBSCRIPTION', 'sub-1')
+      .subscribe((result) => expect(result).toEqual(unlinked));
+
+    const request = httpMock.expectOne(
+      '/api/reserved-budgets/reserved-budget-1/links/SUBSCRIPTION/sub-1',
+    );
+    expect(request.request.method).toBe('DELETE');
+    request.flush(unlinked);
+
+    expect(emitted.at(-1)).toEqual([unlinked]);
+  });
+
+  it('should expose an error message and clear linking state when linking fails', () => {
+    const emittedErrors: (string | null)[] = [];
+    const emittedLinkingIds: (string | null)[] = [];
+
+    service.error$.subscribe((value) => emittedErrors.push(value));
+    service.linking$.subscribe((value) => emittedLinkingIds.push(value));
+
+    service
+      .link(reservedBudget.id, { sourceType: 'INSTALLMENT', sourceId: 'inst-1', fromMonth: '2026-06' })
+      .subscribe({ error: () => undefined });
+
+    httpMock
+      .expectOne('/api/reserved-budgets/reserved-budget-1/links')
+      .flush(null, { status: 400, statusText: 'Bad Request' });
+
+    expect(emittedErrors.at(-1)).toBe('Não foi possível vincular a fonte.');
+    expect(emittedLinkingIds.at(-1)).toBeNull();
+  });
+
+  it('should keep consumedAmount/remainingAmount from the link response in the stream', () => {
+    const emitted: (readonly ReservedBudget[])[] = [];
+    const input: LinkReservedBudgetSourceRequest = {
+      sourceType: 'SUBSCRIPTION',
+      sourceId: 'sub-1',
+      fromMonth: '2026-06',
+    };
+    const linked: ReservedBudget = {
+      ...reservedBudget,
+      links: [input],
+      consumedAmount: 120,
+      remainingAmount: 1880,
+    };
+
+    service.reservedBudgets$.subscribe((value) => emitted.push(value));
+    service.loadReservedBudgets();
+    expectActiveListRequest().flush(pagedResponse([reservedBudget]));
+
+    service.link(reservedBudget.id, input).subscribe();
+
+    httpMock.expectOne('/api/reserved-budgets/reserved-budget-1/links').flush(linked);
+
+    expect(emitted.at(-1)?.[0].consumedAmount).toBe(120);
+    expect(emitted.at(-1)?.[0].remainingAmount).toBe(1880);
+  });
+
   it('should delete a reserved budget and remove it from reservedBudgets$', () => {
     const emitted: (readonly ReservedBudget[])[] = [];
 
     service.reservedBudgets$.subscribe((value) => emitted.push(value));
     service.loadReservedBudgets();
-    httpMock.expectOne('/api/reserved-budgets?page=0&size=100').flush(pagedResponse([reservedBudget]));
+    expectActiveListRequest().flush(pagedResponse([reservedBudget]));
 
     service.delete(reservedBudget.id).subscribe();
 
     const request = httpMock.expectOne('/api/reserved-budgets/reserved-budget-1');
     expect(request.request.method).toBe('DELETE');
     request.flush(null);
-    httpMock.expectOne('/api/reserved-budgets?page=0&size=100').flush(pagedResponse([]));
+    expectActiveListRequest().flush(pagedResponse([]));
 
     expect(emitted.at(-1)).toEqual([]);
   });
@@ -188,6 +322,7 @@ const reservedBudget: ReservedBudget = {
   deleted: false,
   flag: 'NONE',
   versions: [{ effectiveMonth: '2026-05', amount: 2000 }],
+  links: [],
 };
 
 function pagedResponse(content: readonly ReservedBudget[]): PagedReservedBudgetResponse {
@@ -198,4 +333,8 @@ function pagedResponse(content: readonly ReservedBudget[]): PagedReservedBudgetR
     totalElements: content.length,
     totalPages: 1,
   };
+}
+
+function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
 }

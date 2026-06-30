@@ -23,3 +23,26 @@
 .wl-row--selected td {
   background: var(--ew-acc-soft);
 }
+
+.wl-name {
+  margin-right: 6px;
+}
+
+.wl-fav {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--ew-ink-3);
+  transition: color 0.15s;
+
+  &:hover {
+    color: var(--ew-acc);
+  }
+
+  &--on {
+    color: var(--ew-acc);
+  }
+}

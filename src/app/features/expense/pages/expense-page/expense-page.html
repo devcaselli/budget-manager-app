@@ -112,7 +112,12 @@
                     {{ expense.statusLabel }}
                   </span>
                 </td>
-                <td class="ep-amount ew-blur">{{ expense.remaining | brlCurrency }}</td>
+                <td class="ep-amount-cell ew-blur">
+                  @if (expense.paid > 0) {
+                    <small class="ep-amount-original">{{ expense.cost | brlCurrency }}</small>
+                  }
+                  <span class="ep-amount">{{ expense.remaining | brlCurrency }}</span>
+                </td>
                 <td class="ep-row-actions">
                   <button
                     class="ep-icon-btn"

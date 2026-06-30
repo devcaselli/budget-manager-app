@@ -12,6 +12,84 @@
   font-size: 11px;
 }
 
+.rb-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.rb-link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 4px;
+  border: 1px solid var(--ew-line);
+  border-radius: 999px;
+  background: var(--ew-panel-2);
+  font-size: 11px;
+  color: var(--ew-ink-2);
+}
+
+.rb-link-chip-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ew-acc-soft);
+  color: var(--ew-acc);
+  font-family: var(--ew-mono);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.rb-link-chip-remove {
+  border: none;
+  background: none;
+  color: var(--ew-ink-3);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.15s;
+
+  &:hover:not(:disabled) {
+    color: var(--ew-bad);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.rb-consumption {
+  margin-top: 8px;
+  max-width: 280px;
+}
+
+.rb-consumption-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ew-line);
+  overflow: hidden;
+}
+
+.rb-consumption-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ew-acc);
+  transition: width 0.2s ease;
+}
+
+.rb-consumption-figures {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--ew-ink-3);
+}
+
 .rb-actions {
   display: flex;
   gap: 6px;

@@ -14,6 +14,7 @@ import {
 
 import { environment } from '@environments/environment';
 import { LoadingCounter } from '@core/state/loading-counter';
+import { PreferencesService } from '@core/services/preferences.service';
 
 import { CreateWalletRequest, Wallet } from '../models/wallet';
 import { Payer } from '@features/payer/models/payer';
@@ -23,6 +24,7 @@ import { Payer } from '@features/payer/models/payer';
 })
 export class WalletService {
   private readonly http = inject(HttpClient);
+  private readonly preferences = inject(PreferencesService);
   private readonly walletsUrl = `${environment.apiUrl}/wallets`;
 
   private readonly walletsSubject = new BehaviorSubject<readonly Wallet[]>([]);
@@ -141,20 +143,23 @@ export class WalletService {
   }
 
   private syncSelectedWallet(wallets: readonly Wallet[]): void {
-    const selectedWallet = this.selectedWalletSubject.getValue();
-
     if (wallets.length === 0) {
       this.selectedWalletSubject.next(null);
       return;
     }
 
-    if (!selectedWallet) {
-      this.selectedWalletSubject.next(wallets[0]);
+    // On every (re)load prefer the starred favorite, so a reload or manual refresh always
+    // returns to it. Falls back to the current selection, then the first wallet.
+    const favoriteId = this.preferences.favoriteWalletId();
+    const favorite = favoriteId ? wallets.find((wallet) => wallet.id === favoriteId) : undefined;
+    if (favorite) {
+      this.selectedWalletSubject.next(favorite);
       return;
     }
 
+    const selectedWallet = this.selectedWalletSubject.getValue();
     this.selectedWalletSubject.next(
-      wallets.find((wallet) => wallet.id === selectedWallet.id) ?? wallets[0],
+      wallets.find((wallet) => wallet.id === selectedWallet?.id) ?? wallets[0],
     );
   }
 }

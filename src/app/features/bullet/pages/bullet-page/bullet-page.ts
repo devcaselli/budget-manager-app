@@ -26,6 +26,11 @@ import {
   BulletDeleteDialogComponent,
   BulletDeleteDialogData,
 } from '../../components/bullet-delete-dialog/bullet-delete-dialog.component';
+import {
+  BulletEditDialogComponent,
+  BulletEditDialogData,
+  BulletEditDialogResult,
+} from '../../components/bullet-edit-dialog/bullet-edit-dialog.component';
 
 interface BulletListItem {
   readonly id: string;
@@ -61,6 +66,9 @@ export class BulletPage {
   protected readonly isSaving = toSignal(this.bulletService.saving$, { initialValue: false });
   protected readonly isAllocatingExtraBudget = toSignal(this.extraBudgetService.saving$, {
     initialValue: false,
+  });
+  protected readonly updatingBulletId = toSignal(this.bulletService.updating$, {
+    initialValue: null,
   });
   protected readonly deletingBulletId = toSignal(this.bulletService.deleting$, {
     initialValue: null,
@@ -143,6 +151,28 @@ export class BulletPage {
       });
   }
 
+  protected onEditClick(bullet: BulletListItem): void {
+    const wallet = this.selectedWallet();
+    if (!wallet) return;
+
+    const data: BulletEditDialogData = {
+      bulletDescription: bullet.description,
+      budget: bullet.budget,
+      walletDescription: wallet.description,
+    };
+
+    this.dialog
+      .open<BulletEditDialogComponent, BulletEditDialogData, BulletEditDialogResult>(
+        BulletEditDialogComponent,
+        { width: '32rem', maxWidth: 'calc(100vw - 2rem)', data },
+      )
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result) this.updateBullet(wallet.id, bullet.id, result);
+      });
+  }
+
   protected openExtraBudgetDialog(bullet: BulletListItem): void {
     const wallet = this.selectedWallet();
     if (!wallet) return;
@@ -171,6 +201,24 @@ export class BulletPage {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result) this.createExtraBudget(wallet.id, bullet.id, result);
+      });
+  }
+
+  private updateBullet(
+    walletId: string,
+    bulletId: string,
+    result: BulletEditDialogResult,
+  ): void {
+    this.bulletService
+      .update(bulletId, {
+        description: result.description,
+        budget: result.budget,
+        walletId,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.walletService.loadWallets(),
+        error: () => undefined,
       });
   }
 

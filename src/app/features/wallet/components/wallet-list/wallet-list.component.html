@@ -31,7 +31,17 @@
           (click)="walletSelect.emit(wallet)"
           style="cursor: pointer"
         >
-          <td>{{ wallet.description || 'Unnamed' }}</td>
+          <td>
+            <span class="wl-name">{{ wallet.description || 'Unnamed' }}</span>
+            <button
+              type="button"
+              class="wl-fav"
+              [class.wl-fav--on]="isFavorite(wallet)"
+              [attr.aria-pressed]="isFavorite(wallet)"
+              [title]="isFavorite(wallet) ? 'Unstar favorite' : 'Set as favorite'"
+              (click)="onFavoriteClick($event, wallet)"
+            >{{ isFavorite(wallet) ? '★' : '☆' }}</button>
+          </td>
           <td>{{ wallet.effectiveMonth }}</td>
           <td>
             <span class="ew-pill" [class]="walletStateClass(wallet.state)">

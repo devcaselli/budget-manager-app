@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { Bullet, CreateBulletRequest } from '../models/bullet';
+import { Bullet, CreateBulletRequest, UpdateBulletRequest } from '../models/bullet';
 import { BulletService } from './bullet.service';
 
 describe('BulletService', () => {
@@ -86,6 +86,68 @@ describe('BulletService', () => {
     request.flush(bullet);
 
     expect(emittedBullets.at(-1)).toEqual([bullet]);
+  });
+
+  it('should update a bullet via PATCH and replace it in bullets$', () => {
+    const existing: Bullet = {
+      id: 'bullet-1',
+      description: 'Alimentacao',
+      budget: 800,
+      remaining: 500,
+      walletId: 'wallet-1',
+    };
+    const input: UpdateBulletRequest = {
+      description: 'Mercado',
+      budget: 1000,
+      walletId: 'wallet-1',
+    };
+    const updated: Bullet = {
+      id: 'bullet-1',
+      description: 'Mercado',
+      budget: 1000,
+      remaining: 700,
+      walletId: 'wallet-1',
+    };
+    const emittedBullets: (readonly Bullet[])[] = [];
+
+    service.bullets$.subscribe((value) => emittedBullets.push(value));
+    service.loadByWalletId('wallet-1');
+    httpMock.expectOne('/api/bullets/wallet/wallet-1').flush([existing]);
+
+    service.update(existing.id, input).subscribe((result) => expect(result).toEqual(updated));
+
+    const request = httpMock.expectOne('/api/bullets/bullet-1');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual(input);
+    request.flush(updated);
+
+    expect(emittedBullets.at(-1)).toEqual([updated]);
+  });
+
+  it('should expose an error message and clear updating state when PATCH fails', () => {
+    const existing: Bullet = {
+      id: 'bullet-1',
+      description: 'Alimentacao',
+      budget: 800,
+      remaining: 500,
+      walletId: 'wallet-1',
+    };
+    const emittedErrors: (string | null)[] = [];
+    const emittedUpdatingIds: (string | null)[] = [];
+
+    service.error$.subscribe((value) => emittedErrors.push(value));
+    service.updating$.subscribe((value) => emittedUpdatingIds.push(value));
+
+    service
+      .update(existing.id, { description: 'X', budget: 10, walletId: 'wallet-1' })
+      .subscribe({ error: () => undefined });
+
+    httpMock
+      .expectOne('/api/bullets/bullet-1')
+      .flush(null, { status: 400, statusText: 'Bad Request' });
+
+    expect(emittedErrors.at(-1)).toBe('Não foi possível atualizar o bullet.');
+    expect(emittedUpdatingIds.at(-1)).toBeNull();
   });
 
   it('should delete a bullet and remove it from bullets$', () => {

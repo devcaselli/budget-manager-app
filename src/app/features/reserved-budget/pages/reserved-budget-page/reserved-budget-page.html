@@ -62,12 +62,50 @@
                 @if (budget.details) {
                   <span class="rb-details">{{ budget.details }}</span>
                 }
+                @if (budget.links.length > 0) {
+                  <div class="rb-links">
+                    @for (link of budget.links; track link.sourceType + '-' + link.sourceId) {
+                      <span class="rb-link-chip">
+                        <span class="rb-link-chip-type">{{ link.sourceType.charAt(0) }}</span>
+                        <span class="rb-link-chip-label">{{ link.label }} · {{ link.fromMonth }}</span>
+                        <button
+                          class="rb-link-chip-remove"
+                          type="button"
+                          title="Unlink"
+                          [disabled]="linkingReservedBudgetId() === budget.id"
+                          (click)="unlinkSource(budget, link)"
+                        >×</button>
+                      </span>
+                    }
+                  </div>
+                }
+                @if (budget.hasConsumption) {
+                  <div class="rb-consumption">
+                    <div class="rb-consumption-bar">
+                      <div
+                        class="rb-consumption-fill"
+                        [style.width]="budget.consumedProgress + '%'"
+                      ></div>
+                    </div>
+                    <div class="rb-consumption-figures">
+                      <span class="ew-blur">{{ budget.consumed }}</span> used ·
+                      <span class="ew-blur">{{ budget.amount }}</span> original
+                    </div>
+                  </div>
+                }
               </div>
               <div class="ew-sub-amount">
-                <b class="ew-blur">{{ budget.amount }}</b>
-                <span>per month</span>
+                <b class="ew-blur">{{ budget.hasConsumption ? budget.remaining : budget.amount }}</b>
+                <span>{{ budget.hasConsumption ? 'remaining' : 'per month' }}</span>
               </div>
               <div class="rb-actions">
+                <button
+                  class="rb-action-btn"
+                  type="button"
+                  title="Link source"
+                  [disabled]="linkingReservedBudgetId() === budget.id"
+                  (click)="openLinkDialog(budget)"
+                >🔗</button>
                 <button
                   class="rb-action-btn"
                   type="button"

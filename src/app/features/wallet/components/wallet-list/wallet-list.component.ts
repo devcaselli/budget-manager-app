@@ -14,11 +14,22 @@ import { Wallet, WalletState } from '../../models/wallet';
 export class WalletListComponent {
   readonly wallets = input.required<readonly Wallet[]>();
   readonly selectedWalletId = input<string | null>(null);
+  readonly favoriteWalletId = input<string | null>(null);
   readonly isLoading = input(false);
   readonly walletSelect = output<Wallet>();
+  readonly favoriteToggle = output<Wallet>();
 
   protected isSelected(wallet: Wallet): boolean {
     return this.selectedWalletId() === wallet.id;
+  }
+
+  protected isFavorite(wallet: Wallet): boolean {
+    return this.favoriteWalletId() === wallet.id;
+  }
+
+  protected onFavoriteClick(event: Event, wallet: Wallet): void {
+    event.stopPropagation();
+    this.favoriteToggle.emit(wallet);
   }
 
   protected walletStateClass(state: WalletState): string {

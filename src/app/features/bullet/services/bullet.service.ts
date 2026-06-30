@@ -15,7 +15,7 @@ import {
 import { environment } from '@environments/environment';
 import { LoadingCounter } from '@core/state/loading-counter';
 
-import { Bullet, CreateBulletRequest } from '../models/bullet';
+import { Bullet, CreateBulletRequest, UpdateBulletRequest } from '../models/bullet';
 
 @Injectable({
   providedIn: 'root',
@@ -27,6 +27,7 @@ export class BulletService {
   private readonly bulletsSubject = new BehaviorSubject<readonly Bullet[]>([]);
   private readonly loadingCounter = new LoadingCounter();
   private readonly savingSubject = new BehaviorSubject(false);
+  private readonly updatingSubject = new BehaviorSubject<string | null>(null);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
   private readonly loadBulletsTrigger$ = new Subject<string | null>();
@@ -34,6 +35,7 @@ export class BulletService {
   readonly bullets$ = this.bulletsSubject.asObservable();
   readonly loading$ = this.loadingCounter.loading$;
   readonly saving$ = this.savingSubject.asObservable();
+  readonly updating$ = this.updatingSubject.asObservable();
   readonly deleting$ = this.deletingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
 
@@ -102,6 +104,39 @@ export class BulletService {
       });
 
     return createdBulletSubject.asObservable();
+  }
+
+  update(id: string, input: UpdateBulletRequest): Observable<Bullet> {
+    const updatedBulletSubject = new ReplaySubject<Bullet>(1);
+
+    this.updatingSubject.next(id);
+    this.errorSubject.next(null);
+
+    this.http
+      .patch<Bullet>(`${this.bulletsUrl}/${id}`, input)
+      .pipe(
+        tap({
+          next: (bullet) => {
+            const currentBullets = this.bulletsSubject.getValue();
+            this.bulletsSubject.next(
+              currentBullets.map((currentBullet) =>
+                currentBullet.id === bullet.id ? bullet : currentBullet,
+              ),
+            );
+          },
+          error: () => this.errorSubject.next('Não foi possível atualizar o bullet.'),
+        }),
+        finalize(() => this.updatingSubject.next(null)),
+      )
+      .subscribe({
+        next: (bullet) => {
+          updatedBulletSubject.next(bullet);
+          updatedBulletSubject.complete();
+        },
+        error: (error: unknown) => updatedBulletSubject.error(error),
+      });
+
+    return updatedBulletSubject.asObservable();
   }
 
   delete(id: string): Observable<void> {

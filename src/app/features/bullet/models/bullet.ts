@@ -11,3 +11,9 @@ export interface CreateBulletRequest {
   readonly budget: number;
   readonly walletId: string;
 }
+
+export interface UpdateBulletRequest {
+  readonly description: string;
+  readonly budget: number;
+  readonly walletId: string;
+}

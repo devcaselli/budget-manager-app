@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+} from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
@@ -14,13 +21,34 @@ import {
   ReservedBudgetDeleteDialogComponent,
   ReservedBudgetDeleteDialogData,
 } from '../../components/reserved-budget-delete-dialog/reserved-budget-delete-dialog.component';
-import { ReservedBudget, UpdateReservedBudgetRequest } from '../../models/reserved-budget';
+import {
+  ReservedBudgetLinkDialogComponent,
+  ReservedBudgetLinkDialogData,
+  ReservedBudgetLinkDialogResult,
+  ReservedBudgetLinkSourceOption,
+} from '../../components/reserved-budget-link-dialog/reserved-budget-link-dialog.component';
+import {
+  ReservedBudget,
+  ReservedBudgetLink,
+  ReservedBudgetLinkSourceType,
+  UpdateReservedBudgetRequest,
+} from '../../models/reserved-budget';
 import { ReservedBudgetService } from '../../services/reserved-budget.service';
+import { SubscriptionService } from '@features/subscription/services/subscription.service';
+import { InstallmentService } from '@features/installment/services/installment.service';
+import { WalletService } from '@features/wallet/services/wallet.service';
 import { formatBrl } from '@shared/utils/currency';
 
 interface ReservedBudgetVersionView {
   readonly effectiveMonth: string;
   readonly amount: string;
+}
+
+interface ReservedBudgetLinkView {
+  readonly sourceType: ReservedBudgetLinkSourceType;
+  readonly sourceId: string;
+  readonly fromMonth: string;
+  readonly label: string;
 }
 
 interface ReservedBudgetListItem {
@@ -34,6 +62,13 @@ interface ReservedBudgetListItem {
   readonly startMonth: string;
   readonly versionCount: number;
   readonly versions: readonly ReservedBudgetVersionView[];
+  readonly links: readonly ReservedBudgetLinkView[];
+  /** True when the backend supplied consumed/remaining for this row (false on the plain list). */
+  readonly hasConsumption: boolean;
+  readonly consumed: string | null;
+  readonly remaining: string | null;
+  /** 0–100; consumed share of the ceiling. 0 when consumption data is absent. */
+  readonly consumedProgress: number;
 }
 
 @Component({
@@ -48,9 +83,21 @@ export class ReservedBudgetPage {
   private readonly dialog = inject(MatDialog);
   private readonly formBuilder = inject(FormBuilder);
   private readonly reservedBudgetService = inject(ReservedBudgetService);
+  private readonly subscriptionService = inject(SubscriptionService);
+  private readonly installmentService = inject(InstallmentService);
+  private readonly walletService = inject(WalletService);
 
   private readonly reservedBudgets = toSignal(this.reservedBudgetService.reservedBudgets$, {
     initialValue: [],
+  });
+  private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {
+    initialValue: [],
+  });
+  private readonly installments = toSignal(this.installmentService.allInstallments$, {
+    initialValue: [],
+  });
+  private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
+    initialValue: null,
   });
   private readonly editingReservedBudgetId$ = new BehaviorSubject<string | null>(null);
 
@@ -64,6 +111,9 @@ export class ReservedBudgetPage {
   });
   protected readonly isSaving = toSignal(this.reservedBudgetService.saving$, { initialValue: false });
   protected readonly updatingReservedBudgetId = toSignal(this.reservedBudgetService.updating$, {
+    initialValue: null,
+  });
+  protected readonly linkingReservedBudgetId = toSignal(this.reservedBudgetService.linking$, {
     initialValue: null,
   });
   protected readonly deletingReservedBudgetId = toSignal(this.reservedBudgetService.deleting$, {
@@ -86,6 +136,24 @@ export class ReservedBudgetPage {
       this.currentMonth(),
       [Validators.required, (control: AbstractControl<string>) => this.validateMinEffectiveMonth(control)],
     ],
+  });
+
+  private readonly subscriptionOptions = computed<readonly ReservedBudgetLinkSourceOption[]>(() =>
+    this.subscriptions().map((sub) => ({ id: sub.id, label: sub.description })),
+  );
+
+  private readonly installmentOptions = computed<readonly ReservedBudgetLinkSourceOption[]>(() =>
+    this.installments().map((inst) => ({
+      id: inst.id,
+      label: `${inst.description} · ${inst.installmentNumber}x`,
+    })),
+  );
+
+  private readonly sourceLabels = computed<ReadonlyMap<string, string>>(() => {
+    const labels = new Map<string, string>();
+    for (const option of this.subscriptionOptions()) labels.set(option.id, option.label);
+    for (const option of this.installmentOptions()) labels.set(option.id, option.label);
+    return labels;
   });
 
   protected readonly reservedBudgetItems = computed<readonly ReservedBudgetListItem[]>(() =>
@@ -119,7 +187,15 @@ export class ReservedBudgetPage {
   );
 
   constructor() {
-    this.reservedBudgetService.loadReservedBudgets();
+    this.subscriptionService.loadSubscriptions();
+
+    // The reserved-budget month follows the selected wallet's effectiveMonth (the month the
+    // user is viewing), not the real-world current month. Reload whenever it changes.
+    effect(() => {
+      const wallet = this.selectedWallet();
+      this.installmentService.loadByWalletId(wallet?.id ?? null);
+      this.reservedBudgetService.loadReservedBudgets(wallet?.effectiveMonth);
+    });
   }
 
   protected submitReservedBudget(): void {
@@ -189,6 +265,59 @@ export class ReservedBudgetPage {
       });
   }
 
+  protected openLinkDialog(item: ReservedBudgetListItem): void {
+    // Hide sources already linked to this RB so they can't be linked twice.
+    const linkedIds = new Set(item.links.map((link) => link.sourceId));
+    const notLinked = (option: ReservedBudgetLinkSourceOption): boolean => !linkedIds.has(option.id);
+
+    const data: ReservedBudgetLinkDialogData = {
+      reservedBudgetDescription: item.description,
+      subscriptions: this.subscriptionOptions().filter(notLinked),
+      installments: this.installmentOptions().filter(notLinked),
+      hasWallet: this.selectedWallet() !== null,
+    };
+
+    this.dialog
+      .open<
+        ReservedBudgetLinkDialogComponent,
+        ReservedBudgetLinkDialogData,
+        ReservedBudgetLinkDialogResult
+      >(ReservedBudgetLinkDialogComponent, {
+        width: '32rem',
+        maxWidth: 'calc(100vw - 2rem)',
+        data,
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result) this.linkSource(item.id, result);
+      });
+  }
+
+  protected unlinkSource(item: ReservedBudgetListItem, link: ReservedBudgetLinkView): void {
+    this.reservedBudgetService
+      .unlink(item.id, link.sourceType, link.sourceId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: () => this.reloadForViewedMonth(), error: () => undefined });
+  }
+
+  private linkSource(id: string, result: ReservedBudgetLinkDialogResult): void {
+    this.reservedBudgetService
+      .link(id, {
+        sourceType: result.sourceType,
+        sourceId: result.sourceId,
+        fromMonth: result.fromMonth,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: () => this.reloadForViewedMonth(), error: () => undefined });
+  }
+
+  // link/unlink responses carry current-month figures; reload so the list reflects the
+  // wallet's viewed month instead.
+  private reloadForViewedMonth(): void {
+    this.reservedBudgetService.loadReservedBudgets(this.selectedWallet()?.effectiveMonth);
+  }
+
   private confirmDelete(id: string): void {
     this.reservedBudgetService
       .delete(id)
@@ -207,6 +336,7 @@ export class ReservedBudgetPage {
     );
     const currentVersion = versions[0];
     const amountValue = Number(currentVersion?.amount ?? 0);
+    const consumption = this.toConsumptionView(budget);
 
     return {
       id: budget.id,
@@ -222,6 +352,43 @@ export class ReservedBudgetPage {
         effectiveMonth: this.formatMonth(version.effectiveMonth),
         amount: this.formatCurrency(Number(version.amount), budget.currency),
       })),
+      links: budget.links.map((link) => this.toLinkView(link)),
+      ...consumption,
+    };
+  }
+
+  // The backend only fills consumed/remaining on the active-at listing, link and detail
+  // responses; guard against null so the plain list never renders NaN.
+  private toConsumptionView(budget: ReservedBudget): {
+    hasConsumption: boolean;
+    consumed: string | null;
+    remaining: string | null;
+    consumedProgress: number;
+  } {
+    const consumed = budget.consumedAmount;
+    const remaining = budget.remainingAmount;
+    if (consumed == null || remaining == null) {
+      return { hasConsumption: false, consumed: null, remaining: null, consumedProgress: 0 };
+    }
+
+    const consumedValue = Number(consumed);
+    const ceiling = consumedValue + Number(remaining);
+    const progress = ceiling > 0 ? Math.min((consumedValue / ceiling) * 100, 100) : 0;
+
+    return {
+      hasConsumption: true,
+      consumed: this.formatCurrency(consumedValue, budget.currency),
+      remaining: this.formatCurrency(Number(remaining), budget.currency),
+      consumedProgress: progress,
+    };
+  }
+
+  private toLinkView(link: ReservedBudgetLink): ReservedBudgetLinkView {
+    return {
+      sourceType: link.sourceType,
+      sourceId: link.sourceId,
+      fromMonth: this.formatMonth(link.fromMonth),
+      label: this.sourceLabels().get(link.sourceId) ?? link.sourceId,
     };
   }
 

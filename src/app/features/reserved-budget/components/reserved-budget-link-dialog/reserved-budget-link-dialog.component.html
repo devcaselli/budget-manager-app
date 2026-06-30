@@ -1,0 +1,71 @@
+<div class="rbl-head" mat-dialog-title>
+  <div>
+    <h2 class="rbl-title">Link <em>source</em></h2>
+    <p class="rbl-subtitle">{{ data.reservedBudgetDescription }}</p>
+  </div>
+  <button class="rbl-close" type="button" mat-icon-button (click)="cancel()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="rbl-body">
+  <form class="ew-form" [formGroup]="form" (ngSubmit)="confirm()">
+    <div class="ew-field">
+      <label for="rbl-type">Type</label>
+      <select
+        id="rbl-type"
+        class="ew-select"
+        formControlName="sourceType"
+        (change)="onSourceTypeChange()"
+      >
+        <option value="SUBSCRIPTION">Subscription</option>
+        <option value="INSTALLMENT">Installment</option>
+      </select>
+    </div>
+
+    <div class="ew-field">
+      <label for="rbl-source">Source</label>
+      <select
+        id="rbl-source"
+        class="ew-select"
+        formControlName="sourceId"
+        [disabled]="installmentsBlocked()"
+      >
+        <option value="" disabled>Select a source</option>
+        @for (option of options(); track option.id) {
+          <option [value]="option.id">{{ option.label }}</option>
+        }
+      </select>
+      @if (installmentsBlocked()) {
+        <p class="rbl-hint rbl-hint--warn">Select a wallet first to link an installment.</p>
+      } @else if (options().length === 0) {
+        <p class="rbl-hint">No sources available.</p>
+      }
+      @if (form.controls.sourceId.touched && form.controls.sourceId.invalid && !installmentsBlocked()) {
+        <p class="rbl-field-error">Pick a source to link.</p>
+      }
+    </div>
+
+    <div class="ew-field">
+      <label for="rbl-from">From</label>
+      <input id="rbl-from" class="ew-input" type="month" formControlName="fromMonth" />
+      @if (form.controls.fromMonth.touched && form.controls.fromMonth.invalid) {
+        <p class="rbl-field-error">A month is required.</p>
+      }
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions class="rbl-actions" align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button
+    mat-flat-button
+    class="rbl-link-btn"
+    type="button"
+    [disabled]="installmentsBlocked()"
+    (click)="confirm()"
+  >
+    <mat-icon aria-hidden="true">link</mat-icon>
+    Link
+  </button>
+</mat-dialog-actions>

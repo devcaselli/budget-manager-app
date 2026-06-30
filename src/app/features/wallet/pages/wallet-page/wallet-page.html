@@ -27,8 +27,10 @@
       <app-wallet-list
         [wallets]="wallets()"
         [selectedWalletId]="selectedWallet()?.id ?? null"
+        [favoriteWalletId]="favoriteWalletId()"
         [isLoading]="isLoading()"
         (walletSelect)="selectWallet($event)"
+        (favoriteToggle)="toggleFavorite($event)"
       />
     </div>
 

@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -13,6 +14,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
+import { WalletService } from '@features/wallet/services/wallet.service';
 
 import {
   CreditCardDeleteDialogComponent,
@@ -60,11 +62,23 @@ export class CreditCardPage {
   private readonly dialog = inject(MatDialog);
   private readonly formBuilder = inject(FormBuilder);
   private readonly creditCardService = inject(CreditCardService);
+  private readonly walletService = inject(WalletService);
 
   private readonly now = new Date();
+  protected readonly selectedWallet = toSignal(this.walletService.selectedWallet$, { initialValue: null });
 
-  protected readonly selectedYear = signal(this.now.getFullYear());
-  protected readonly selectedMonth = signal(this.now.getMonth() + 1);
+  /** Base month for the 12-month range: wallet's effectiveMonth (latest available), or today if no wallet. */
+  private readonly baseMonth = computed<{ year: number; month: number }>(() => {
+    const effectiveMonth = this.selectedWallet()?.effectiveMonth;
+    if (effectiveMonth) {
+      const [year, month] = effectiveMonth.split('-').map(Number);
+      return { year: year!, month: month! };
+    }
+    return { year: this.now.getFullYear(), month: this.now.getMonth() + 1 };
+  });
+
+  protected readonly selectedYear = signal(this.baseMonth().year);
+  protected readonly selectedMonth = signal(this.baseMonth().month);
   /**
    * Active card ID for the charges table + bar chart.
    * 'all' = no card selected yet → prompt user to pick a card.
@@ -89,7 +103,8 @@ export class CreditCardPage {
 
   protected readonly monthOptions = computed<readonly MonthOption[]>(() => {
     const options: MonthOption[] = [];
-    const base = new Date(this.now.getFullYear(), this.now.getMonth(), 1);
+    const { year, month } = this.baseMonth();
+    const base = new Date(year, month - 1, 1);
 
     for (let i = 11; i >= 0; i--) {
       const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
@@ -203,6 +218,13 @@ export class CreditCardPage {
 
   constructor() {
     this.creditCardService.loadAll();
+
+    effect(() => {
+      const { year, month } = this.baseMonth();
+      this.selectedYear.set(year);
+      this.selectedMonth.set(month);
+      this.loadChargesForSelection();
+    });
   }
 
   protected onMonthSelect(year: number, month: number): void {
