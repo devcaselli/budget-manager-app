@@ -130,6 +130,29 @@ export class InstallmentService {
     this.filterSubject.next({ ...current, ...partial, page });
   }
 
+  /**
+   * On-demand fetch of finished (fully-paid) installments for a wallet.
+   *
+   * <p>Deliberately NOT wired into the reactive `combineLatest` pipeline — finished
+   * installments are only needed when the "finished" modal is open, so callers
+   * subscribe explicitly. Does not mutate `installments$` / `allInstallments$`.</p>
+   */
+  loadFinished(walletId: string, filter: InstallmentFilter): Observable<PagedInstallmentResponse> {
+    let params = new HttpParams()
+      .set('page', filter.page)
+      .set('size', filter.size)
+      .set('sort', filter.sort);
+
+    if (filter.creditCardId) {
+      params = params.set('creditCardId', filter.creditCardId);
+    }
+
+    return this.http.get<PagedInstallmentResponse>(
+      `${this.installmentsUrl}/wallet/${walletId}/finished`,
+      { params },
+    );
+  }
+
   save(request: SaveInstallmentRequest): Observable<Installment> {
     const subject = new ReplaySubject<Installment>(1);
 

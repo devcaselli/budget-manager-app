@@ -1,0 +1,74 @@
+<div class="ifd-head" mat-dialog-title>
+  <div>
+    <h2 class="ifd-title">Finished <em>installments</em></h2>
+    <p class="ifd-subtitle">{{ totalElements() }} fully-paid before this wallet's month</p>
+  </div>
+  <button class="ifd-close" type="button" mat-icon-button [mat-dialog-close]="null" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="ifd-body">
+  <div class="ifd-toolbar">
+    <button class="ew-btn ew-btn--ghost" type="button" (click)="onSortToggle()">
+      <mat-icon>swap_vert</mat-icon>
+      {{ sort() === 'ENDING_LATE' ? 'Ended latest' : 'Ended earliest' }}
+    </button>
+  </div>
+
+  @if (loading()) {
+    <p class="ifd-state">Loading…</p>
+  } @else if (items().length === 0) {
+    <p class="ifd-state">No finished installments yet.</p>
+  } @else {
+    <ul class="ifd-list">
+      @for (item of items(); track item.id) {
+        <li class="ifd-item">
+          <div class="ifd-item-main">
+            <span class="ifd-item-desc">{{ item.description }}</span>
+            <span class="ifd-item-meta">
+              {{ cardName(item.creditCardId) }} · {{ item.installmentNumber }}× ·
+              ended {{ item.lastInstallmentDate }}
+            </span>
+          </div>
+          <div class="ifd-item-right">
+            <span class="ifd-item-value">{{ item.installmentValue | brlCurrency }}</span>
+            <button
+              class="ew-btn ew-btn--ghost ifd-edit"
+              type="button"
+              (click)="onEditClick(item)"
+              aria-label="Edit installment"
+            >
+              <mat-icon>edit</mat-icon>
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions class="ifd-actions">
+  <div class="ifd-pager">
+    <button
+      class="ew-btn ew-btn--ghost"
+      type="button"
+      [disabled]="page() === 0"
+      (click)="onPrevPage()"
+    >
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <span class="ifd-page-label">
+      {{ totalPages() === 0 ? 0 : page() + 1 }} / {{ totalPages() }}
+    </span>
+    <button
+      class="ew-btn ew-btn--ghost"
+      type="button"
+      [disabled]="page() + 1 >= totalPages()"
+      (click)="onNextPage()"
+    >
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+  <button class="ew-btn ew-btn--primary" type="button" [mat-dialog-close]="null">Done</button>
+</mat-dialog-actions>

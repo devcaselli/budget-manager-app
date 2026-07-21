@@ -291,17 +291,6 @@
                   >
                     {{ revertingId() === share.id ? 'Reverting...' : 'Revert share' }}
                   </button>
-
-                  @if (share.stoppable) {
-                    <button
-                      class="ew-btn ew-btn--ghost"
-                      type="button"
-                      [disabled]="stoppingId() === share.id"
-                      (click)="stopShare(share.id)"
-                    >
-                      {{ stoppingId() === share.id ? 'Encerrando...' : 'Encerrar deste mes em diante' }}
-                    </button>
-                  }
                 </div>
               }
             </article>

@@ -1,0 +1,370 @@
+.isd__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--ew-line);
+
+  &[mat-dialog-title] {
+    margin: 0;
+    padding: 26px 28px 18px;
+  }
+}
+
+.isd__title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ew-ink);
+  font-variation-settings: 'opsz' 32;
+
+  em {
+    font-style: italic;
+    color: var(--ew-ink-2);
+    font-weight: 300;
+  }
+}
+
+.isd__subtitle {
+  margin: 8px 0 0;
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  color: var(--ew-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.isd__close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink-2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: 0 0 34px;
+  font-size: 18px;
+
+  &:hover {
+    color: var(--ew-ink);
+    border-color: var(--ew-ink-3);
+  }
+}
+
+.isd__body {
+  padding: 24px 28px;
+  min-width: min(26rem, calc(100vw - 4rem));
+}
+
+.isd__error {
+  margin: 7px 0 0;
+  color: var(--ew-bad);
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.isd__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ew-ink-3);
+}
+
+.isd__hint {
+  margin: 7px 0 0;
+  font-size: 11px;
+  color: var(--ew-ink-3);
+}
+
+.isd__actions {
+  gap: 10px;
+  padding: 18px 28px 24px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.ew-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &--primary {
+    background: var(--ew-acc);
+    color: #1c1814;
+    border-color: var(--ew-acc);
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background: var(--ew-acc-2);
+      border-color: var(--ew-acc-2);
+      color: #1c1814;
+    }
+  }
+
+  &--ghost {
+    border-color: transparent;
+  }
+}
+
+// ── Progress bar ─────────────────────────────────────────────────────────
+
+.isd__progress {
+  padding: 0 28px 18px;
+}
+
+.isd__progress-track {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--ew-line);
+  overflow: hidden;
+}
+
+.isd__progress-fill {
+  height: 100%;
+  background: var(--ew-acc);
+  border-radius: 99px;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.isd__progress-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+}
+
+.isd__progress-step.is-active {
+  color: var(--ew-ink);
+  font-weight: 600;
+}
+
+.isd__progress-step.is-done {
+  color: var(--ew-acc);
+}
+
+// ── Step transition ──────────────────────────────────────────────────────
+// Fires automatically: Angular's @switch destroys/recreates the DOM node per
+// branch, so this keyframe runs on every step change with no explicit
+// animation trigger/module needed.
+
+.isd__step {
+  animation: isd-step-in 0.28s ease both;
+}
+
+@keyframes isd-step-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// ── Mode toggle (step 0) ─────────────────────────────────────────────────
+
+.isd__mode-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--ew-line);
+  margin-bottom: 16px;
+}
+
+.isd__mode-toggle button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ew-ink-3);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &.is-active {
+    background: var(--ew-surface, #fff);
+    color: var(--ew-ink);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+// ── Payer list (step 0) ──────────────────────────────────────────────────
+
+.isd__payer-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.isd__payer-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink);
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover {
+    border-color: var(--ew-acc);
+    background: rgba(214, 163, 113, 0.06);
+  }
+
+  mat-icon {
+    color: var(--ew-ink-3);
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.isd__transient-form {
+  display: grid;
+  gap: 12px;
+}
+
+// ── Payer chip (step 1) ──────────────────────────────────────────────────
+
+.isd__payer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ew-ink-2);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.isd__chip-edit {
+  margin-left: 4px;
+  border: none;
+  background: none;
+  color: var(--ew-acc);
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+// ── Live preview (step 1) ────────────────────────────────────────────────
+
+.isd__preview {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--ew-line);
+  margin-top: 16px;
+}
+
+.isd__preview-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--ew-ink-2);
+}
+
+.isd__preview-row--owner b {
+  color: var(--ew-acc);
+}
+
+.isd__step--amount {
+  display: grid;
+  gap: 4px;
+}
+
+// ── Success state (step 2) ───────────────────────────────────────────────
+
+.isd__step--success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 24px 0;
+  animation:
+    isd-step-in 0.28s ease both,
+    isd-success-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.isd__success-icon mat-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  color: var(--ew-acc);
+}
+
+.isd__success-title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 22px;
+  color: var(--ew-ink);
+}
+
+.isd__success-detail {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ew-ink-2);
+}
+
+@keyframes isd-success-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}

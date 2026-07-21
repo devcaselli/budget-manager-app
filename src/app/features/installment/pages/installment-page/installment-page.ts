@@ -37,6 +37,10 @@ import {
   InstallmentNotesDialogData,
   InstallmentNotesDialogResult,
 } from '../../components/installment-notes-dialog/installment-notes-dialog.component';
+import {
+  InstallmentFinishedDialogComponent,
+  InstallmentFinishedDialogData,
+} from '../../components/installment-finished-dialog/installment-finished-dialog.component';
 
 interface InstallmentListItem {
   readonly id: string;
@@ -128,6 +132,7 @@ export class InstallmentPage {
   protected readonly canOpenCreateDialog = computed(() =>
     !!this.selectedWallet() && this.hasCreditCards() && !this.isSaving(),
   );
+  protected readonly hasSelectedWallet = computed(() => !!this.selectedWallet());
 
   // ── Hero KPIs ────────────────────────────────────────────────────────────
 
@@ -235,6 +240,23 @@ export class InstallmentPage {
       .subscribe((result) => {
         if (result) this.saveInstallment(result);
       });
+  }
+
+  protected onFinishedClick(): void {
+    const wallet = this.selectedWallet();
+    if (!wallet) {
+      return;
+    }
+
+    const data: InstallmentFinishedDialogData = {
+      walletId: wallet.id,
+      creditCards: this.creditCards() as readonly InstallmentEditDialogCreditCard[],
+    };
+
+    this.dialog.open<InstallmentFinishedDialogComponent, InstallmentFinishedDialogData>(
+      InstallmentFinishedDialogComponent,
+      { width: '40rem', maxWidth: 'calc(100vw - 2rem)', data },
+    );
   }
 
   protected onNotesClick(item: InstallmentListItem): void {

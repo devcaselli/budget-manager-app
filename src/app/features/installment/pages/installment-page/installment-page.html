@@ -85,6 +85,17 @@
           <mat-icon aria-hidden="true">{{ filter().sort === 'ENDING_SOON' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
           {{ filter().sort === 'ENDING_SOON' ? 'Ending soon' : 'Ending late' }}
         </button>
+
+        <button
+          class="installment-sort-btn"
+          type="button"
+          title="View finished installments"
+          [disabled]="!hasSelectedWallet()"
+          (click)="onFinishedClick()"
+        >
+          <mat-icon aria-hidden="true">history</mat-icon>
+          Finished
+        </button>
       </div>
     </div>
 

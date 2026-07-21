@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import {
   BehaviorSubject,
@@ -14,51 +14,37 @@ import { environment } from '@environments/environment';
 
 import { CreateShareRequest, Share } from '../models/share';
 
-const SHARE_STOP_CONFLICT_MESSAGE =
-  'Este compartilhamento nao pode ser interrompido (e despesa ou ja foi revertido).';
-
 @Injectable({
   providedIn: 'root',
 })
 export class ShareService {
   private readonly http = inject(HttpClient);
   private readonly sharesUrl = `${environment.apiUrl}/shares`;
-  private readonly walletsUrl = `${environment.apiUrl}/wallets`;
 
   private readonly sharesSubject = new BehaviorSubject<readonly Share[]>([]);
   private readonly loadingSubject = new BehaviorSubject(false);
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly revertingSubject = new BehaviorSubject<string | null>(null);
-  private readonly stoppingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
-
-  private currentWalletId: string | null = null;
 
   readonly shares$ = this.sharesSubject.asObservable();
   readonly loading$ = this.loadingSubject.asObservable();
   readonly saving$ = this.savingSubject.asObservable();
   readonly reverting$ = this.revertingSubject.asObservable();
-  readonly stopping$ = this.stoppingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
 
   /**
-   * Loads the shares effective for the given wallet's month, including recurring
-   * shares created in earlier wallets. Replaces the previous owner-global fetch +
-   * client-side walletId filtering.
+   * Loads all of the authenticated owner's shares (ACTIVE and REVERTED, across every wallet).
+   * The backend exposes only this owner-scoped endpoint (GET /shares) — there is no
+   * wallet-scoped variant — so callers that need a per-wallet view filter `shares$` by
+   * `Share.walletId` client-side.
    */
-  loadByWalletId(walletId: string | null): void {
-    this.currentWalletId = walletId;
-
-    if (!walletId) {
-      this.sharesSubject.next([]);
-      return;
-    }
-
+  loadAll(): void {
     this.loadingSubject.next(true);
     this.errorSubject.next(null);
 
     this.http
-      .get<Share[]>(`${this.walletsUrl}/${walletId}/shares`)
+      .get<Share[]>(this.sharesUrl)
       .pipe(
         tap((shares) => this.sharesSubject.next(shares)),
         catchError(() => {
@@ -112,7 +98,7 @@ export class ShareService {
       .post<void>(`${this.sharesUrl}/${id}/revert`, null)
       .pipe(
         tap({
-          next: () => this.reloadCurrentWallet(),
+          next: () => this.loadAll(),
           error: () => this.errorSubject.next('Não foi possível reverter o compartilhamento.'),
         }),
         finalize(() => this.revertingSubject.next(null)),
@@ -126,46 +112,5 @@ export class ShareService {
       });
 
     return subject.asObservable();
-  }
-
-  /**
-   * Stops a recurring share from the given wallet's month forward (non-destructive).
-   * No payment reversal happens; past wallets keep the share.
-   */
-  stop(walletId: string, shareId: string): Observable<void> {
-    const subject = new ReplaySubject<void>(1);
-
-    this.stoppingSubject.next(shareId);
-    this.errorSubject.next(null);
-
-    this.http
-      .post<void>(`${this.walletsUrl}/${walletId}/shares/${shareId}/stop`, null)
-      .pipe(
-        tap({
-          next: () => this.reloadCurrentWallet(),
-          error: (error: unknown) => this.errorSubject.next(this.resolveStopError(error)),
-        }),
-        finalize(() => this.stoppingSubject.next(null)),
-      )
-      .subscribe({
-        next: () => {
-          subject.next();
-          subject.complete();
-        },
-        error: (error: unknown) => subject.error(error),
-      });
-
-    return subject.asObservable();
-  }
-
-  private reloadCurrentWallet(): void {
-    this.loadByWalletId(this.currentWalletId);
-  }
-
-  private resolveStopError(error: unknown): string {
-    if (error instanceof HttpErrorResponse && error.status === 409) {
-      return SHARE_STOP_CONFLICT_MESSAGE;
-    }
-    return 'Não foi possível interromper o compartilhamento.';
   }
 }

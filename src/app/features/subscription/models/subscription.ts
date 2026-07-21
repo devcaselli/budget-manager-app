@@ -38,6 +38,11 @@ export interface UpdateSubscriptionRequest {
   readonly description?: string;
   readonly newAmount?: number;
   readonly creditCardId?: string;
+  /**
+   * Month (YYYY-MM) an amount change takes effect — typically the effectiveMonth
+   * of the wallet the user is editing from. Omitted → backend anchors to the clock month.
+   */
+  readonly effectiveMonth?: string;
 }
 
 export interface PagedSubscriptionResponse {

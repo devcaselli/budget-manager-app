@@ -112,7 +112,9 @@ export class ShellComponent {
     { label: 'Credit cards',  route: '/credit-cards',  num: '09' },
     { label: 'Subscriptions', route: '/subscriptions', num: '10' },
     { label: 'Payments',      route: '/payments',      num: '11' },
-    { label: 'Settings',      route: '/settings',      num: '12' },
+    { label: 'Connect bank',  route: '/connect-bank',  num: '12' },
+    { label: 'Connected accounts', route: '/connected-accounts', num: '13' },
+    { label: 'Settings',      route: '/settings',      num: '14' },
   ];
 
   /** Percentage of wallet budget already committed. */

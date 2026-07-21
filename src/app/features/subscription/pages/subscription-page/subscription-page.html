@@ -105,7 +105,12 @@
               </div>
               <div class="ew-sub-amount">
                 <b class="ew-blur">{{ sub.amount }}</b>
-                <span>per month</span>
+                <span>{{ sub.hasMultipleVersions ? 'current · per month' : 'per month' }}</span>
+                @if (sub.amountTrend) {
+                  <span class="sub-amount-trend ew-blur" [title]="sub.versionCount + ' versions'">
+                    {{ sub.amountTrend }}
+                  </span>
+                }
               </div>
               <div class="sub-actions">
                 <button

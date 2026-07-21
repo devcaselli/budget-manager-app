@@ -117,6 +117,15 @@
                     <small class="ep-amount-original">{{ expense.cost | brlCurrency }}</small>
                   }
                   <span class="ep-amount">{{ expense.remaining | brlCurrency }}</span>
+                  @if (expense.hasShare) {
+                    <span
+                      class="ep-share-indicator"
+                      [attr.title]="expense.shareSummary"
+                      aria-label="Expense has an active share"
+                    >
+                      <mat-icon aria-hidden="true">groups</mat-icon>
+                    </span>
+                  }
                 </td>
                 <td class="ep-row-actions">
                   <button
@@ -131,6 +140,17 @@
                       {{ expense.statusLabel === 'PAID' ? 'check' : 'payments' }}
                     </mat-icon>
                   </button>
+                  @if (!expense.hasShare) {
+                    <button
+                      class="ep-icon-btn"
+                      type="button"
+                      (click)="openShareDialog(expense)"
+                      aria-label="Split expense"
+                      title="Split expense"
+                    >
+                      <mat-icon aria-hidden="true">groups</mat-icon>
+                    </button>
+                  }
                   <button
                     class="ep-icon-btn ep-icon-btn--danger"
                     type="button"

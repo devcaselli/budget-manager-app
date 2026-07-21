@@ -117,6 +117,22 @@ export const routes: Routes = [
         title: 'Payments | Budget Manager',
       },
       {
+        path: 'connect-bank',
+        loadComponent: () =>
+          import('@features/pluggy/pages/connect-bank-page/connect-bank-page').then(
+            (c) => c.ConnectBankPage,
+          ),
+        title: 'Connect Bank | Budget Manager',
+      },
+      {
+        path: 'connected-accounts',
+        loadComponent: () =>
+          import(
+            '@features/pluggy/pages/connected-accounts-page/connected-accounts-page'
+          ).then((c) => c.ConnectedAccountsPage),
+        title: 'Connected Accounts | Budget Manager',
+      },
+      {
         path: 'settings',
         loadComponent: () =>
           import('@features/settings/pages/settings-page/settings-page').then(

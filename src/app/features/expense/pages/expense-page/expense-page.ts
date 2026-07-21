@@ -5,11 +5,13 @@ import {
   computed,
   effect,
   inject,
+  signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { catchError, of } from 'rxjs';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
@@ -23,6 +25,9 @@ import { BulletService } from '@features/bullet/services/bullet.service';
 import { PaymentService } from '@features/payment/services/payment.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
+import { Payer } from '@features/payer/models/payer';
+import { Share } from '@features/share/models/share';
+import { ShareService } from '@features/share/services/share.service';
 
 import {
   ExpenseDeleteDialogComponent,
@@ -32,6 +37,11 @@ import {
   ExpensePaymentDialogComponent,
   ExpensePaymentDialogResult,
 } from '../../components/expense-payment-dialog/expense-payment-dialog.component';
+import {
+  InteractiveShareDialogComponent,
+  InteractiveShareDialogData,
+  InteractiveShareDialogResult,
+} from '../../components/interactive-share-dialog/interactive-share-dialog.component';
 import { ExpenseService } from '../../services/expense.service';
 
 interface ExpenseListItem {
@@ -47,6 +57,9 @@ interface ExpenseListItem {
   readonly progress: number;
   readonly statusLabel: string;
   readonly bulletLabel: string;
+  readonly activeShares: readonly Share[];
+  readonly hasShare: boolean;
+  readonly shareSummary: string;
 }
 
 interface BulletOption {
@@ -71,13 +84,16 @@ export class ExpensePage {
   private readonly paymentService = inject(PaymentService);
   private readonly walletService = inject(WalletService);
   private readonly installmentService = inject(InstallmentService);
+  private readonly shareService = inject(ShareService);
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
   private readonly payments = toSignal(this.paymentService.payments$, { initialValue: [] });
+  private readonly shares = toSignal(this.shareService.shares$, { initialValue: [] });
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
+  private readonly walletPayers = signal<readonly Payer[]>([]);
 
   protected readonly creditCards = toSignal(this.installmentService.creditCards$, {
     initialValue: [],
@@ -151,6 +167,16 @@ export class ExpensePage {
       const paid = Math.max(cost - remaining, 0);
       const progress = cost > 0 ? Math.min((paid / cost) * 100, 100) : 0;
       const creditCardId = expense.creditCardId ?? null;
+      const activeShares = this.shares().filter(
+        (share) =>
+          share.sourceType === 'EXPENSE' &&
+          share.sourceId === expense.id &&
+          share.status === 'ACTIVE',
+      );
+      const shareSummary = activeShares
+        .flatMap((share) => share.quotas)
+        .map((quota) => `${quota.payerName}: ${formatBrl(Number(quota.amount))}`)
+        .join(' · ');
       return {
         id: expense.id,
         name: expense.name,
@@ -164,6 +190,9 @@ export class ExpensePage {
         progress,
         statusLabel: remaining <= 0 ? 'PAID' : 'OPEN',
         bulletLabel: bullet?.description ?? '—',
+        activeShares,
+        hasShare: activeShares.length > 0,
+        shareSummary,
       };
     });
   });
@@ -198,8 +227,29 @@ export class ExpensePage {
       this.paymentService.loadByWalletId(walletId);
       // Load credit cards for the dropdown
       this.installmentService.loadByWalletId(walletId);
+      this.shareService.loadAll();
       this.resetForm();
     });
+
+    effect(() => {
+      const walletId = this.selectedWallet()?.id ?? null;
+      this.reloadWalletPayers(walletId);
+    });
+  }
+
+  private reloadWalletPayers(walletId: string | null): void {
+    if (!walletId) {
+      this.walletPayers.set([]);
+      return;
+    }
+
+    this.walletService
+      .findPayersByWalletId(walletId)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        catchError(() => of([])),
+      )
+      .subscribe((payers) => this.walletPayers.set(payers));
   }
 
   protected toggleInstallment(): void {
@@ -261,6 +311,44 @@ export class ExpensePage {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((result) => {
         if (result) this.payExpense(wallet.id, expense.id, result);
+      });
+  }
+
+  protected openShareDialog(expense: ExpenseListItem): void {
+    const wallet = this.selectedWallet();
+    // Backend allows only one active share per source — the row button is hidden once
+    // expense.hasShare is true, but guard here too in case of a stale click.
+    if (!wallet || expense.hasShare) return;
+
+    this.dialog
+      .open<InteractiveShareDialogComponent, InteractiveShareDialogData, InteractiveShareDialogResult>(
+        InteractiveShareDialogComponent,
+        {
+          width: '32rem',
+          maxWidth: 'calc(100vw - 2rem)',
+          data: {
+            walletId: wallet.id,
+            expense: { id: expense.id, name: expense.name, cost: expense.cost, currency: 'BRL' },
+            payers: this.walletPayers(),
+          },
+        },
+      )
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result) {
+          // Refresh authoritative state after a share is created. The share creates a
+          // payment for the owner's portion server-side, reducing the expense's
+          // `remaining`, so expense/payment must reload (same as payExpense). shareService
+          // reloads via the owner-scoped GET /shares so the new share's `hasShare` badge
+          // and the hidden split button are correct. A transient/new payer may also now
+          // exist, so refresh payers too.
+          const id = wallet.id;
+          this.expenseService.loadByWalletId(id);
+          this.paymentService.loadByWalletId(id);
+          this.shareService.loadAll();
+          this.reloadWalletPayers(id);
+        }
       });
   }
 

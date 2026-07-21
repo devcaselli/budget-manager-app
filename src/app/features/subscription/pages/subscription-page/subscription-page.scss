@@ -38,6 +38,13 @@
   font-size: 11px;
 }
 
+.sub-amount-trend {
+  color: var(--ew-ink-2) !important;
+  font-variant-numeric: tabular-nums;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+}
+
 .sub-action-btn {
   font-size: 16px;
   color: var(--ew-ink-3);

@@ -127,6 +127,23 @@ describe('SubscriptionService', () => {
     expect(emittedSubscriptions.at(-1)).toEqual([updatedSubscription]);
   });
 
+  it('should forward effectiveMonth in the PATCH body when provided', () => {
+    const input: UpdateSubscriptionRequest = {
+      newAmount: 80,
+      effectiveMonth: '2026-07',
+    };
+
+    service.loadSubscriptions();
+    httpMock.expectOne('/api/subscriptions?page=0&size=100').flush(pagedResponse([subscription]));
+
+    service.update(subscription.id, input).subscribe();
+
+    const request = httpMock.expectOne('/api/subscriptions/subscription-1');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ newAmount: 80, effectiveMonth: '2026-07' });
+    request.flush(subscription);
+  });
+
   it('should delete a subscription and remove it from subscriptions$', () => {
     const emittedSubscriptions: (readonly Subscription[])[] = [];
 

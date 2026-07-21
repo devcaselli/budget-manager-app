@@ -49,35 +49,29 @@ describe('ShareService', () => {
     expect(emitted).toEqual([]);
   });
 
-  describe('loadByWalletId', () => {
-    it('should fetch shares via GET /api/wallets/:id/shares and populate shares$', () => {
-      const shares = [buildShare()];
+  describe('loadAll', () => {
+    it('should fetch all owner shares via GET /api/shares and populate shares$', () => {
+      const shares = [buildShare(), buildShare({ id: 'share-2', walletId: 'wallet-2' })];
       const emitted: (readonly Share[])[] = [];
       service.shares$.subscribe((value) => emitted.push(value));
 
-      service.loadByWalletId('wallet-1');
+      service.loadAll();
 
-      const request = httpMock.expectOne('/api/wallets/wallet-1/shares');
+      const request = httpMock.expectOne('/api/shares');
       expect(request.request.method).toBe('GET');
       request.flush(shares);
 
       expect(emitted.at(-1)).toEqual(shares);
     });
 
-    it('should clear shares and skip the request when walletId is null', () => {
-      service.loadByWalletId(null);
-
-      httpMock.expectNone(() => true);
-    });
-
     it('should toggle loading$ around the request', () => {
       const loadingStates: boolean[] = [];
       service.loading$.subscribe((value) => loadingStates.push(value));
 
-      service.loadByWalletId('wallet-1');
+      service.loadAll();
       expect(loadingStates).toEqual([false, true]);
 
-      httpMock.expectOne('/api/wallets/wallet-1/shares').flush([]);
+      httpMock.expectOne('/api/shares').flush([]);
       expect(loadingStates).toEqual([false, true, false]);
     });
 
@@ -85,78 +79,65 @@ describe('ShareService', () => {
       const errors: (string | null)[] = [];
       service.error$.subscribe((value) => errors.push(value));
 
-      service.loadByWalletId('wallet-1');
+      service.loadAll();
       httpMock
-        .expectOne('/api/wallets/wallet-1/shares')
+        .expectOne('/api/shares')
         .flush({ message: 'boom' }, { status: 500, statusText: 'Server Error' });
 
       expect(errors.at(-1)).toBe('Não foi possível carregar os compartilhamentos.');
     });
   });
 
-  describe('stop', () => {
-    it('should POST to /api/wallets/:walletId/shares/:shareId/stop and reload the wallet', () => {
-      service.loadByWalletId('wallet-1');
-      httpMock.expectOne('/api/wallets/wallet-1/shares').flush([buildShare()]);
+  describe('create', () => {
+    it('should POST to /api/shares and optimistically prepend the created share', () => {
+      const emitted: (readonly Share[])[] = [];
+      service.shares$.subscribe((value) => emitted.push(value));
 
-      service.stop('wallet-1', 'share-1').subscribe();
+      const created = buildShare({ id: 'share-new' });
+      service.create({
+        walletId: 'wallet-1',
+        sourceType: 'EXPENSE',
+        sourceId: 'expense-1',
+        totalAmount: 100,
+        currency: 'BRL',
+        ownerShare: 70,
+        quotas: [{ payerId: 'payer-1', amount: 30 }],
+      }).subscribe();
 
-      const stopRequest = httpMock.expectOne('/api/wallets/wallet-1/shares/share-1/stop');
-      expect(stopRequest.request.method).toBe('POST');
-      expect(stopRequest.request.body).toBeNull();
-      stopRequest.flush(null, { status: 204, statusText: 'No Content' });
+      const request = httpMock.expectOne('/api/shares');
+      expect(request.request.method).toBe('POST');
+      request.flush(created);
 
-      // Reload of the current wallet is triggered after a successful stop.
-      const reload = httpMock.expectOne('/api/wallets/wallet-1/shares');
+      expect(emitted.at(-1)).toEqual([created]);
+    });
+  });
+
+  describe('revert', () => {
+    it('should POST to /api/shares/:id/revert and reload all shares', () => {
+      service.revert('share-1').subscribe();
+
+      const revertRequest = httpMock.expectOne('/api/shares/share-1/revert');
+      expect(revertRequest.request.method).toBe('POST');
+      expect(revertRequest.request.body).toBeNull();
+      revertRequest.flush(null, { status: 204, statusText: 'No Content' });
+
+      // Reload of the owner's shares is triggered after a successful revert.
+      const reload = httpMock.expectOne('/api/shares');
       expect(reload.request.method).toBe('GET');
       reload.flush([]);
     });
 
-    it('should expose a friendly message when the share is not stoppable (409)', () => {
+    it('should set error$ when the revert fails', () => {
       const errors: (string | null)[] = [];
       service.error$.subscribe((value) => errors.push(value));
 
-      service.stop('wallet-1', 'share-1').subscribe({ error: () => undefined });
+      service.revert('share-1').subscribe({ error: () => undefined });
 
       httpMock
-        .expectOne('/api/wallets/wallet-1/shares/share-1/stop')
-        .flush({ message: 'not applicable' }, { status: 409, statusText: 'Conflict' });
+        .expectOne('/api/shares/share-1/revert')
+        .flush({ message: 'boom' }, { status: 500, statusText: 'Server Error' });
 
-      expect(errors.at(-1)).toBe(
-        'Este compartilhamento nao pode ser interrompido (e despesa ou ja foi revertido).',
-      );
-    });
-
-    it('should expose a generic message for non-409 failures', () => {
-      const errors: (string | null)[] = [];
-      service.error$.subscribe((value) => errors.push(value));
-
-      service.stop('wallet-1', 'share-1').subscribe({ error: () => undefined });
-
-      httpMock
-        .expectOne('/api/wallets/wallet-1/shares/share-1/stop')
-        .flush({ message: 'gone' }, { status: 404, statusText: 'Not Found' });
-
-      expect(errors.at(-1)).toBe('Não foi possível interromper o compartilhamento.');
-    });
-
-    it('should toggle stopping$ with the share id during the request', () => {
-      service.loadByWalletId('wallet-1');
-      httpMock.expectOne('/api/wallets/wallet-1/shares').flush([buildShare()]);
-
-      const stoppingStates: (string | null)[] = [];
-      service.stopping$.subscribe((value) => stoppingStates.push(value));
-
-      service.stop('wallet-1', 'share-1').subscribe();
-      expect(stoppingStates).toEqual([null, 'share-1']);
-
-      httpMock
-        .expectOne('/api/wallets/wallet-1/shares/share-1/stop')
-        .flush(null, { status: 204, statusText: 'No Content' });
-      // Reload fired by the success path.
-      httpMock.expectOne('/api/wallets/wallet-1/shares').flush([]);
-
-      expect(stoppingStates.at(-1)).toBeNull();
+      expect(errors.at(-1)).toBe('Não foi possível reverter o compartilhamento.');
     });
   });
 });

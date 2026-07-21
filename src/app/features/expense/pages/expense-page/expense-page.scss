@@ -86,6 +86,27 @@
   color: var(--ew-ink-3);
 }
 
+.ep-share-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-acc);
+  background: rgba(214, 163, 113, 0.08);
+  cursor: help;
+  vertical-align: middle;
+
+  mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+}
+
 .ep-row-actions {
   display: flex;
   align-items: center;

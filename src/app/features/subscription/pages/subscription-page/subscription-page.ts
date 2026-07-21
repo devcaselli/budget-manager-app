@@ -16,6 +16,8 @@ import {
   SubscriptionState,
 } from '../../models/subscription';
 import { SubscriptionService } from '../../services/subscription.service';
+import { resolveCurrentAmount } from '../../utils/resolve-current-amount';
+import { WalletService } from '@features/wallet/services/wallet.service';
 
 interface SubscriptionListItem {
   readonly id: string;
@@ -35,6 +37,9 @@ interface SubscriptionListItem {
   readonly isActive: boolean;
   readonly statusLabel: string;
   readonly versionCount: number;
+  readonly hasMultipleVersions: boolean;
+  /** "R$70,00 → R$30,00" (first version → currently effective) — only set when multi-version. */
+  readonly amountTrend: string | null;
   readonly versions: readonly { effectiveMonth: string; amount: string }[];
 }
 
@@ -53,6 +58,16 @@ export class SubscriptionPage {
   private readonly formBuilder = inject(FormBuilder);
   private readonly creditCardService = inject(CreditCardService);
   private readonly subscriptionService = inject(SubscriptionService);
+  private readonly walletService = inject(WalletService);
+
+  /**
+   * The wallet currently in context. Its effectiveMonth anchors both how a
+   * subscription's amount is resolved for display and the month an edit takes
+   * effect. Null when no wallet is selected → falls back to the current month.
+   */
+  private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
+    initialValue: null,
+  });
 
   protected readonly creditCards = toSignal(this.creditCardService.cards$, { initialValue: [] });
   private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {
@@ -147,6 +162,10 @@ export class SubscriptionPage {
           description: value.description.trim(),
           newAmount: value.amount,
           creditCardId: value.creditCardId || undefined,
+          // Anchor the amount change to the wallet in context (its effectiveMonth),
+          // so past/future wallets keep their own historical amount. Omitted when
+          // no wallet is selected → backend falls back to the clock month.
+          effectiveMonth: this.selectedWallet()?.effectiveMonth,
         })
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({ next: () => this.resetForm(), error: () => undefined });
@@ -234,11 +253,18 @@ export class SubscriptionPage {
 
   private toListItem(sub: Subscription): SubscriptionListItem {
     const creditCardNameById = new Map(this.creditCards().map((card) => [card.id, card.name]));
+    const formatAmount = this.amountFormatter(sub.currency);
+
+    // Sorted ascending → chronological timeline (oldest first) for display.
     const versions = [...sub.versions].sort((a, b) =>
-      b.effectiveMonth.localeCompare(a.effectiveMonth),
+      a.effectiveMonth.localeCompare(b.effectiveMonth),
     );
-    const currentVersion = versions[0];
-    const amountValue = Number(currentVersion?.amount ?? 0);
+    // Resolve the amount IN EFFECT for the wallet in context (its effectiveMonth),
+    // falling back to the current month when no wallet is selected. Never blindly
+    // the newest version.
+    const amountValue = resolveCurrentAmount(sub.versions, this.targetMonth());
+    const hasMultipleVersions = versions.length > 1;
+    const firstAmount = Number(versions[0]?.amount ?? amountValue);
     const isActive = sub.endMonth === null;
 
     return {
@@ -254,18 +280,28 @@ export class SubscriptionPage {
       flag: sub.flag,
       isSpecial: sub.flag === 'SUBSCRIPTION_DELETE_IGNORE_DATE_VALIDATION',
       amountValue,
-      amount: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: sub.currency }).format(amountValue),
+      amount: formatAmount(amountValue),
       startMonthValue: sub.startMonth,
       startMonth: this.formatMonth(sub.startMonth),
       endMonth: sub.endMonth ? this.formatMonth(sub.endMonth) : null,
       isActive,
       statusLabel: isActive ? 'ACTIVE' : 'CLOSED',
       versionCount: versions.length,
+      hasMultipleVersions,
+      amountTrend:
+        hasMultipleVersions && firstAmount !== amountValue
+          ? `${formatAmount(firstAmount)} → ${formatAmount(amountValue)}`
+          : null,
       versions: versions.map((v) => ({
         effectiveMonth: this.formatMonth(v.effectiveMonth),
-        amount: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: sub.currency }).format(Number(v.amount)),
+        amount: formatAmount(Number(v.amount)),
       })),
     };
+  }
+
+  private amountFormatter(currency: string): (value: number) => string {
+    const formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency });
+    return (value) => formatter.format(value);
   }
 
   private formatMonth(value: string): string {
@@ -295,6 +331,14 @@ export class SubscriptionPage {
 
   private currentMonth(): string {
     return new Date().toISOString().slice(0, 7);
+  }
+
+  /**
+   * The month that anchors amount resolution and edits: the selected wallet's
+   * effectiveMonth, or the current month when no wallet is in context.
+   */
+  private targetMonth(): string {
+    return this.selectedWallet()?.effectiveMonth ?? this.currentMonth();
   }
 
   private isFutureMonth(value: string): boolean {

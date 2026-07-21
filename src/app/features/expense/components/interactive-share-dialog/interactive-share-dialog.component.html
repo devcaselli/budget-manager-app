@@ -1,0 +1,216 @@
+<div class="isd__head" mat-dialog-title>
+  <div>
+    <h2 class="isd__title">Split <em>expense</em></h2>
+    <p class="isd__subtitle">{{ data.expense.name }} · {{ data.expense.cost | brlCurrency }}</p>
+  </div>
+  <button class="isd__close" type="button" mat-dialog-close aria-label="Close">×</button>
+</div>
+
+<div
+  class="isd__progress"
+  role="progressbar"
+  [attr.aria-valuenow]="currentStep() + 1"
+  aria-valuemin="1"
+  aria-valuemax="3"
+>
+  <div class="isd__progress-track">
+    <div class="isd__progress-fill" [style.width.%]="((currentStep() + 1) / 3) * 100"></div>
+  </div>
+  <div class="isd__progress-steps">
+    @for (label of stepLabels; track label; let i = $index) {
+      <span
+        class="isd__progress-step"
+        [class.is-active]="currentStep() === i"
+        [class.is-done]="currentStep() > i"
+      >
+        {{ i + 1 }}. {{ label }}
+      </span>
+    }
+  </div>
+</div>
+
+<mat-dialog-content class="isd__body">
+  @switch (currentStep()) {
+    @case (0) {
+      <div class="isd__step isd__step--payers">
+        <div class="isd__mode-toggle" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            [class.is-active]="modeValue() === 'EXISTING'"
+            [disabled]="data.payers.length === 0"
+            (click)="selectMode('EXISTING')"
+          >Existing payer</button>
+          <button
+            type="button"
+            role="tab"
+            [class.is-active]="modeValue() === 'NEW'"
+            (click)="selectMode('NEW')"
+          >New payer</button>
+          <button
+            type="button"
+            role="tab"
+            [class.is-active]="modeValue() === 'TRANSIENT'"
+            (click)="selectMode('TRANSIENT')"
+          >One-off payer</button>
+        </div>
+
+        @switch (modeValue()) {
+          @case ('EXISTING') {
+            @if (data.payers.length === 0) {
+              <p class="isd__empty">This wallet has no payers yet. Use "New payer" instead.</p>
+            } @else {
+              <ul class="isd__payer-list">
+                @for (payer of data.payers; track payer.id) {
+                  <li>
+                    <button type="button" class="isd__payer-option" (click)="selectPayer(payer.id)">
+                      <span class="isd__payer-name">{{ payer.name }}</span>
+                      <mat-icon aria-hidden="true">chevron_right</mat-icon>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          }
+          @case ('NEW') {
+            <form class="isd__transient-form" [formGroup]="form">
+              <div class="ew-field">
+                <label for="isd-new-payer-name">Payer name *</label>
+                <input
+                  id="isd-new-payer-name"
+                  class="ew-input"
+                  type="text"
+                  formControlName="newPayerName"
+                  maxlength="120"
+                />
+                @if (form.controls.newPayerName.touched && !form.controls.newPayerName.value.trim()) {
+                  <p class="isd__error">Enter the payer's name.</p>
+                }
+                <p class="isd__hint">Creates a permanent payer in this wallet you can reuse later.</p>
+              </div>
+              @if (payerErrorMessage()) {
+                <p class="isd__error">{{ payerErrorMessage() }}</p>
+              }
+            </form>
+          }
+          @case ('TRANSIENT') {
+            <form class="isd__transient-form" [formGroup]="form">
+              <div class="ew-field">
+                <label for="isd-transient-name">Payer name *</label>
+                <input
+                  id="isd-transient-name"
+                  class="ew-input"
+                  type="text"
+                  formControlName="transientName"
+                  maxlength="120"
+                />
+                @if (form.controls.transientName.touched && !form.controls.transientName.value.trim()) {
+                  <p class="isd__error">Enter the payer's name.</p>
+                }
+              </div>
+              <div class="ew-field">
+                <label for="isd-transient-date">Payment date (optional)</label>
+                <input
+                  id="isd-transient-date"
+                  class="ew-input"
+                  type="date"
+                  formControlName="transientPaymentDate"
+                />
+              </div>
+            </form>
+          }
+        }
+      </div>
+    }
+    @case (1) {
+      <form class="isd__step isd__step--amount" [formGroup]="form" (ngSubmit)="submit()">
+        <p class="isd__payer-chip">
+          <mat-icon aria-hidden="true">person</mat-icon> {{ payerDisplayName() }}
+          <button type="button" class="isd__chip-edit" (click)="goBackToPayer()">change</button>
+        </p>
+
+        <div class="ew-field">
+          <label for="isd-amount">Amount {{ payerDisplayName() }} pays *</label>
+          <input
+            id="isd-amount"
+            class="ew-input"
+            type="number"
+            min="0.01"
+            step="0.01"
+            [max]="data.expense.cost"
+            formControlName="amount"
+          />
+          @if (form.controls.amount.touched && form.controls.amount.invalid) {
+            <p class="isd__error">
+              Enter a value between R$ 0,01 and {{ data.expense.cost | brlCurrency }}.
+            </p>
+          }
+        </div>
+
+        <div class="isd__preview">
+          <div class="isd__preview-row">
+            <span>{{ payerDisplayName() }} pays</span>
+            <b>{{ (form.controls.amount.value || 0) | brlCurrency }}</b>
+          </div>
+          <div class="isd__preview-row isd__preview-row--owner">
+            <span>You pay</span>
+            <b>{{ ownerAmount() | brlCurrency }}</b>
+          </div>
+        </div>
+
+        @if (errorMessage()) {
+          <p class="isd__error">{{ errorMessage() }}</p>
+        }
+      </form>
+    }
+    @case (2) {
+      <div class="isd__step isd__step--success">
+        <div class="isd__success-icon"><mat-icon aria-hidden="true">check_circle</mat-icon></div>
+        <p class="isd__success-title">Share created</p>
+        <p class="isd__success-detail">
+          {{ payerDisplayName() }} owes {{ (form.controls.amount.value || 0) | brlCurrency }} ·
+          you owe {{ ownerAmount() | brlCurrency }}
+        </p>
+      </div>
+    }
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions class="isd__actions" align="end">
+  @switch (currentStep()) {
+    @case (0) {
+      <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
+      @if (modeValue() === 'TRANSIENT') {
+        <button
+          class="ew-btn ew-btn--primary"
+          type="button"
+          [disabled]="!form.controls.transientName.value.trim()"
+          (click)="continueTransient()"
+        >Continue</button>
+      }
+      @if (modeValue() === 'NEW') {
+        <button
+          class="ew-btn ew-btn--primary"
+          type="button"
+          [disabled]="!form.controls.newPayerName.value.trim()"
+          (click)="continueNewPayer()"
+        >Continue</button>
+      }
+    }
+    @case (1) {
+      <button class="ew-btn ew-btn--ghost" type="button" (click)="goBackToPayer()">Back</button>
+      <button
+        class="ew-btn ew-btn--primary"
+        type="button"
+        [disabled]="form.invalid || isSaving() || isSavingPayer()"
+        (click)="submit()"
+      >
+        <mat-icon aria-hidden="true">groups</mat-icon>
+        {{ (isSaving() || isSavingPayer()) ? 'Saving…' : 'Confirm split' }}
+      </button>
+    }
+    @case (2) {
+      <button class="ew-btn ew-btn--primary" type="button" (click)="close()">Done</button>
+    }
+  }
+</mat-dialog-actions>
