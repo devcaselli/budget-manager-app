@@ -15,6 +15,7 @@ export interface Installment {
   readonly ownerRatio: number | null;
   readonly effectiveOriginalValue: number;
   readonly effectiveInstallmentValue: number;
+  readonly tagIds?: readonly string[];
 }
 
 export interface CreditCard {
@@ -44,6 +45,8 @@ export interface PatchInstallmentRequest {
   readonly sourceEffectiveMonth?: string | null;
   readonly purchaseDate?: string | null;
   readonly creditCardId?: string | null;
+  /** Absent = don't touch current tags; [] clears all; non-empty replaces the whole set. */
+  readonly tagIds?: readonly string[];
 }
 
 export interface PagedInstallmentResponse {

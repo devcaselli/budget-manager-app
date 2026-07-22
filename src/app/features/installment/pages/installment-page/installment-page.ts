@@ -14,6 +14,12 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { WalletService } from '@features/wallet/services/wallet.service';
+import { TagService } from '@features/tag/services/tag.service';
+import {
+  TagPickerDialogComponent,
+  TagPickerDialogData,
+  TagPickerDialogResult,
+} from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 
 import { InstallmentService } from '../../services/installment.service';
 import { Installment, InstallmentSortOrder, PatchInstallmentRequest, SaveInstallmentRequest } from '../../models/installment';
@@ -42,6 +48,11 @@ import {
   InstallmentFinishedDialogData,
 } from '../../components/installment-finished-dialog/installment-finished-dialog.component';
 
+interface InstallmentTagChip {
+  readonly id: string;
+  readonly name: string;
+}
+
 interface InstallmentListItem {
   readonly id: string;
   readonly description: string;
@@ -60,6 +71,8 @@ interface InstallmentListItem {
   readonly installmentValue: number;
   readonly remainingAmount: number;
   readonly lastInstallmentDate: string;
+  readonly tagIds: readonly string[];
+  readonly tagChips: readonly InstallmentTagChip[];
 }
 
 interface MonthlyLoad {
@@ -91,11 +104,13 @@ export class InstallmentPage {
   private readonly dialog = inject(MatDialog);
   private readonly installmentService = inject(InstallmentService);
   private readonly walletService = inject(WalletService);
+  private readonly tagService = inject(TagService);
 
   private readonly installments = toSignal(this.installmentService.installments$, { initialValue: [] });
   private readonly allInstallments = toSignal(this.installmentService.allInstallments$, { initialValue: [] });
   protected readonly creditCards = toSignal(this.installmentService.creditCards$, { initialValue: [] });
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, { initialValue: null });
+  private readonly tags = toSignal(this.tagService.tags$, { initialValue: [] });
 
   protected readonly tooltip = signal<TooltipState | null>(null);
   protected readonly notesTooltip = signal<{ text: string; x: number; y: number } | null>(null);
@@ -115,7 +130,8 @@ export class InstallmentPage {
 
   protected readonly listItems = computed<readonly InstallmentListItem[]>(() => {
     const cardMap = this.buildCreditCardMap();
-    return this.installments().map((inst) => this.toListItem(inst, cardMap));
+    const tagMap = this.buildTagMap();
+    return this.installments().map((inst) => this.toListItem(inst, cardMap, tagMap));
   });
   protected readonly hasCreditCards = computed(() => this.creditCards().length > 0);
   protected readonly createInstallmentBlockerMessage = computed(() => {
@@ -193,6 +209,8 @@ export class InstallmentPage {
       const walletId = this.selectedWallet()?.id ?? null;
       this.installmentService.loadByWalletId(walletId);
     });
+
+    this.tagService.loadAll();
   }
 
   // ── Filter / pagination actions ───────────────────────────────────────────
@@ -301,6 +319,28 @@ export class InstallmentPage {
       });
   }
 
+  protected onTagsClick(item: InstallmentListItem): void {
+    const data: TagPickerDialogData = {
+      availableTags: this.tags(),
+      selectedTagIds: item.tagIds,
+    };
+
+    this.dialog
+      .open<TagPickerDialogComponent, TagPickerDialogData, TagPickerDialogResult>(
+        TagPickerDialogComponent,
+        { width: '26rem', maxWidth: 'calc(100vw - 2rem)', data },
+      )
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((selectedTagIds) => {
+        if (selectedTagIds === undefined) return;
+        this.installmentService
+          .assignTags(item.id, selectedTagIds)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({ error: () => undefined });
+      });
+  }
+
   protected onDeleteClick(item: InstallmentListItem): void {
     const data: InstallmentDeleteDialogData = { description: item.description };
 
@@ -374,7 +414,11 @@ export class InstallmentPage {
       .subscribe({ error: () => undefined });
   }
 
-  private toListItem(inst: Installment, cardMap: ReadonlyMap<string, string>): InstallmentListItem {
+  private toListItem(
+    inst: Installment,
+    cardMap: ReadonlyMap<string, string>,
+    tagMap: ReadonlyMap<string, string>,
+  ): InstallmentListItem {
     const current = this.elapsedCharges(inst);
     const remaining = inst.installmentNumber - current;
     const effectiveInstallmentValue = this.resolveEffectiveInstallmentValue(inst);
@@ -382,6 +426,7 @@ export class InstallmentPage {
       inst.installmentNumber > 0
         ? Math.min(Math.round((current / inst.installmentNumber) * 100), 100)
         : 0;
+    const tagIds = inst.tagIds ?? [];
 
     return {
       id: inst.id,
@@ -401,6 +446,8 @@ export class InstallmentPage {
       installmentValue: effectiveInstallmentValue,
       remainingAmount: effectiveInstallmentValue * Math.max(remaining, 0),
       lastInstallmentDate: this.formatMonthKey(inst.lastInstallmentDate),
+      tagIds,
+      tagChips: tagIds.map((id) => ({ id, name: tagMap.get(id) ?? id })),
     };
   }
 
@@ -467,6 +514,10 @@ export class InstallmentPage {
 
   private buildCreditCardMap(): ReadonlyMap<string, string> {
     return new Map(this.creditCards().map((c) => [c.id, c.name]));
+  }
+
+  private buildTagMap(): ReadonlyMap<string, string> {
+    return new Map(this.tags().map((t) => [t.id, t.name]));
   }
 
   private buildCurrentMonthKey(): string {

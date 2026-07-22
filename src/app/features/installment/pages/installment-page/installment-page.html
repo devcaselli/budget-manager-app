@@ -123,6 +123,13 @@
                 }
               </span>
               <small>{{ item.creditCardName }} · started {{ item.purchaseDateLabel }}</small>
+              @if (item.tagChips.length > 0) {
+                <div class="installment-tag-chips">
+                  @for (chip of item.tagChips; track chip.id) {
+                    <span class="installment-tag-chip">{{ chip.name }}</span>
+                  }
+                </div>
+              }
             </div>
             <div class="ew-alloc-bar">
               <span class="ew-alloc-pct">{{ item.currentInstallment }}/{{ item.totalInstallments }}</span>
@@ -148,6 +155,15 @@
                 <small>{{ item.remainingAmount | brlCurrency }} left · ends {{ item.lastInstallmentDate }}</small>
               </div>
               <div class="installment-row-actions">
+                <button
+                  class="installment-action-btn"
+                  type="button"
+                  aria-label="Manage tags"
+                  title="Manage tags"
+                  (click)="onTagsClick(item)"
+                >
+                  <mat-icon aria-hidden="true">sell</mat-icon>
+                </button>
                 <button
                   class="installment-action-btn"
                   type="button"

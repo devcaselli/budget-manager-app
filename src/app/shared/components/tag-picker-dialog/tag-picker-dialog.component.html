@@ -1,0 +1,34 @@
+<div class="tpd-head" mat-dialog-title>
+  <div>
+    <h2 class="tpd-title">Manage <em>tags</em></h2>
+    <p class="tpd-subtitle">Select the tags that apply</p>
+  </div>
+  <button class="tpd-close" type="button" mat-icon-button (click)="cancel()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="tpd-body">
+  @if (rows.length === 0) {
+    <div class="ew-empty">No tags yet. Create one from the Tags page first.</div>
+  } @else {
+    <ul class="tpd-list" role="group" aria-label="Available tags">
+      @for (row of rows; track row.tag.id) {
+        <li class="tpd-row" [class.tpd-row--subtag]="row.isSubtag">
+          <label class="tpd-checkbox">
+            <input
+              type="checkbox"
+              [formControl]="selection.controls[row.controlIndex]"
+            />
+            <span>{{ row.isSubtag ? '— ' + row.tag.name : row.tag.name }}</span>
+          </label>
+        </li>
+      }
+    </ul>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions class="tpd-actions" align="end">
+  <button class="ew-btn ew-btn--ghost" type="button" (click)="cancel()">Cancel</button>
+  <button class="ew-btn ew-btn--primary" type="button" (click)="confirm()">Confirm</button>
+</mat-dialog-actions>

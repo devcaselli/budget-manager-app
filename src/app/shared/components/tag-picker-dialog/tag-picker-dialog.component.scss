@@ -1,0 +1,134 @@
+.tpd-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--ew-line);
+
+  &[mat-dialog-title] {
+    margin: 0;
+    padding: 26px 28px 18px;
+  }
+}
+
+.tpd-title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ew-ink);
+
+  em {
+    font-style: italic;
+    color: var(--ew-ink-2);
+    font-weight: 300;
+  }
+}
+
+.tpd-subtitle {
+  margin: 8px 0 0;
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  color: var(--ew-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.tpd-close {
+  flex: 0 0 34px;
+  color: var(--ew-ink-2);
+
+  &:hover {
+    color: var(--ew-ink);
+  }
+}
+
+.tpd-body {
+  padding: 20px 28px;
+  min-width: min(24rem, calc(100vw - 4rem));
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.tpd-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tpd-row {
+  &--subtag {
+    padding-left: 22px;
+  }
+}
+
+.tpd-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  color: var(--ew-ink);
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(214, 163, 113, 0.06);
+  }
+
+  input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--ew-acc);
+    cursor: pointer;
+  }
+}
+
+.tpd-actions {
+  gap: 10px;
+  padding: 18px 28px 24px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.ew-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  &--primary {
+    background: var(--ew-acc);
+    color: #1c1814;
+    border-color: var(--ew-acc);
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background: var(--ew-acc-2);
+      border-color: var(--ew-acc-2);
+      color: #1c1814;
+    }
+  }
+
+  &--ghost {
+    border-color: transparent;
+  }
+}

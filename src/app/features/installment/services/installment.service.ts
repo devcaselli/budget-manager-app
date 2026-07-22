@@ -211,6 +211,14 @@ export class InstallmentService {
     return subject.asObservable();
   }
 
+  /**
+   * Replaces the full tag set on an installment. Thin wrapper over `patch()` — the backend
+   * has no dedicated tags endpoint, `tagIds` is just another field on `PATCH /installments/{id}`.
+   */
+  assignTags(id: string, tagIds: readonly string[]): Observable<Installment> {
+    return this.patch(id, { tagIds });
+  }
+
   delete(id: string): Observable<void> {
     const subject = new ReplaySubject<void>(1);
 
