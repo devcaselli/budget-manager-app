@@ -1,0 +1,114 @@
+<div class="tag-page">
+
+  <!-- ── Page header ──────────────────────────────────────────────── -->
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">15 · Tools</div>
+      <h1 class="ew-page-title">Tag <em>your spending.</em></h1>
+      <p class="ew-page-sub">
+        Organize installments and subscriptions with tags, grouped in a single level of hierarchy.
+      </p>
+    </div>
+    <div class="tag-head-right">
+      <div class="ew-head-meta">
+        tags · <b>{{ totalCount() }}</b>
+      </div>
+      <button
+        class="tag-new-btn"
+        type="button"
+        [disabled]="isSaving()"
+        (click)="onNewClick()"
+      >
+        <mat-icon aria-hidden="true">add</mat-icon>
+        New tag
+      </button>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  }
+
+  <!-- ── List panel ───────────────────────────────────────────────── -->
+  <div class="ew-panel">
+    <div class="ew-panel-head">
+      <div>
+        <h3>Tag <em>hierarchy</em></h3>
+        <p>Root tags with their subtags, 1 level deep</p>
+      </div>
+    </div>
+
+    <div class="tag-list-body">
+      @if (isLoading()) {
+        <div class="ew-empty">Loading...</div>
+      } @else if (tagGroups().length === 0) {
+        <div class="ew-empty">No tags yet.</div>
+      } @else {
+        @for (group of tagGroups(); track group.root.id) {
+          <div class="tag-group">
+            <div class="tag-row tag-row--root">
+              <span class="tag-row-name">{{ group.root.name }}</span>
+              <div class="tag-row-actions">
+                <button
+                  class="tag-action-btn"
+                  type="button"
+                  aria-label="Edit tag"
+                  title="Edit tag"
+                  (click)="onEditClick(group.root)"
+                >
+                  <mat-icon aria-hidden="true">edit_note</mat-icon>
+                </button>
+                <button
+                  class="tag-action-btn tag-action-btn--danger"
+                  type="button"
+                  aria-label="Delete tag"
+                  title="Delete tag"
+                  [disabled]="deletingId() === group.root.id"
+                  (click)="onDeleteClick(group.root)"
+                >
+                  @if (deletingId() === group.root.id) {
+                    <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+                  } @else {
+                    <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                  }
+                </button>
+              </div>
+            </div>
+
+            @for (subtag of group.subtags; track subtag.id) {
+              <div class="tag-row tag-row--subtag">
+                <span class="tag-row-name">— {{ subtag.name }}</span>
+                <div class="tag-row-actions">
+                  <button
+                    class="tag-action-btn"
+                    type="button"
+                    aria-label="Edit tag"
+                    title="Edit tag"
+                    (click)="onEditClick(subtag)"
+                  >
+                    <mat-icon aria-hidden="true">edit_note</mat-icon>
+                  </button>
+                  <button
+                    class="tag-action-btn tag-action-btn--danger"
+                    type="button"
+                    aria-label="Delete tag"
+                    title="Delete tag"
+                    [disabled]="deletingId() === subtag.id"
+                    (click)="onDeleteClick(subtag)"
+                  >
+                    @if (deletingId() === subtag.id) {
+                      <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+                    } @else {
+                      <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                    }
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+  </div>
+
+</div>

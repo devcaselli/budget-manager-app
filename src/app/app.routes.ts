@@ -140,6 +140,12 @@ export const routes: Routes = [
           ),
         title: 'Settings | Budget Manager',
       },
+      {
+        path: 'tags',
+        loadComponent: () =>
+          import('@features/tag/pages/tag-page/tag-page').then((c) => c.TagPage),
+        title: 'Tags | Budget Manager',
+      },
     ],
   },
   {

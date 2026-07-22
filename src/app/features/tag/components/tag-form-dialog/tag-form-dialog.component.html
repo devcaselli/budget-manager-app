@@ -1,0 +1,46 @@
+<div class="tfd-head" mat-dialog-title>
+  <div>
+    <h2 class="tfd-title">{{ isEditing ? 'Edit' : 'New' }} <em>tag</em></h2>
+    <p class="tfd-subtitle">{{ isEditing ? 'Update the tag name or parent' : 'Create a root tag or a subtag' }}</p>
+  </div>
+  <button class="tfd-close" type="button" mat-icon-button mat-dialog-close aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<form class="tfd-form" [formGroup]="form" (ngSubmit)="submit()">
+  <mat-dialog-content class="tfd-body">
+
+    <div class="ew-field">
+      <label for="tfd-name">Name</label>
+      <input
+        id="tfd-name"
+        class="ew-input"
+        formControlName="name"
+        placeholder="e.g. Travel"
+        maxlength="100"
+      />
+      @if (form.controls.name.touched && form.controls.name.invalid) {
+        <p class="tfd-error">Enter a name (max 100 chars).</p>
+      }
+    </div>
+
+    <div class="ew-field">
+      <label for="tfd-parent">Parent tag (optional)</label>
+      <select id="tfd-parent" class="ew-select" formControlName="parentId">
+        <option value="">— None (root tag) —</option>
+        @for (root of parentOptions; track root.id) {
+          <option [value]="root.id">{{ root.name }}</option>
+        }
+      </select>
+    </div>
+
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="tfd-actions" align="end">
+    <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
+    <button class="ew-btn ew-btn--primary" type="submit">
+      {{ isEditing ? 'Save changes' : 'Create tag' }}
+    </button>
+  </mat-dialog-actions>
+</form>
