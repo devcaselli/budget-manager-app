@@ -240,6 +240,26 @@
               <i></i>
               <span>Special subscription</span>
             </button>
+
+            <div class="ew-field">
+              <span class="ew-field-label">Tags (optional)</span>
+              <button
+                class="sub-tags-btn"
+                type="button"
+                aria-label="Manage tags"
+                (click)="onNewSubscriptionTagsClick()"
+              >
+                <mat-icon aria-hidden="true">sell</mat-icon>
+                Manage tags
+              </button>
+              @if (newSubscriptionTagChips().length > 0) {
+                <div class="sub-tag-chips">
+                  @for (chip of newSubscriptionTagChips(); track chip.id) {
+                    <span class="sub-tag-chip">{{ chip.name }}</span>
+                  }
+                </div>
+              }
+            </div>
           }
 
           <div class="sub-form-actions">

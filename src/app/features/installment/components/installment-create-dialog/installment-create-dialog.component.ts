@@ -1,19 +1,32 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
+  DestroyRef,
   ElementRef,
   inject,
+  signal,
   ViewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import {
   MAT_DIALOG_DATA,
+  MatDialog,
   MatDialogModule,
   MatDialogRef,
 } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+
+import { Tag } from '@features/tag/models/tag';
+import { TagService } from '@features/tag/services/tag.service';
+import {
+  TagPickerDialogComponent,
+  TagPickerDialogData,
+  TagPickerDialogResult,
+} from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 
 export interface InstallmentCreateDialogCreditCard {
   readonly id: string;
@@ -35,6 +48,7 @@ export interface InstallmentCreateDialogResult {
   readonly purchaseDate: string;
   readonly creditCardId: string;
   readonly sourceEffectiveMonth: string;
+  readonly tagIds: readonly string[];
 }
 
 @Component({
@@ -49,6 +63,9 @@ export class InstallmentCreateDialogComponent {
     MatDialogRef<InstallmentCreateDialogComponent, InstallmentCreateDialogResult>
   >(MatDialogRef);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly dialog = inject(MatDialog);
+  private readonly tagService = inject(TagService);
+  private readonly destroyRef = inject(DestroyRef);
 
   @ViewChild('descriptionInput') private readonly descriptionInput?: ElementRef<HTMLInputElement>;
 
@@ -57,6 +74,13 @@ export class InstallmentCreateDialogComponent {
   readonly submitted = new Subject<InstallmentCreateDialogResult>();
 
   protected valueMode: ValueMode = 'installment';
+
+  private readonly allTags = signal<readonly Tag[]>([]);
+  protected readonly selectedTagIds = signal<readonly string[]>([]);
+  protected readonly selectedTagChips = computed(() => {
+    const tagNameById = new Map(this.allTags().map((tag) => [tag.id, tag.name]));
+    return this.selectedTagIds().map((id) => ({ id, name: tagNameById.get(id) ?? id }));
+  });
 
   protected readonly form = this.formBuilder.nonNullable.group({
     description: ['', [Validators.required, Validators.maxLength(120)]],
@@ -77,8 +101,33 @@ export class InstallmentCreateDialogComponent {
     return this.valueMode === 'installment' ? 'e.g. 150.00 / month' : 'e.g. 1800.00 total';
   }
 
+  constructor() {
+    this.tagService.loadAll();
+    this.tagService.tags$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((tags) => {
+      this.allTags.set(tags);
+    });
+  }
+
   protected toggleValueMode(): void {
     this.valueMode = this.valueMode === 'installment' ? 'original' : 'installment';
+  }
+
+  protected onTagsClick(): void {
+    const data: TagPickerDialogData = {
+      availableTags: this.allTags(),
+      selectedTagIds: this.selectedTagIds(),
+    };
+
+    this.dialog
+      .open<TagPickerDialogComponent, TagPickerDialogData, TagPickerDialogResult>(
+        TagPickerDialogComponent,
+        { width: '26rem', maxWidth: 'calc(100vw - 2rem)', data },
+      )
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((selectedTagIds) => {
+        if (selectedTagIds !== undefined) this.selectedTagIds.set(selectedTagIds);
+      });
   }
 
   protected submit(): void {
@@ -95,6 +144,7 @@ export class InstallmentCreateDialogComponent {
       purchaseDate: value.purchaseDate,
       creditCardId: value.creditCardId,
       sourceEffectiveMonth: value.sourceEffectiveMonth,
+      tagIds: this.selectedTagIds(),
       ...(this.valueMode === 'installment'
         ? { installmentValue: value.amount }
         : { originalValue: value.amount }),
@@ -122,6 +172,7 @@ export class InstallmentCreateDialogComponent {
     });
     this.form.markAsPristine();
     this.form.markAsUntouched();
+    this.selectedTagIds.set([]);
     setTimeout(() => this.descriptionInput?.nativeElement.focus());
   }
 

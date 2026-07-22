@@ -77,6 +77,64 @@
   }
 }
 
+.ew-field-label {
+  display: block;
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+  margin-bottom: 8px;
+}
+
+.icd-tags-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 99px;
+  font-size: 12px;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-weight: 500;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  width: fit-content;
+
+  mat-icon {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+  }
+
+  &:hover {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+}
+
+.icd-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.icd-tag-chip {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-family: var(--ew-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(214, 163, 113, 0.1);
+  color: var(--ew-acc);
+  border: 1px solid rgba(214, 163, 113, 0.2);
+}
+
 .icd-error {
   margin: 7px 0 0;
   color: var(--ew-bad);

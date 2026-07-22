@@ -74,6 +74,8 @@ describe('InstallmentService.assignTags', () => {
     httpMock.expectOne('/api/installments/inst-1').flush(null, { status: 500, statusText: 'Error' });
 
     expect(errored).toBe(true);
-    expect(errors.at(-1)).toBe('Unable to update the installment.');
+    expect(errors.at(-1)).toBe(
+      'Installment saved, but tags could not be applied. Try again from its row.',
+    );
   });
 });

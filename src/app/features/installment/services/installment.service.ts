@@ -182,7 +182,11 @@ export class InstallmentService {
     return subject.asObservable();
   }
 
-  patch(id: string, request: PatchInstallmentRequest): Observable<Installment> {
+  patch(
+    id: string,
+    request: PatchInstallmentRequest,
+    errorMessage = 'Unable to update the installment.',
+  ): Observable<Installment> {
     const subject = new ReplaySubject<Installment>(1);
 
     this.errorSubject.next(null);
@@ -197,7 +201,7 @@ export class InstallmentService {
             const currentAll = this.allInstallmentsSubject.getValue();
             this.allInstallmentsSubject.next(currentAll.map((i) => (i.id === id ? updated : i)));
           },
-          error: () => this.errorSubject.next('Unable to update the installment.'),
+          error: () => this.errorSubject.next(errorMessage),
         }),
       )
       .subscribe({
@@ -214,9 +218,12 @@ export class InstallmentService {
   /**
    * Replaces the full tag set on an installment. Thin wrapper over `patch()` — the backend
    * has no dedicated tags endpoint, `tagIds` is just another field on `PATCH /installments/{id}`.
+   *
+   * Uses a tag-specific error message so a failure here (which happens after the installment
+   * itself was already created/exists) doesn't read like the whole operation failed.
    */
   assignTags(id: string, tagIds: readonly string[]): Observable<Installment> {
-    return this.patch(id, { tagIds });
+    return this.patch(id, { tagIds }, 'Installment saved, but tags could not be applied. Try again from its row.');
   }
 
   delete(id: string): Observable<void> {

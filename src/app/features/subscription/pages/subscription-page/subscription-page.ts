@@ -3,7 +3,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, of, switchMap, tap } from 'rxjs';
 import { formatBrl } from '@shared/utils/currency';
 import { CreditCardService } from '@features/credit-card/services/credit-card.service';
 import { TagService } from '@features/tag/services/tag.service';
@@ -89,6 +89,12 @@ export class SubscriptionPage {
     initialValue: [],
   });
   private readonly tags = toSignal(this.tagService.tags$, { initialValue: [] });
+  /** Draft tag selection for the create form — only used when creating (not editing). */
+  protected readonly newSubscriptionTagIds = signal<readonly string[]>([]);
+  protected readonly newSubscriptionTagChips = computed<readonly SubscriptionTagChip[]>(() => {
+    const tagNameById = new Map(this.tags().map((tag) => [tag.id, tag.name]));
+    return this.newSubscriptionTagIds().map((id) => ({ id, name: tagNameById.get(id) ?? id }));
+  });
   private readonly editingSubscriptionId$ = new BehaviorSubject<string | null>(null);
   protected readonly subscriptionFilter = signal<SubscriptionFilter>('all');
   protected readonly activeOnly = signal(true);
@@ -224,6 +230,7 @@ export class SubscriptionPage {
 
   protected editSubscription(sub: SubscriptionListItem): void {
     this.editingSubscriptionId$.next(sub.id);
+    this.newSubscriptionTagIds.set([]);
     this.form.reset({
       description: sub.description,
       amount: sub.amountValue,
@@ -252,6 +259,24 @@ export class SubscriptionPage {
           if (this.editingSubscriptionId() === id) this.resetForm();
         },
         error: () => undefined,
+      });
+  }
+
+  protected onNewSubscriptionTagsClick(): void {
+    const data: TagPickerDialogData = {
+      availableTags: this.tags(),
+      selectedTagIds: this.newSubscriptionTagIds(),
+    };
+
+    this.dialog
+      .open<TagPickerDialogComponent, TagPickerDialogData, TagPickerDialogResult>(
+        TagPickerDialogComponent,
+        { width: '26rem', maxWidth: 'calc(100vw - 2rem)', data },
+      )
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((selectedTagIds) => {
+        if (selectedTagIds !== undefined) this.newSubscriptionTagIds.set(selectedTagIds);
       });
   }
 
@@ -356,6 +381,7 @@ export class SubscriptionPage {
 
   private resetForm(): void {
     this.editingSubscriptionId$.next(null);
+    this.newSubscriptionTagIds.set([]);
     this.form.controls.currency.enable();
     this.form.controls.creditCardId.enable();
     this.form.controls.effectiveMonth.enable();
@@ -388,6 +414,19 @@ export class SubscriptionPage {
     return value > this.currentMonth();
   }
 
+  /**
+   * Creates the subscription, then — only if tags were picked in the create form — issues an
+   * immediate follow-up `assignTags`. The backend's create endpoint has no `tagIds` field
+   * (confirmed: `SubscriptionRequestDto` doesn't have one), so this is a 2-request sequence
+   * rather than a single atomic create.
+   *
+   * The form resets as soon as `create()` itself resolves — NOT after the whole chain —
+   * so a failure in the follow-up `assignTags` can't leave the form stuck on stale "create"
+   * data. Without this, resubmitting after a tag-assign failure would create a second,
+   * duplicate, untagged subscription (the first one already exists, just untagged). If
+   * `assignTags` does fail, the error still surfaces via `error$`; the user tags the
+   * (already-created, already-listed) subscription manually from its row's "Manage tags" button.
+   */
   private createSubscription(input: {
     readonly description: string;
     readonly amount: number;
@@ -397,9 +436,17 @@ export class SubscriptionPage {
     readonly state: SubscriptionState;
     readonly flag: SubscriptionFlag;
   }): void {
+    const tagIds = this.newSubscriptionTagIds();
+
     this.subscriptionService
       .create(input)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: () => this.resetForm(), error: () => undefined });
+      .pipe(
+        tap(() => this.resetForm()),
+        switchMap((created) =>
+          tagIds.length > 0 ? this.subscriptionService.assignTags(created.id, tagIds) : of(created),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({ error: () => undefined });
   }
 }

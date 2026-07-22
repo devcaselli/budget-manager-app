@@ -180,6 +180,23 @@ describe('SubscriptionService', () => {
     expect(emittedSubscriptions.at(-1)).toEqual([updated]);
   });
 
+  it('should surface a tag-specific error message when assignTags fails', () => {
+    const errors: (string | null)[] = [];
+    service.error$.subscribe((v) => errors.push(v));
+
+    let errored = false;
+    service.assignTags(subscription.id, ['tag-1']).subscribe({ error: () => (errored = true) });
+
+    httpMock
+      .expectOne('/api/subscriptions/subscription-1')
+      .flush(null, { status: 500, statusText: 'Error' });
+
+    expect(errored).toBe(true);
+    expect(errors.at(-1)).toBe(
+      'Subscription salva, mas não foi possível aplicar as tags. Tente novamente pela row.',
+    );
+  });
+
   it('should delete a subscription and remove it from subscriptions$', () => {
     const emittedSubscriptions: (readonly Subscription[])[] = [];
 

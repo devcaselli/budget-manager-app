@@ -113,6 +113,26 @@
         <p class="icd-error">Select a credit card.</p>
       }
     </div>
+    <div class="ew-field">
+      <span class="ew-field-label">Tags (optional)</span>
+      <button
+        class="icd-tags-btn"
+        type="button"
+        aria-label="Manage tags"
+        (click)="onTagsClick()"
+      >
+        <mat-icon aria-hidden="true">sell</mat-icon>
+        Manage tags
+      </button>
+      @if (selectedTagChips().length > 0) {
+        <div class="icd-tag-chips">
+          @for (chip of selectedTagChips(); track chip.id) {
+            <span class="icd-tag-chip">{{ chip.name }}</span>
+          }
+        </div>
+      }
+    </div>
+
     <button
       class="ew-checkbox"
       type="button"

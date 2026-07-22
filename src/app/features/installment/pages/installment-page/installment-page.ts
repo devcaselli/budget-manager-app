@@ -8,7 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { merge } from 'rxjs';
+import { merge, of, switchMap } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -382,6 +382,14 @@ export class InstallmentPage {
     this.tooltip.set(null);
   }
 
+  /**
+   * Creates the installment, then — only if tags were picked in the create dialog — issues an
+   * immediate follow-up `assignTags`. The backend's create endpoint has no `tagIds` field
+   * (confirmed: `SaveStandaloneInstallmentRequestDto` doesn't have one), so this is a 2-request
+   * sequence rather than a single atomic create. If the second request fails, the installment
+   * still exists untagged; the error surfaces via `error$` and the user can tag it manually
+   * from the row's "Manage tags" button.
+   */
   private saveInstallment(result: InstallmentCreateDialogResult): void {
     const request: SaveInstallmentRequest = {
       description: result.description,
@@ -396,7 +404,14 @@ export class InstallmentPage {
 
     this.installmentService
       .save(request)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(
+        switchMap((created) =>
+          result.tagIds.length > 0
+            ? this.installmentService.assignTags(created.id, result.tagIds)
+            : of(created),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({ error: () => undefined });
   }
 

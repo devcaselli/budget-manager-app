@@ -99,7 +99,11 @@ export class SubscriptionService {
     return createdSubscriptionSubject.asObservable();
   }
 
-  update(id: string, input: UpdateSubscriptionRequest): Observable<Subscription> {
+  update(
+    id: string,
+    input: UpdateSubscriptionRequest,
+    errorMessage = 'Não foi possível atualizar a subscription.',
+  ): Observable<Subscription> {
     const updatedSubscriptionSubject = new ReplaySubject<Subscription>(1);
 
     this.updatingSubject.next(id);
@@ -110,7 +114,7 @@ export class SubscriptionService {
       .pipe(
         tap({
           next: (subscription) => this.upsertSubscription(subscription),
-          error: () => this.errorSubject.next('Não foi possível atualizar a subscription.'),
+          error: () => this.errorSubject.next(errorMessage),
         }),
         finalize(() => this.updatingSubject.next(null)),
       )
@@ -128,9 +132,16 @@ export class SubscriptionService {
   /**
    * Replaces the full tag set on a subscription. Thin wrapper over `update()` — the backend
    * has no dedicated tags endpoint, `tagIds` is just another field on `PATCH /subscriptions/{id}`.
+   *
+   * Uses a tag-specific error message so a failure here (which happens after the subscription
+   * itself was already created/exists) doesn't read like the whole operation failed.
    */
   assignTags(id: string, tagIds: readonly string[]): Observable<Subscription> {
-    return this.update(id, { tagIds });
+    return this.update(
+      id,
+      { tagIds },
+      'Subscription salva, mas não foi possível aplicar as tags. Tente novamente pela row.',
+    );
   }
 
   delete(id: string): Observable<void> {
