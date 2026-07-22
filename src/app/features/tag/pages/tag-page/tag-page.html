@@ -36,55 +36,40 @@
         <h3>Tag <em>hierarchy</em></h3>
         <p>Root tags with their subtags, 1 level deep</p>
       </div>
+      <div class="ew-panel-head-actions">
+        <div class="ew-tabs" aria-label="View">
+          <button
+            [class.ew-tabs-on]="viewMode() === 'tags'"
+            type="button"
+            (click)="setViewMode('tags')"
+          >Tags</button>
+          <button
+            [class.ew-tabs-on]="viewMode() === 'accumulation'"
+            type="button"
+            (click)="setViewMode('accumulation')"
+          >Acúmulos</button>
+        </div>
+      </div>
     </div>
 
-    <div class="tag-list-body">
-      @if (isLoading()) {
-        <div class="ew-empty">Loading...</div>
-      } @else if (tagGroups().length === 0) {
-        <div class="ew-empty">No tags yet.</div>
-      } @else {
-        @for (group of tagGroups(); track group.root.id) {
-          <div class="tag-group">
-            <div class="tag-row tag-row--root">
-              <span class="tag-row-name">{{ group.root.name }}</span>
-              <div class="tag-row-actions">
-                <button
-                  class="tag-action-btn"
-                  type="button"
-                  aria-label="Edit tag"
-                  title="Edit tag"
-                  (click)="onEditClick(group.root)"
-                >
-                  <mat-icon aria-hidden="true">edit_note</mat-icon>
-                </button>
-                <button
-                  class="tag-action-btn tag-action-btn--danger"
-                  type="button"
-                  aria-label="Delete tag"
-                  title="Delete tag"
-                  [disabled]="deletingId() === group.root.id"
-                  (click)="onDeleteClick(group.root)"
-                >
-                  @if (deletingId() === group.root.id) {
-                    <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
-                  } @else {
-                    <mat-icon aria-hidden="true">delete_outline</mat-icon>
-                  }
-                </button>
-              </div>
-            </div>
-
-            @for (subtag of group.subtags; track subtag.id) {
-              <div class="tag-row tag-row--subtag">
-                <span class="tag-row-name">— {{ subtag.name }}</span>
+    @if (viewMode() === 'tags') {
+      <div class="tag-list-body">
+        @if (isLoading()) {
+          <div class="ew-empty">Loading...</div>
+        } @else if (tagGroups().length === 0) {
+          <div class="ew-empty">No tags yet.</div>
+        } @else {
+          @for (group of tagGroups(); track group.root.id) {
+            <div class="tag-group">
+              <div class="tag-row tag-row--root">
+                <span class="tag-row-name">{{ group.root.name }}</span>
                 <div class="tag-row-actions">
                   <button
                     class="tag-action-btn"
                     type="button"
                     aria-label="Edit tag"
                     title="Edit tag"
-                    (click)="onEditClick(subtag)"
+                    (click)="onEditClick(group.root)"
                   >
                     <mat-icon aria-hidden="true">edit_note</mat-icon>
                   </button>
@@ -93,10 +78,10 @@
                     type="button"
                     aria-label="Delete tag"
                     title="Delete tag"
-                    [disabled]="deletingId() === subtag.id"
-                    (click)="onDeleteClick(subtag)"
+                    [disabled]="deletingId() === group.root.id"
+                    (click)="onDeleteClick(group.root)"
                   >
-                    @if (deletingId() === subtag.id) {
+                    @if (deletingId() === group.root.id) {
                       <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
                     } @else {
                       <mat-icon aria-hidden="true">delete_outline</mat-icon>
@@ -104,11 +89,73 @@
                   </button>
                 </div>
               </div>
-            }
-          </div>
+
+              @for (subtag of group.subtags; track subtag.id) {
+                <div class="tag-row tag-row--subtag">
+                  <span class="tag-row-name">— {{ subtag.name }}</span>
+                  <div class="tag-row-actions">
+                    <button
+                      class="tag-action-btn"
+                      type="button"
+                      aria-label="Edit tag"
+                      title="Edit tag"
+                      (click)="onEditClick(subtag)"
+                    >
+                      <mat-icon aria-hidden="true">edit_note</mat-icon>
+                    </button>
+                    <button
+                      class="tag-action-btn tag-action-btn--danger"
+                      type="button"
+                      aria-label="Delete tag"
+                      title="Delete tag"
+                      [disabled]="deletingId() === subtag.id"
+                      (click)="onDeleteClick(subtag)"
+                    >
+                      @if (deletingId() === subtag.id) {
+                        <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+                      } @else {
+                        <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                      }
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
         }
+      </div>
+    } @else {
+      @if (isAccumulationLoading()) {
+        <div class="ew-empty">Loading...</div>
+      } @else if (accumulationErrorMessage()) {
+        <div class="ew-alert" role="alert">{{ accumulationErrorMessage() }}</div>
+      } @else {
+        <div class="ew-panel-table-wrap">
+        <table class="ew-table">
+          <thead>
+            <tr>
+              <th>Tag</th>
+              <th>Total</th>
+              <th>Breakdown</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of accumulationRows(); track row.tagId) {
+              <tr>
+                <td>{{ row.tagName }}</td>
+                <td class="ew-blur">{{ row.total | brlCurrency }}</td>
+                <td>{{ row.breakdownLabel }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="3" class="ew-empty">No accumulated tags yet</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        </div>
       }
-    </div>
+    }
   </div>
 
 </div>
