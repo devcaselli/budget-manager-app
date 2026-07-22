@@ -29,6 +29,7 @@ import { Payer } from '@features/payer/models/payer';
 import { Share } from '@features/share/models/share';
 import { ShareService } from '@features/share/services/share.service';
 import { TagService } from '@features/tag/services/tag.service';
+import { TagAccumulationService } from '@features/tag/services/tag-accumulation.service';
 import {
   TagPickerDialogComponent,
   TagPickerDialogData,
@@ -53,6 +54,15 @@ import { ExpenseService } from '../../services/expense.service';
 interface ExpenseTagChip {
   readonly id: string;
   readonly name: string;
+}
+
+type ExpenseViewMode = 'ledger' | 'accumulation';
+
+interface AccumulationRow {
+  readonly tagId: string;
+  readonly tagName: string;
+  readonly total: number;
+  readonly breakdownLabel: string;
 }
 
 interface ExpenseListItem {
@@ -100,12 +110,17 @@ export class ExpensePage {
   private readonly installmentService = inject(InstallmentService);
   private readonly shareService = inject(ShareService);
   private readonly tagService = inject(TagService);
+  private readonly tagAccumulationService = inject(TagAccumulationService);
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
   private readonly payments = toSignal(this.paymentService.payments$, { initialValue: [] });
   private readonly shares = toSignal(this.shareService.shares$, { initialValue: [] });
   private readonly tags = toSignal(this.tagService.tags$, { initialValue: [] });
+  private readonly accumulation = toSignal(this.tagAccumulationService.accumulation$, {
+    initialValue: null,
+  });
+  private readonly accumulationVisited = signal(false);
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
@@ -124,6 +139,13 @@ export class ExpensePage {
   });
   protected readonly errorMessage = toSignal(this.expenseService.error$, { initialValue: null });
   protected readonly paymentErrorMessage = toSignal(this.paymentService.error$, {
+    initialValue: null,
+  });
+  protected readonly viewMode = signal<ExpenseViewMode>('ledger');
+  protected readonly isAccumulationLoading = toSignal(this.tagAccumulationService.loading$, {
+    initialValue: false,
+  });
+  protected readonly accumulationErrorMessage = toSignal(this.tagAccumulationService.error$, {
     initialValue: null,
   });
   protected readonly hasCreditCards = computed(() => this.creditCards().length > 0);
@@ -223,6 +245,20 @@ export class ExpensePage {
     filterAndSortExpenses(this.expenseItems(), this.filtersValue()),
   );
 
+  protected readonly accumulationRows = computed<readonly AccumulationRow[]>(() => {
+    const result = this.accumulation();
+    if (!result) return [];
+
+    return result.entries.map((entry) => ({
+      tagId: entry.tagId,
+      tagName: entry.tagName,
+      total: entry.total,
+      breakdownLabel: Object.entries(entry.breakdown)
+        .map(([source, amount]) => `${this.breakdownSourceLabel(source)}: ${formatBrl(amount)}`)
+        .join(' · '),
+    }));
+  });
+
   protected readonly bulletOptions = computed<readonly BulletOption[]>(() =>
     this.bullets()
       .filter((b) => Number(b.remaining) > 0)
@@ -258,7 +294,39 @@ export class ExpensePage {
       this.reloadWalletPayers(walletId);
     });
 
+    effect(() => {
+      const walletId = this.selectedWallet()?.id ?? null;
+      // Reload accumulation on wallet change only if the tab was already opened once —
+      // avoid firing the request in the background before the user ever looks at it.
+      if (walletId && this.accumulationVisited()) {
+        this.tagAccumulationService.loadByWalletId(walletId);
+      }
+    });
+
     this.tagService.loadAll();
+  }
+
+  protected setViewMode(mode: ExpenseViewMode): void {
+    this.viewMode.set(mode);
+
+    if (mode === 'accumulation' && !this.accumulationVisited()) {
+      this.accumulationVisited.set(true);
+      const walletId = this.selectedWallet()?.id;
+      if (walletId) this.tagAccumulationService.loadByWalletId(walletId);
+    }
+  }
+
+  private breakdownSourceLabel(source: string): string {
+    switch (source) {
+      case 'EXPENSE':
+        return 'Expense';
+      case 'INSTALLMENT':
+        return 'Installment';
+      case 'SUBSCRIPTION':
+        return 'Subscription';
+      default:
+        return source;
+    }
   }
 
   private buildTagMap(): ReadonlyMap<string, string> {

@@ -11,7 +11,9 @@ import { WalletService } from '@features/wallet/services/wallet.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
 import { ShareService } from '@features/share/services/share.service';
 import { TagService } from '@features/tag/services/tag.service';
+import { TagAccumulationService } from '@features/tag/services/tag-accumulation.service';
 import { Tag } from '@features/tag/models/tag';
+import { TagAccumulation } from '@features/tag/models/tag-accumulation';
 import { Expense } from '@features/expense/models/expense';
 import { Share } from '@features/share/models/share';
 import { Wallet } from '@features/wallet/models/wallet';
@@ -38,6 +40,13 @@ class FakeExpenseService {
 class FakeTagService {
   readonly tags$ = new BehaviorSubject<readonly Tag[]>([]);
   loadAll = vi.fn();
+}
+
+class FakeTagAccumulationService {
+  readonly accumulation$ = new BehaviorSubject<TagAccumulation | null>(null);
+  readonly loading$ = new BehaviorSubject(false);
+  readonly error$ = new BehaviorSubject<string | null>(null);
+  loadByWalletId = vi.fn();
 }
 
 class FakeShareService {
@@ -128,6 +137,7 @@ describe('ExpensePage — share derivation & split button visibility', () => {
         { provide: InstallmentService, useClass: FakeInstallmentService },
         { provide: WalletService, useClass: FakeWalletService },
         { provide: TagService, useClass: FakeTagService },
+        { provide: TagAccumulationService, useClass: FakeTagAccumulationService },
         { provide: MatDialog, useValue: { open: vi.fn() } },
       ],
     });
@@ -238,5 +248,81 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     (component as unknown as { onTagsClick: (e: unknown) => void }).onTagsClick(item);
 
     expect(expenseService.assignTags).not.toHaveBeenCalled();
+  });
+
+  it('lazy-loads accumulation only on first switch to the Acúmulos tab', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    fixture.detectChanges();
+
+    const tagAccumulationService = TestBed.inject(
+      TagAccumulationService,
+    ) as unknown as FakeTagAccumulationService;
+
+    expect(tagAccumulationService.loadByWalletId).not.toHaveBeenCalled();
+
+    (component as unknown as { setViewMode: (m: string) => void }).setViewMode('accumulation');
+    expect(tagAccumulationService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
+
+    tagAccumulationService.loadByWalletId.mockClear();
+    (component as unknown as { setViewMode: (m: string) => void }).setViewMode('ledger');
+    (component as unknown as { setViewMode: (m: string) => void }).setViewMode('accumulation');
+
+    // Second visit does not trigger another load (already visited).
+    expect(tagAccumulationService.loadByWalletId).not.toHaveBeenCalled();
+  });
+
+  it('reloads accumulation on wallet change once the tab has been visited', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    fixture.detectChanges();
+
+    const tagAccumulationService = TestBed.inject(
+      TagAccumulationService,
+    ) as unknown as FakeTagAccumulationService;
+    (component as unknown as { setViewMode: (m: string) => void }).setViewMode('accumulation');
+    tagAccumulationService.loadByWalletId.mockClear();
+
+    walletService.selectedWallet$.next({ id: 'wallet-2' } as Wallet);
+    fixture.detectChanges();
+
+    expect(tagAccumulationService.loadByWalletId).toHaveBeenCalledWith('wallet-2');
+  });
+
+  it('builds accumulation rows with a formatted breakdown label', () => {
+    const tagAccumulationService = TestBed.inject(
+      TagAccumulationService,
+    ) as unknown as FakeTagAccumulationService;
+    tagAccumulationService.accumulation$.next({
+      walletId: 'wallet-1',
+      entries: [
+        {
+          tagId: 'tag-1',
+          tagName: 'Food',
+          parentId: null,
+          total: 1075,
+          breakdown: { EXPENSE: 50, INSTALLMENT: 1000, SUBSCRIPTION: 25 },
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    const rows = (
+      component as unknown as {
+        accumulationRows: () => readonly { tagName: string; total: number; breakdownLabel: string }[];
+      }
+    ).accumulationRows();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].tagName).toBe('Food');
+    expect(rows[0].total).toBe(1075);
+    const nbsp = ' ';
+    expect(rows[0].breakdownLabel).toBe(
+      `Expense: R$${nbsp}50,00 · Installment: R$${nbsp}1.000,00 · Subscription: R$${nbsp}25,00`,
+    );
   });
 });

@@ -31,7 +31,22 @@
           <h3>Expense ledger</h3>
           <p>{{ filteredExpenseItems().length }} of {{ expenseItems().length }} expense(s) in cycle</p>
         </div>
+        <div class="ew-panel-head-actions">
+          <div class="ew-tabs" aria-label="View">
+            <button
+              [class.ew-tabs-on]="viewMode() === 'ledger'"
+              type="button"
+              (click)="setViewMode('ledger')"
+            >Ledger</button>
+            <button
+              [class.ew-tabs-on]="viewMode() === 'accumulation'"
+              type="button"
+              (click)="setViewMode('accumulation')"
+            >Acúmulos</button>
+          </div>
+        </div>
       </div>
+      @if (viewMode() === 'ledger') {
       <div class="ep-filters" [formGroup]="filtersForm">
         <div class="ep-filter-field">
           <label for="ep-filter-search">Name</label>
@@ -190,6 +205,38 @@
           </tbody>
         </table>
         </div>
+      }
+      } @else {
+        @if (isAccumulationLoading()) {
+          <div class="ew-empty">Loading...</div>
+        } @else if (accumulationErrorMessage()) {
+          <div class="ew-alert" role="alert">{{ accumulationErrorMessage() }}</div>
+        } @else {
+          <div class="ew-panel-table-wrap">
+          <table class="ew-table">
+            <thead>
+              <tr>
+                <th>Tag</th>
+                <th>Total</th>
+                <th>Breakdown</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of accumulationRows(); track row.tagId) {
+                <tr>
+                  <td>{{ row.tagName }}</td>
+                  <td class="ew-blur">{{ row.total | brlCurrency }}</td>
+                  <td>{{ row.breakdownLabel }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="3" class="ew-empty">No accumulated tags yet</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          </div>
+        }
       }
     </div>
 
