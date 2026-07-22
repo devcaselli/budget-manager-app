@@ -12,6 +12,7 @@ import {
   TagPickerDialogData,
   TagPickerDialogResult,
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
+import { matchesNameOrTag } from '@shared/utils/search-filter';
 
 import {
   SubscriptionFutureConfirmDialogComponent,
@@ -98,6 +99,7 @@ export class SubscriptionPage {
   private readonly editingSubscriptionId$ = new BehaviorSubject<string | null>(null);
   protected readonly subscriptionFilter = signal<SubscriptionFilter>('all');
   protected readonly activeOnly = signal(true);
+  protected readonly searchTerm = signal('');
 
   protected readonly isLoading = toSignal(this.subscriptionService.loading$, { initialValue: false });
   protected readonly isSaving = toSignal(this.subscriptionService.saving$, { initialValue: false });
@@ -129,6 +131,7 @@ export class SubscriptionPage {
   protected readonly filteredSubscriptionItems = computed<readonly SubscriptionListItem[]>(() => {
     const stateFilter = this.subscriptionFilter();
     const activeOnly = this.activeOnly();
+    const query = this.searchTerm();
 
     return this.subscriptionItems().filter((sub) => {
       const stateMatches =
@@ -136,7 +139,8 @@ export class SubscriptionPage {
         (stateFilter === 'production' && sub.state === 'PRODUCTION') ||
         (stateFilter === 'preview' && sub.state === 'PREVIEW');
       const activeMatches = !activeOnly || sub.isActive;
-      return stateMatches && activeMatches;
+      const searchMatches = matchesNameOrTag({ name: sub.description, tagChips: sub.tagChips }, query);
+      return stateMatches && activeMatches && searchMatches;
     });
   });
 
@@ -287,6 +291,10 @@ export class SubscriptionPage {
 
   protected setSubscriptionFilter(filter: SubscriptionFilter): void {
     this.subscriptionFilter.set(filter);
+  }
+
+  protected onSearchTermChange(value: string): void {
+    this.searchTerm.set(value);
   }
 
   protected toggleActiveOnly(): void {

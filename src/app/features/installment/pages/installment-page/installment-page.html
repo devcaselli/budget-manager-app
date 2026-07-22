@@ -64,6 +64,14 @@
       </div>
       <!-- ── Filters ── -->
       <div class="installment-filters">
+        <input
+          class="ew-input installment-search-input"
+          type="text"
+          [value]="searchTerm()"
+          (input)="onSearchTermChange($any($event.target).value)"
+          placeholder="Search name or tag"
+          aria-label="Search by name or tag"
+        />
         <select
           class="ew-select installment-filter-select"
           [value]="filter().creditCardId ?? ''"
@@ -102,10 +110,10 @@
     <div class="installment-list-body">
       @if (isLoading()) {
         <div class="ew-empty">Loading...</div>
-      } @else if (listItems().length === 0) {
-        <div class="ew-empty">No installments for this wallet</div>
+      } @else if (filteredListItems().length === 0) {
+        <div class="ew-empty">{{ searchTerm() ? 'No installments match your search' : 'No installments for this wallet' }}</div>
       } @else {
-        @for (item of listItems(); track item.id) {
+        @for (item of filteredListItems(); track item.id) {
           <div class="ew-alloc installment-alloc">
             <div class="ew-alloc-name">
               <span class="installment-description-row">

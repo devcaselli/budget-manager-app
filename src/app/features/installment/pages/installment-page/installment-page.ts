@@ -20,6 +20,7 @@ import {
   TagPickerDialogData,
   TagPickerDialogResult,
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
+import { matchesNameOrTag } from '@shared/utils/search-filter';
 
 import { InstallmentService } from '../../services/installment.service';
 import { Installment, InstallmentSortOrder, PatchInstallmentRequest, SaveInstallmentRequest } from '../../models/installment';
@@ -128,10 +129,19 @@ export class InstallmentPage {
 
   private readonly currentMonthKey = this.buildCurrentMonthKey();
 
+  protected readonly searchTerm = signal('');
+
   protected readonly listItems = computed<readonly InstallmentListItem[]>(() => {
     const cardMap = this.buildCreditCardMap();
     const tagMap = this.buildTagMap();
     return this.installments().map((inst) => this.toListItem(inst, cardMap, tagMap));
+  });
+
+  protected readonly filteredListItems = computed<readonly InstallmentListItem[]>(() => {
+    const query = this.searchTerm();
+    return this.listItems().filter((item) =>
+      matchesNameOrTag({ name: item.description, tagChips: item.tagChips }, query),
+    );
   });
   protected readonly hasCreditCards = computed(() => this.creditCards().length > 0);
   protected readonly createInstallmentBlockerMessage = computed(() => {
@@ -214,6 +224,10 @@ export class InstallmentPage {
   }
 
   // ── Filter / pagination actions ───────────────────────────────────────────
+
+  protected onSearchTermChange(value: string): void {
+    this.searchTerm.set(value);
+  }
 
   protected onCreditCardFilterChange(creditCardId: string): void {
     this.installmentService.setFilter({ creditCardId: creditCardId || null });

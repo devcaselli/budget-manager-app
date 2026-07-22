@@ -44,6 +44,14 @@
           <p>{{ filteredCountLabel() }}</p>
         </div>
         <div class="sub-filters">
+          <input
+            class="ew-input sub-search-input"
+            type="text"
+            [value]="searchTerm()"
+            (input)="onSearchTermChange($any($event.target).value)"
+            placeholder="Search name or tag"
+            aria-label="Search by name or tag"
+          />
           <div class="ew-tabs" aria-label="Subscription state filter">
             <button
               type="button"
