@@ -144,6 +144,42 @@ describe('SubscriptionService', () => {
     request.flush(subscription);
   });
 
+  it('should PATCH only tagIds via assignTags', () => {
+    let result: Subscription | undefined;
+    service.assignTags(subscription.id, ['tag-1', 'tag-2']).subscribe((s) => (result = s));
+
+    const request = httpMock.expectOne('/api/subscriptions/subscription-1');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ tagIds: ['tag-1', 'tag-2'] });
+
+    const updated: Subscription = { ...subscription, tagIds: ['tag-1', 'tag-2'] };
+    request.flush(updated);
+
+    expect(result).toEqual(updated);
+  });
+
+  it('should send an empty array via assignTags to clear all tags', () => {
+    service.assignTags(subscription.id, []).subscribe();
+
+    const request = httpMock.expectOne('/api/subscriptions/subscription-1');
+    expect(request.request.body).toEqual({ tagIds: [] });
+    request.flush({ ...subscription, tagIds: [] });
+  });
+
+  it('should replace the subscription in subscriptions$ after assignTags resolves', () => {
+    const emittedSubscriptions: (readonly Subscription[])[] = [];
+
+    service.subscriptions$.subscribe((value) => emittedSubscriptions.push(value));
+    service.loadSubscriptions();
+    httpMock.expectOne('/api/subscriptions?page=0&size=100').flush(pagedResponse([subscription]));
+
+    const updated: Subscription = { ...subscription, tagIds: ['tag-1'] };
+    service.assignTags(subscription.id, ['tag-1']).subscribe();
+    httpMock.expectOne('/api/subscriptions/subscription-1').flush(updated);
+
+    expect(emittedSubscriptions.at(-1)).toEqual([updated]);
+  });
+
   it('should delete a subscription and remove it from subscriptions$', () => {
     const emittedSubscriptions: (readonly Subscription[])[] = [];
 

@@ -94,6 +94,13 @@
                 @if (sub.creditCardLabel) {
                   <span class="sub-credit-card">card · {{ sub.creditCardLabel }}</span>
                 }
+                @if (sub.tagChips.length > 0) {
+                  <div class="sub-tag-chips">
+                    @for (chip of sub.tagChips; track chip.id) {
+                      <span class="sub-tag-chip">{{ chip.name }}</span>
+                    }
+                  </div>
+                }
               </div>
               <div class="ew-sub-pills">
                 @if (sub.isActive) {
@@ -113,6 +120,16 @@
                 }
               </div>
               <div class="sub-actions">
+                <button
+                  class="sub-action-btn"
+                  type="button"
+                  aria-label="Manage tags"
+                  title="Manage tags"
+                  [disabled]="updatingSubscriptionId() === sub.id || deletingSubscriptionId() === sub.id"
+                  (click)="onTagsClick(sub)"
+                >
+                  <mat-icon aria-hidden="true">sell</mat-icon>
+                </button>
                 <button
                   class="sub-action-btn"
                   type="button"

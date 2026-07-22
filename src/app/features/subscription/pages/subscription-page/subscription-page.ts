@@ -2,9 +2,16 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signa
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 import { BehaviorSubject } from 'rxjs';
 import { formatBrl } from '@shared/utils/currency';
 import { CreditCardService } from '@features/credit-card/services/credit-card.service';
+import { TagService } from '@features/tag/services/tag.service';
+import {
+  TagPickerDialogComponent,
+  TagPickerDialogData,
+  TagPickerDialogResult,
+} from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 
 import {
   SubscriptionFutureConfirmDialogComponent,
@@ -18,6 +25,11 @@ import {
 import { SubscriptionService } from '../../services/subscription.service';
 import { resolveCurrentAmount } from '../../utils/resolve-current-amount';
 import { WalletService } from '@features/wallet/services/wallet.service';
+
+interface SubscriptionTagChip {
+  readonly id: string;
+  readonly name: string;
+}
 
 interface SubscriptionListItem {
   readonly id: string;
@@ -41,6 +53,8 @@ interface SubscriptionListItem {
   /** "R$70,00 → R$30,00" (first version → currently effective) — only set when multi-version. */
   readonly amountTrend: string | null;
   readonly versions: readonly { effectiveMonth: string; amount: string }[];
+  readonly tagIds: readonly string[];
+  readonly tagChips: readonly SubscriptionTagChip[];
 }
 
 type SubscriptionFilter = 'all' | 'production' | 'preview';
@@ -48,7 +62,7 @@ type SubscriptionFilter = 'all' | 'production' | 'preview';
 @Component({
   selector: 'app-subscription-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule],
+  imports: [MatIconModule, ReactiveFormsModule],
   templateUrl: './subscription-page.html',
   styleUrl: './subscription-page.scss',
 })
@@ -59,6 +73,7 @@ export class SubscriptionPage {
   private readonly creditCardService = inject(CreditCardService);
   private readonly subscriptionService = inject(SubscriptionService);
   private readonly walletService = inject(WalletService);
+  private readonly tagService = inject(TagService);
 
   /**
    * The wallet currently in context. Its effectiveMonth anchors both how a
@@ -73,6 +88,7 @@ export class SubscriptionPage {
   private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {
     initialValue: [],
   });
+  private readonly tags = toSignal(this.tagService.tags$, { initialValue: [] });
   private readonly editingSubscriptionId$ = new BehaviorSubject<string | null>(null);
   protected readonly subscriptionFilter = signal<SubscriptionFilter>('all');
   protected readonly activeOnly = signal(true);
@@ -145,6 +161,7 @@ export class SubscriptionPage {
   constructor() {
     this.creditCardService.loadAll();
     this.subscriptionService.loadSubscriptions();
+    this.tagService.loadAll();
   }
 
   protected submitSubscription(): void {
@@ -251,9 +268,33 @@ export class SubscriptionPage {
     this.activeOnly.update((value) => !value);
   }
 
+  protected onTagsClick(sub: SubscriptionListItem): void {
+    const data: TagPickerDialogData = {
+      availableTags: this.tags(),
+      selectedTagIds: sub.tagIds,
+    };
+
+    this.dialog
+      .open<TagPickerDialogComponent, TagPickerDialogData, TagPickerDialogResult>(
+        TagPickerDialogComponent,
+        { width: '26rem', maxWidth: 'calc(100vw - 2rem)', data },
+      )
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((selectedTagIds) => {
+        if (selectedTagIds === undefined) return;
+        this.subscriptionService
+          .assignTags(sub.id, selectedTagIds)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({ error: () => undefined });
+      });
+  }
+
   private toListItem(sub: Subscription): SubscriptionListItem {
     const creditCardNameById = new Map(this.creditCards().map((card) => [card.id, card.name]));
+    const tagNameById = new Map(this.tags().map((tag) => [tag.id, tag.name]));
     const formatAmount = this.amountFormatter(sub.currency);
+    const tagIds = sub.tagIds ?? [];
 
     // Sorted ascending → chronological timeline (oldest first) for display.
     const versions = [...sub.versions].sort((a, b) =>
@@ -296,6 +337,8 @@ export class SubscriptionPage {
         effectiveMonth: this.formatMonth(v.effectiveMonth),
         amount: formatAmount(Number(v.amount)),
       })),
+      tagIds,
+      tagChips: tagIds.map((id) => ({ id, name: tagNameById.get(id) ?? id })),
     };
   }
 

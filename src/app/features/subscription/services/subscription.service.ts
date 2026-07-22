@@ -125,6 +125,14 @@ export class SubscriptionService {
     return updatedSubscriptionSubject.asObservable();
   }
 
+  /**
+   * Replaces the full tag set on a subscription. Thin wrapper over `update()` — the backend
+   * has no dedicated tags endpoint, `tagIds` is just another field on `PATCH /subscriptions/{id}`.
+   */
+  assignTags(id: string, tagIds: readonly string[]): Observable<Subscription> {
+    return this.update(id, { tagIds });
+  }
+
   delete(id: string): Observable<void> {
     const deletedSubscriptionSubject = new ReplaySubject<void>(1);
 

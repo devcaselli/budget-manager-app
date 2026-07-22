@@ -22,6 +22,7 @@ export interface Subscription {
   readonly versions: readonly SubscriptionVersion[];
   readonly creditCardId: string | null;
   readonly creditCard?: SubscriptionCreditCard | null;
+  readonly tagIds?: readonly string[];
 }
 
 export interface CreateSubscriptionRequest {
@@ -43,6 +44,8 @@ export interface UpdateSubscriptionRequest {
    * of the wallet the user is editing from. Omitted → backend anchors to the clock month.
    */
   readonly effectiveMonth?: string;
+  /** Absent = don't touch current tags; [] clears all; non-empty replaces the whole set. */
+  readonly tagIds?: readonly string[];
 }
 
 export interface PagedSubscriptionResponse {
