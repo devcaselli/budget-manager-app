@@ -7,6 +7,7 @@ function makeItem(overrides: Partial<FilterableExpense> = {}): FilterableExpense
     creditCardId: 'card-1',
     remainingValue: 100,
     statusLabel: 'OPEN',
+    tagNames: [],
     ...overrides,
   };
 }
@@ -25,6 +26,30 @@ describe('filterAndSortExpenses', () => {
     const items = [makeItem({ name: 'Netflix' }), makeItem({ name: 'Groceries' })];
     const result = filterAndSortExpenses(items, { search: 'net' });
     expect(result.map((i) => i.name)).toEqual(['Netflix']);
+  });
+
+  it('filters by case-insensitive tag name search', () => {
+    const items = [
+      makeItem({ name: 'Netflix', tagNames: ['Subscriptions'] }),
+      makeItem({ name: 'Groceries', tagNames: ['Food'] }),
+    ];
+    const result = filterAndSortExpenses(items, { search: 'sub' });
+    expect(result.map((i) => i.name)).toEqual(['Netflix']);
+  });
+
+  it('matches by name OR tag, not requiring both', () => {
+    const items = [
+      makeItem({ name: 'Netflix', tagNames: ['Food'] }),
+      makeItem({ name: 'Groceries', tagNames: ['Netflix Related'] }),
+      makeItem({ name: 'Spotify', tagNames: ['Food'] }),
+    ];
+    const result = filterAndSortExpenses(items, { search: 'netflix' });
+    expect(result.map((i) => i.name)).toEqual(['Netflix', 'Groceries']);
+  });
+
+  it('returns no match when neither name nor tag matches the query', () => {
+    const items = [makeItem({ name: 'Netflix', tagNames: ['Subscriptions'] })];
+    expect(filterAndSortExpenses(items, { search: 'grocery' })).toHaveLength(0);
   });
 
   it('trims whitespace from the search query', () => {

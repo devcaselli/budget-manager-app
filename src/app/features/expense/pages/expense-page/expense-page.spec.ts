@@ -10,6 +10,8 @@ import { PaymentService } from '@features/payment/services/payment.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
 import { ShareService } from '@features/share/services/share.service';
+import { TagService } from '@features/tag/services/tag.service';
+import { Tag } from '@features/tag/models/tag';
 import { Expense } from '@features/expense/models/expense';
 import { Share } from '@features/share/models/share';
 import { Wallet } from '@features/wallet/models/wallet';
@@ -30,6 +32,12 @@ class FakeExpenseService {
   readonly deleting$ = new BehaviorSubject<string | null>(null);
   readonly error$ = new BehaviorSubject<string | null>(null);
   loadByWalletId = vi.fn();
+  assignTags = vi.fn().mockReturnValue(of(buildExpense()));
+}
+
+class FakeTagService {
+  readonly tags$ = new BehaviorSubject<readonly Tag[]>([]);
+  loadAll = vi.fn();
 }
 
 class FakeShareService {
@@ -119,6 +127,7 @@ describe('ExpensePage — share derivation & split button visibility', () => {
         { provide: BulletService, useClass: FakeBulletService },
         { provide: InstallmentService, useClass: FakeInstallmentService },
         { provide: WalletService, useClass: FakeWalletService },
+        { provide: TagService, useClass: FakeTagService },
         { provide: MatDialog, useValue: { open: vi.fn() } },
       ],
     });
@@ -203,5 +212,31 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     (component as unknown as { openShareDialog: (e: never) => void }).openShareDialog(sharedItem);
 
     expect(dialog.open).not.toHaveBeenCalled();
+  });
+
+  it('assigns tags after the picker dialog is confirmed', () => {
+    expenseService.expenses$.next([buildExpense()]);
+    fixture.detectChanges();
+
+    const dialog = TestBed.inject(MatDialog) as unknown as { open: ReturnType<typeof vi.fn> };
+    dialog.open.mockReturnValue({ afterClosed: () => of(['tag-1', 'tag-2']) });
+
+    const [item] = expenseItems();
+    (component as unknown as { onTagsClick: (e: unknown) => void }).onTagsClick(item);
+
+    expect(expenseService.assignTags).toHaveBeenCalledWith('expense-1', ['tag-1', 'tag-2']);
+  });
+
+  it('does not assign tags when the picker dialog is cancelled', () => {
+    expenseService.expenses$.next([buildExpense()]);
+    fixture.detectChanges();
+
+    const dialog = TestBed.inject(MatDialog) as unknown as { open: ReturnType<typeof vi.fn> };
+    dialog.open.mockReturnValue({ afterClosed: () => of(undefined) });
+
+    const [item] = expenseItems();
+    (component as unknown as { onTagsClick: (e: unknown) => void }).onTagsClick(item);
+
+    expect(expenseService.assignTags).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,7 @@ export interface Expense {
   readonly installment: boolean;
   readonly installmentNumber?: number | null;
   readonly installmentId?: string | null;
+  readonly tagIds?: readonly string[];
 }
 
 export type ChartPeriod = '12' | '24';
@@ -26,6 +27,11 @@ export interface CreateExpenseRequest {
   readonly installment?: boolean;
   /** Only sent when installment=true; API requires min=2, max=120 */
   readonly installmentNumber?: number;
+}
+
+/** Absent = don't touch current tags; [] clears all; non-empty replaces the whole set. */
+export interface PatchExpenseRequest {
+  readonly tagIds?: readonly string[];
 }
 
 export interface PagedExpenseResponse {

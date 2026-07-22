@@ -8,6 +8,7 @@ export interface FilterableExpense {
   readonly creditCardId: string | null;
   readonly remainingValue: number;
   readonly statusLabel: string;
+  readonly tagNames: readonly string[];
 }
 
 export interface ExpenseFilterCriteria {
@@ -26,7 +27,11 @@ function matchesCriteria<T extends FilterableExpense>(
 ): boolean {
   const { creditCardId, paymentStatus, startDate, endDate } = criteria;
 
-  if (query && !item.name.toLowerCase().includes(query)) return false;
+  if (query) {
+    const matchesName = item.name.toLowerCase().includes(query);
+    const matchesTag = item.tagNames.some((tagName) => tagName.toLowerCase().includes(query));
+    if (!matchesName && !matchesTag) return false;
+  }
   if (creditCardId && item.creditCardId !== creditCardId) return false;
   if (paymentStatus === 'PAID' && item.statusLabel !== 'PAID') return false;
   if (paymentStatus === 'OPEN' && item.statusLabel !== 'OPEN') return false;

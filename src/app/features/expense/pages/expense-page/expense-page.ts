@@ -28,6 +28,12 @@ import { InstallmentService } from '@features/installment/services/installment.s
 import { Payer } from '@features/payer/models/payer';
 import { Share } from '@features/share/models/share';
 import { ShareService } from '@features/share/services/share.service';
+import { TagService } from '@features/tag/services/tag.service';
+import {
+  TagPickerDialogComponent,
+  TagPickerDialogData,
+  TagPickerDialogResult,
+} from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 
 import {
   ExpenseDeleteDialogComponent,
@@ -43,6 +49,11 @@ import {
   InteractiveShareDialogResult,
 } from '../../components/interactive-share-dialog/interactive-share-dialog.component';
 import { ExpenseService } from '../../services/expense.service';
+
+interface ExpenseTagChip {
+  readonly id: string;
+  readonly name: string;
+}
 
 interface ExpenseListItem {
   readonly id: string;
@@ -60,6 +71,9 @@ interface ExpenseListItem {
   readonly activeShares: readonly Share[];
   readonly hasShare: boolean;
   readonly shareSummary: string;
+  readonly tagIds: readonly string[];
+  readonly tagChips: readonly ExpenseTagChip[];
+  readonly tagNames: readonly string[];
 }
 
 interface BulletOption {
@@ -85,11 +99,13 @@ export class ExpensePage {
   private readonly walletService = inject(WalletService);
   private readonly installmentService = inject(InstallmentService);
   private readonly shareService = inject(ShareService);
+  private readonly tagService = inject(TagService);
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
   private readonly payments = toSignal(this.paymentService.payments$, { initialValue: [] });
   private readonly shares = toSignal(this.shareService.shares$, { initialValue: [] });
+  private readonly tags = toSignal(this.tagService.tags$, { initialValue: [] });
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
@@ -157,6 +173,7 @@ export class ExpensePage {
 
   protected readonly expenseItems = computed<readonly ExpenseListItem[]>(() => {
     const creditCardNameById = new Map(this.creditCards().map((card) => [card.id, card.name]));
+    const tagMap = this.buildTagMap();
     return this.expenses().map((expense) => {
       const payment = this.payments().find((p) => p.expenseId === expense.id);
       const bullet = payment
@@ -177,6 +194,8 @@ export class ExpensePage {
         .flatMap((share) => share.quotas)
         .map((quota) => `${quota.payerName}: ${formatBrl(Number(quota.amount))}`)
         .join(' · ');
+      const tagIds = expense.tagIds ?? [];
+      const tagChips = tagIds.map((id) => ({ id, name: tagMap.get(id) ?? id }));
       return {
         id: expense.id,
         name: expense.name,
@@ -193,6 +212,9 @@ export class ExpensePage {
         activeShares,
         hasShare: activeShares.length > 0,
         shareSummary,
+        tagIds,
+        tagChips,
+        tagNames: tagChips.map((chip) => chip.name),
       };
     });
   });
@@ -235,6 +257,12 @@ export class ExpensePage {
       const walletId = this.selectedWallet()?.id ?? null;
       this.reloadWalletPayers(walletId);
     });
+
+    this.tagService.loadAll();
+  }
+
+  private buildTagMap(): ReadonlyMap<string, string> {
+    return new Map(this.tags().map((tag) => [tag.id, tag.name]));
   }
 
   private reloadWalletPayers(walletId: string | null): void {
@@ -349,6 +377,28 @@ export class ExpensePage {
           this.shareService.loadAll();
           this.reloadWalletPayers(id);
         }
+      });
+  }
+
+  protected onTagsClick(expense: ExpenseListItem): void {
+    const data: TagPickerDialogData = {
+      availableTags: this.tags(),
+      selectedTagIds: expense.tagIds,
+    };
+
+    this.dialog
+      .open<TagPickerDialogComponent, TagPickerDialogData, TagPickerDialogResult>(
+        TagPickerDialogComponent,
+        { width: '26rem', maxWidth: 'calc(100vw - 2rem)', data },
+      )
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((selectedTagIds) => {
+        if (selectedTagIds === undefined) return;
+        this.expenseService
+          .assignTags(expense.id, selectedTagIds)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({ error: () => undefined });
       });
   }
 

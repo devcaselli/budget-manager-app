@@ -15,7 +15,13 @@ import {
 import { environment } from '@environments/environment';
 import { LoadingCounter } from '@core/state/loading-counter';
 
-import { ChartPeriod, CreateExpenseRequest, Expense, PagedExpenseResponse } from '../models/expense';
+import {
+  ChartPeriod,
+  CreateExpenseRequest,
+  Expense,
+  PagedExpenseResponse,
+  PatchExpenseRequest,
+} from '../models/expense';
 
 @Injectable({
   providedIn: 'root',
@@ -161,5 +167,49 @@ export class ExpenseService {
 
   loadByWalletId(walletId: string | null): void {
     this.loadExpensesTrigger$.next(walletId);
+  }
+
+  patch(
+    id: string,
+    request: PatchExpenseRequest,
+    errorMessage = 'Não foi possível atualizar a expense.',
+  ): Observable<Expense> {
+    const subject = new ReplaySubject<Expense>(1);
+
+    this.errorSubject.next(null);
+
+    this.http
+      .patch<Expense>(`${this.expensesUrl}/${id}`, request)
+      .pipe(
+        tap({
+          next: (updated) => {
+            const currentExpenses = this.expensesSubject.getValue();
+            this.expensesSubject.next(
+              currentExpenses.map((expense) => (expense.id === id ? updated : expense)),
+            );
+          },
+          error: () => this.errorSubject.next(errorMessage),
+        }),
+      )
+      .subscribe({
+        next: (updated) => {
+          subject.next(updated);
+          subject.complete();
+        },
+        error: (error: unknown) => subject.error(error),
+      });
+
+    return subject.asObservable();
+  }
+
+  /**
+   * Replaces the full tag set on an expense. Thin wrapper over `patch()` — the backend
+   * has no dedicated tags endpoint, `tagIds` is just another field on `PATCH /expenses/{id}`.
+   *
+   * Uses a tag-specific error message so a failure here (which happens after the expense
+   * itself was already created/exists) doesn't read like the whole operation failed.
+   */
+  assignTags(id: string, tagIds: readonly string[]): Observable<Expense> {
+    return this.patch(id, { tagIds }, 'Expense salva, mas as tags não puderam ser aplicadas. Tente novamente na linha dela.');
   }
 }

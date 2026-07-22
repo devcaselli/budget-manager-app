@@ -95,6 +95,47 @@ describe('ExpenseService', () => {
 
     expect(emittedExpenses.at(-1)).toEqual([]);
   });
+
+  it('should PATCH /api/expenses/:id with only tagIds and replace it in expenses$', () => {
+    const emittedExpenses: (readonly Expense[])[] = [];
+
+    service.expenses$.subscribe((value) => emittedExpenses.push(value));
+    service.loadByWalletId('wallet-1');
+    httpMock.expectOne('/api/expenses/wallet/wallet-1?page=0&size=100').flush(pagedResponse([expense]));
+
+    const updated: Expense = { ...expense, tagIds: ['tag-1', 'tag-2'] };
+    service.assignTags(expense.id, ['tag-1', 'tag-2']).subscribe((result) => expect(result).toEqual(updated));
+
+    const request = httpMock.expectOne('/api/expenses/expense-1');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ tagIds: ['tag-1', 'tag-2'] });
+    request.flush(updated);
+
+    expect(emittedExpenses.at(-1)).toEqual([updated]);
+  });
+
+  it('should send an empty array to clear all tags via assignTags', () => {
+    service.assignTags(expense.id, []).subscribe();
+
+    const request = httpMock.expectOne('/api/expenses/expense-1');
+    expect(request.request.body).toEqual({ tagIds: [] });
+    request.flush({ ...expense, tagIds: [] });
+  });
+
+  it('should propagate an assignTags error and surface it via error$', () => {
+    const errors: (string | null)[] = [];
+    service.error$.subscribe((v) => errors.push(v));
+
+    let errored = false;
+    service.assignTags(expense.id, ['tag-1']).subscribe({ error: () => (errored = true) });
+
+    httpMock.expectOne('/api/expenses/expense-1').flush(null, { status: 500, statusText: 'Error' });
+
+    expect(errored).toBe(true);
+    expect(errors.at(-1)).toBe(
+      'Expense salva, mas as tags não puderam ser aplicadas. Tente novamente na linha dela.',
+    );
+  });
 });
 
 const expense: Expense = {

@@ -40,7 +40,7 @@
             class="ew-input"
             type="text"
             formControlName="search"
-            placeholder="Search expense"
+            placeholder="Search expense or tag"
           />
         </div>
         <div class="ep-filter-field">
@@ -103,7 +103,16 @@
           <tbody>
             @for (expense of filteredExpenseItems(); track expense.id) {
               <tr>
-                <td>{{ expense.name }}</td>
+                <td>
+                  {{ expense.name }}
+                  @if (expense.tagChips.length > 0) {
+                    <div class="expense-tag-chips">
+                      @for (chip of expense.tagChips; track chip.id) {
+                        <span class="expense-tag-chip">{{ chip.name }}</span>
+                      }
+                    </div>
+                  }
+                </td>
                 <td>{{ expense.purchaseDate | brDate }}</td>
                 <td>{{ expense.bulletLabel }}</td>
                 <td>{{ expense.creditCardLabel }}</td>
@@ -139,6 +148,15 @@
                     <mat-icon aria-hidden="true">
                       {{ expense.statusLabel === 'PAID' ? 'check' : 'payments' }}
                     </mat-icon>
+                  </button>
+                  <button
+                    class="ep-icon-btn"
+                    type="button"
+                    (click)="onTagsClick(expense)"
+                    aria-label="Manage tags"
+                    title="Manage tags"
+                  >
+                    <mat-icon aria-hidden="true">sell</mat-icon>
                   </button>
                   @if (!expense.hasShare) {
                     <button

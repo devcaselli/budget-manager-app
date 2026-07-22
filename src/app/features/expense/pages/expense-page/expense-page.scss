@@ -159,3 +159,23 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+.expense-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.expense-tag-chip {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-family: var(--ew-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(214, 163, 113, 0.1);
+  color: var(--ew-acc);
+  border: 1px solid rgba(214, 163, 113, 0.2);
+}
