@@ -37,6 +37,9 @@ interface TweaksPos {
   y: number;
 }
 
+/** Horizontal gap (px) between the Tools nav trigger and its flyout submenu. */
+const TOOLS_SUBMENU_GAP_PX = 8;
+
 interface NavEntry {
   readonly label: string;
   readonly route: string;
@@ -117,6 +120,14 @@ export class ShellComponent {
     { label: 'Settings',      route: '/settings',      num: '14' },
   ];
 
+  protected readonly toolsNav: readonly NavEntry[] = [
+    { label: 'Tags', route: '/tags', num: '15' },
+  ];
+
+  protected readonly toolsMenuOpen = signal(false);
+  protected readonly toolsMenuCoords = signal<PopoverCoords>({ top: 0, left: 0 });
+  private toolsMenuCloseTimeout: ReturnType<typeof setTimeout> | null = null;
+
   /** Percentage of wallet budget already committed. */
   protected readonly utilizationRate = computed(() => {
     const wallet = this.selectedWallet();
@@ -165,6 +176,16 @@ export class ShellComponent {
       document.removeEventListener('click', closeOnClick);
       document.removeEventListener('keydown', closeOnEsc);
     });
+
+    // Close tools submenu on Escape (reuses the same keydown listener pattern)
+    const closeToolsOnEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') this.closeToolsMenu();
+    };
+    document.addEventListener('keydown', closeToolsOnEsc);
+    this.destroyRef.onDestroy(() => {
+      document.removeEventListener('keydown', closeToolsOnEsc);
+      this.clearToolsMenuCloseTimeout();
+    });
   }
 
   protected toggleWalletPop(event: MouseEvent): void {
@@ -187,6 +208,35 @@ export class ShellComponent {
 
   protected closeWalletPop(): void {
     this.walletPopOpen.set(false);
+  }
+
+  protected onToolsMenuEnter(event: Event): void {
+    this.clearToolsMenuCloseTimeout();
+    const trigger = event.currentTarget as HTMLElement;
+    const rect = trigger.getBoundingClientRect();
+    this.toolsMenuCoords.set({ top: rect.top, left: rect.right + TOOLS_SUBMENU_GAP_PX });
+    this.toolsMenuOpen.set(true);
+  }
+
+  protected cancelToolsMenuClose(): void {
+    this.clearToolsMenuCloseTimeout();
+  }
+
+  protected onToolsMenuLeave(): void {
+    this.clearToolsMenuCloseTimeout();
+    this.toolsMenuCloseTimeout = setTimeout(() => this.toolsMenuOpen.set(false), 150);
+  }
+
+  protected closeToolsMenu(): void {
+    this.clearToolsMenuCloseTimeout();
+    this.toolsMenuOpen.set(false);
+  }
+
+  private clearToolsMenuCloseTimeout(): void {
+    if (this.toolsMenuCloseTimeout !== null) {
+      clearTimeout(this.toolsMenuCloseTimeout);
+      this.toolsMenuCloseTimeout = null;
+    }
   }
 
   protected switchWallet(wallet: Wallet): void {
@@ -307,7 +357,7 @@ export class ShellComponent {
 
   private syncRouteLabel(): void {
     const url = this.router.url.split('?')[0].split('#')[0];
-    const all = [...this.workspaceNav, ...this.activityNav];
+    const all = [...this.workspaceNav, ...this.activityNav, ...this.toolsNav];
     const match = all.find((n) => url.startsWith(n.route));
     this.currentRouteLabel.set(match?.label ?? 'Dashboard');
   }

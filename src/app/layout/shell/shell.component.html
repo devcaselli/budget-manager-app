@@ -41,6 +41,28 @@
           {{ item.label }}
         </a>
       }
+
+      <div class="ew-nav-section">Tools</div>
+
+      <div
+        class="ew-nav-item ew-nav-item--tools"
+        role="button"
+        tabindex="0"
+        [attr.aria-expanded]="toolsMenuOpen()"
+        aria-haspopup="true"
+        aria-controls="ew-tools-submenu"
+        (mouseenter)="onToolsMenuEnter($event)"
+        (mouseleave)="onToolsMenuLeave()"
+        (focus)="onToolsMenuEnter($event)"
+        (blur)="onToolsMenuLeave()"
+        (keydown.enter)="onToolsMenuEnter($event)"
+      >
+        <span class="ew-nav-num">15</span>
+        Tools
+        <svg class="ew-nav-tools-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <polyline points="9 6 15 12 9 18"/>
+        </svg>
+      </div>
     </nav>
 
     <div class="ew-side-spacer"></div>
@@ -208,6 +230,34 @@
         <polyline points="12 5 19 12 12 19"/>
       </svg>
     </a>
+  </div>
+}
+
+<!-- ── Tools submenu — rendered outside sidebar to escape overflow:auto ── -->
+@if (toolsMenuOpen()) {
+  <div
+    id="ew-tools-submenu"
+    class="ew-tools-submenu"
+    role="menu"
+    aria-label="Tools"
+    [style.top.px]="toolsMenuCoords().top"
+    [style.left.px]="toolsMenuCoords().left"
+    (mouseenter)="cancelToolsMenuClose()"
+    (mouseleave)="onToolsMenuLeave()"
+  >
+    @for (item of toolsNav; track item.route) {
+      <a
+        class="ew-tools-submenu-item"
+        role="menuitem"
+        [routerLink]="item.route"
+        routerLinkActive="ew-tools-submenu-item--active"
+        (click)="closeToolsMenu()"
+        (focus)="cancelToolsMenuClose()"
+        (blur)="onToolsMenuLeave()"
+      >
+        {{ item.label }}
+      </a>
+    }
   </div>
 }
 
