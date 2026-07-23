@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { BehaviorSubject, of, switchMap, tap } from 'rxjs';
+import { BehaviorSubject, debounceTime, of, switchMap, tap } from 'rxjs';
 import { formatBrl } from '@shared/utils/currency';
 import { CreditCardService } from '@features/credit-card/services/credit-card.service';
 import { TagService } from '@features/tag/services/tag.service';
@@ -13,6 +13,7 @@ import {
   TagPickerDialogResult,
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 import { matchesNameOrTag } from '@shared/utils/search-filter';
+import { TagChip, toTagChips } from '@shared/utils/tag-chips';
 
 import {
   SubscriptionFutureConfirmDialogComponent,
@@ -26,11 +27,6 @@ import {
 import { SubscriptionService } from '../../services/subscription.service';
 import { resolveCurrentAmount } from '../../utils/resolve-current-amount';
 import { WalletService } from '@features/wallet/services/wallet.service';
-
-interface SubscriptionTagChip {
-  readonly id: string;
-  readonly name: string;
-}
 
 interface SubscriptionListItem {
   readonly id: string;
@@ -55,7 +51,7 @@ interface SubscriptionListItem {
   readonly amountTrend: string | null;
   readonly versions: readonly { effectiveMonth: string; amount: string }[];
   readonly tagIds: readonly string[];
-  readonly tagChips: readonly SubscriptionTagChip[];
+  readonly tagChips: readonly TagChip[];
 }
 
 type SubscriptionFilter = 'all' | 'production' | 'preview';
@@ -92,14 +88,20 @@ export class SubscriptionPage {
   private readonly tags = toSignal(this.tagService.tags$, { initialValue: [] });
   /** Draft tag selection for the create form — only used when creating (not editing). */
   protected readonly newSubscriptionTagIds = signal<readonly string[]>([]);
-  protected readonly newSubscriptionTagChips = computed<readonly SubscriptionTagChip[]>(() => {
+  protected readonly newSubscriptionTagChips = computed<readonly TagChip[]>(() => {
     const tagNameById = new Map(this.tags().map((tag) => [tag.id, tag.name]));
-    return this.newSubscriptionTagIds().map((id) => ({ id, name: tagNameById.get(id) ?? id }));
+    return toTagChips(this.newSubscriptionTagIds(), tagNameById);
   });
   private readonly editingSubscriptionId$ = new BehaviorSubject<string | null>(null);
   protected readonly subscriptionFilter = signal<SubscriptionFilter>('all');
   protected readonly activeOnly = signal(true);
-  protected readonly searchTerm = signal('');
+  /** Debounced client-side search, no HTTP — Reactive Forms for consistency with Expense's
+   * filter pattern (Installment/Subscription previously used a raw `[value]`+`(input)` signal). */
+  protected readonly searchControl = new FormControl('', { nonNullable: true });
+  protected readonly searchTerm = toSignal(
+    this.searchControl.valueChanges.pipe(debounceTime(150)),
+    { initialValue: '' },
+  );
 
   protected readonly isLoading = toSignal(this.subscriptionService.loading$, { initialValue: false });
   protected readonly isSaving = toSignal(this.subscriptionService.saving$, { initialValue: false });
@@ -293,10 +295,6 @@ export class SubscriptionPage {
     this.subscriptionFilter.set(filter);
   }
 
-  protected onSearchTermChange(value: string): void {
-    this.searchTerm.set(value);
-  }
-
   protected toggleActiveOnly(): void {
     this.activeOnly.update((value) => !value);
   }
@@ -371,7 +369,7 @@ export class SubscriptionPage {
         amount: formatAmount(Number(v.amount)),
       })),
       tagIds,
-      tagChips: tagIds.map((id) => ({ id, name: tagNameById.get(id) ?? id })),
+      tagChips: toTagChips(tagIds, tagNameById),
     };
   }
 

@@ -68,6 +68,7 @@ describe('SubscriptionPage — search by name or tag', () => {
   let tagService: FakeTagService;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     subscriptionService = new FakeSubscriptionService();
     tagService = new FakeTagService();
 
@@ -89,6 +90,10 @@ describe('SubscriptionPage — search by name or tag', () => {
     fixture.detectChanges();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   function filteredItems() {
     return (
       component as unknown as {
@@ -97,8 +102,10 @@ describe('SubscriptionPage — search by name or tag', () => {
     ).filteredSubscriptionItems();
   }
 
-  function setSearch(value: string): void {
-    (component as unknown as { onSearchTermChange: (v: string) => void }).onSearchTermChange(value);
+  /** Sets the search control and flushes its 150ms debounce. */
+  async function setSearch(value: string): Promise<void> {
+    (component as unknown as { searchControl: { setValue: (v: string) => void } }).searchControl.setValue(value);
+    await vi.advanceTimersByTimeAsync(150);
     fixture.detectChanges();
   }
 
@@ -112,19 +119,19 @@ describe('SubscriptionPage — search by name or tag', () => {
     expect(filteredItems()).toHaveLength(2);
   });
 
-  it('filters by case-insensitive name match', () => {
+  it('filters by case-insensitive name match', async () => {
     subscriptionService.subscriptions$.next([
       buildSubscription({ id: 'a', description: 'Netflix' }),
       buildSubscription({ id: 'b', description: 'Spotify' }),
     ]);
     fixture.detectChanges();
 
-    setSearch('net');
+    await setSearch('net');
 
     expect(filteredItems().map((i) => i.id)).toEqual(['a']);
   });
 
-  it('filters by assigned tag name, not just item name', () => {
+  it('filters by assigned tag name, not just item name', async () => {
     tagService.tags$.next([{ id: 'tag-1', name: 'Streaming', parentId: null }]);
     subscriptionService.subscriptions$.next([
       buildSubscription({ id: 'a', description: 'Netflix', tagIds: ['tag-1'] }),
@@ -132,12 +139,12 @@ describe('SubscriptionPage — search by name or tag', () => {
     ]);
     fixture.detectChanges();
 
-    setSearch('streaming');
+    await setSearch('streaming');
 
     expect(filteredItems().map((i) => i.id)).toEqual(['a']);
   });
 
-  it('composes search with the existing state filter (AND)', () => {
+  it('composes search with the existing state filter (AND)', async () => {
     subscriptionService.subscriptions$.next([
       buildSubscription({ id: 'a', description: 'Netflix', state: 'PRODUCTION' }),
       buildSubscription({ id: 'b', description: 'Netflix Kids', state: 'PREVIEW' }),
@@ -147,17 +154,33 @@ describe('SubscriptionPage — search by name or tag', () => {
     (component as unknown as { setSubscriptionFilter: (f: string) => void }).setSubscriptionFilter(
       'production',
     );
-    setSearch('netflix');
+    await setSearch('netflix');
 
     expect(filteredItems().map((i) => i.id)).toEqual(['a']);
   });
 
-  it('returns no items when nothing matches name or tag', () => {
+  it('returns no items when nothing matches name or tag', async () => {
     subscriptionService.subscriptions$.next([buildSubscription({ id: 'a', description: 'Netflix' })]);
     fixture.detectChanges();
 
-    setSearch('nonexistent');
+    await setSearch('nonexistent');
 
     expect(filteredItems()).toHaveLength(0);
+  });
+
+  it('actually narrows the rendered rows, not just the computed', async () => {
+    subscriptionService.subscriptions$.next([
+      buildSubscription({ id: 'a', description: 'Netflix' }),
+      buildSubscription({ id: 'b', description: 'Spotify' }),
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.ew-sub').length).toBe(2);
+
+    await setSearch('net');
+
+    const rows = fixture.nativeElement.querySelectorAll('.ew-sub');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain('Netflix');
   });
 });
