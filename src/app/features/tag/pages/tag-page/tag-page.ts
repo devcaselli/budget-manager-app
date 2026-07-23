@@ -37,7 +37,7 @@ interface AccumulationRow {
   readonly total: number;
   readonly breakdownLabel: string;
   readonly isSubtag: boolean;
-  /** "Direto: R$X · Herdado: R$Y" — only set for a parent-tag row (Fase 3 rollup). Always `null` for a subtag row. */
+  /** "Direct: R$X · Inherited: R$Y" — only set for a parent-tag row (Fase 3 rollup). Always `null` for a subtag row. */
   readonly rollupDetail: string | null;
 }
 
@@ -95,11 +95,11 @@ export class TagPage {
           .join(' · '),
         isSubtag,
         // Rollup detail only makes sense on a parent row — a subtag's total is already its
-        // own isolated direct sum (inheritedTotal is always 0 there), so showing "Direto/Herdado"
+        // own isolated direct sum (inheritedTotal is always 0 there), so showing "Direct/Inherited"
         // under a subtag would just repeat its own total for no reason.
         rollupDetail: isSubtag
           ? null
-          : `Direto: ${formatBrl(entry.directTotal)} · Herdado: ${formatBrl(entry.inheritedTotal)}`,
+          : `Direct: ${formatBrl(entry.directTotal)} · Inherited: ${formatBrl(entry.inheritedTotal)}`,
       };
     };
 

@@ -213,13 +213,13 @@ describe('TagPage — Acúmulos tab', () => {
 
   // ── Fase 3: rollup detail (directTotal/inheritedTotal) ─────────────────────
 
-  it('shows a "Direto · Herdado" rollup detail on a parent-tag row', () => {
+  it('shows a "Direct · Inherited" rollup detail on a parent-tag row', () => {
     tagAccumulationService.accumulation$.next({
       walletId: 'wallet-1',
       entries: [
         {
           tagId: 'root-1',
-          tagName: 'Transporte',
+          tagName: 'Transport',
           parentId: null,
           total: 170,
           directTotal: 50,
@@ -238,7 +238,7 @@ describe('TagPage — Acúmulos tab', () => {
 
     const nbsp = ' ';
     expect(rows[0].total).toBe(170);
-    expect(rows[0].rollupDetail).toBe(`Direto: R$${nbsp}50,00 · Herdado: R$${nbsp}120,00`);
+    expect(rows[0].rollupDetail).toBe(`Direct: R$${nbsp}50,00 · Inherited: R$${nbsp}120,00`);
   });
 
   it('formats a parent-only-inherited row (directTotal: 0) correctly', () => {
@@ -251,7 +251,7 @@ describe('TagPage — Acúmulos tab', () => {
       entries: [
         {
           tagId: 'root-1',
-          tagName: 'Casa',
+          tagName: 'Home',
           parentId: null,
           total: 80,
           directTotal: 0,
@@ -270,7 +270,7 @@ describe('TagPage — Acúmulos tab', () => {
 
     const nbsp = ' ';
     expect(rows[0].total).toBe(80);
-    expect(rows[0].rollupDetail).toBe(`Direto: R$${nbsp}0,00 · Herdado: R$${nbsp}80,00`);
+    expect(rows[0].rollupDetail).toBe(`Direct: R$${nbsp}0,00 · Inherited: R$${nbsp}80,00`);
   });
 
   it('never shows a rollup detail on a subtag row', () => {
@@ -300,12 +300,14 @@ describe('TagPage — Acúmulos tab', () => {
   it('matches the README example: parent with direct items + a subtag rolls up correctly', () => {
     // "Transporte" (pai) tem 2 itens tagueados diretamente (R$50) + subtag "Uber" com
     // R$120 tagueados nela — Transporte → Total R$170, Direto R$50, Herdado R$120.
+    // (README example kept in the original PT-BR wording — the rendered UI strings
+    // themselves are English, matching the rest of the app's convention.)
     tagAccumulationService.accumulation$.next({
       walletId: 'wallet-1',
       entries: [
         {
           tagId: 'root-1',
-          tagName: 'Transporte',
+          tagName: 'Transport',
           parentId: null,
           total: 170,
           directTotal: 50,
@@ -336,7 +338,7 @@ describe('TagPage — Acúmulos tab', () => {
     const subRow = rows.find((r) => r.tagId === 'sub-1');
 
     expect(parentRow?.total).toBe(170);
-    expect(parentRow?.rollupDetail).toBe(`Direto: R$${nbsp}50,00 · Herdado: R$${nbsp}120,00`);
+    expect(parentRow?.rollupDetail).toBe(`Direct: R$${nbsp}50,00 · Inherited: R$${nbsp}120,00`);
     expect(subRow?.total).toBe(120);
     expect(subRow?.rollupDetail).toBeNull();
   });
