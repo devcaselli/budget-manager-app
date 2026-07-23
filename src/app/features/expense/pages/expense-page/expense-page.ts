@@ -16,6 +16,7 @@ import { catchError, of } from 'rxjs';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 import { formatBrl } from '@shared/utils/currency';
+import { TagChip, toTagChips } from '@shared/utils/tag-chips';
 import {
   ExpensePaymentStatus,
   ExpenseSortOrder,
@@ -50,11 +51,6 @@ import {
 } from '../../components/interactive-share-dialog/interactive-share-dialog.component';
 import { ExpenseService } from '../../services/expense.service';
 
-interface ExpenseTagChip {
-  readonly id: string;
-  readonly name: string;
-}
-
 interface ExpenseListItem {
   readonly id: string;
   readonly name: string;
@@ -72,7 +68,7 @@ interface ExpenseListItem {
   readonly hasShare: boolean;
   readonly shareSummary: string;
   readonly tagIds: readonly string[];
-  readonly tagChips: readonly ExpenseTagChip[];
+  readonly tagChips: readonly TagChip[];
   readonly tagNames: readonly string[];
 }
 
@@ -171,9 +167,15 @@ export class ExpensePage {
     !!this.wallet() && this.hasCreditCards() && this.formStatus() === 'VALID' && !this.isSaving(),
   );
 
+  // Memoized on its own — depends only on tags(), so it's not rebuilt when expenseItems
+  // recomputes for unrelated reasons (payments, shares, bullets changing).
+  private readonly tagMap = computed<ReadonlyMap<string, string>>(
+    () => new Map(this.tags().map((tag) => [tag.id, tag.name])),
+  );
+
   protected readonly expenseItems = computed<readonly ExpenseListItem[]>(() => {
     const creditCardNameById = new Map(this.creditCards().map((card) => [card.id, card.name]));
-    const tagMap = this.buildTagMap();
+    const tagMap = this.tagMap();
     return this.expenses().map((expense) => {
       const payment = this.payments().find((p) => p.expenseId === expense.id);
       const bullet = payment
@@ -195,7 +197,7 @@ export class ExpensePage {
         .map((quota) => `${quota.payerName}: ${formatBrl(Number(quota.amount))}`)
         .join(' · ');
       const tagIds = expense.tagIds ?? [];
-      const tagChips = tagIds.map((id) => ({ id, name: tagMap.get(id) ?? id }));
+      const tagChips = toTagChips(tagIds, tagMap);
       return {
         id: expense.id,
         name: expense.name,
@@ -259,10 +261,6 @@ export class ExpensePage {
     });
 
     this.tagService.loadAll();
-  }
-
-  private buildTagMap(): ReadonlyMap<string, string> {
-    return new Map(this.tags().map((tag) => [tag.id, tag.name]));
   }
 
   private reloadWalletPayers(walletId: string | null): void {
@@ -398,6 +396,9 @@ export class ExpensePage {
         this.expenseService
           .assignTags(expense.id, selectedTagIds)
           .pipe(takeUntilDestroyed(this.destroyRef))
+          // Error is not lost — ExpenseService.patch() already pushed the message onto
+          // errorSubject (rendered via errorMessage() in the template). This handler exists
+          // only to stop the rejection from surfacing as unhandled.
           .subscribe({ error: () => undefined });
       });
   }
