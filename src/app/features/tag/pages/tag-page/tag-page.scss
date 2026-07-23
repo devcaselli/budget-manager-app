@@ -134,3 +134,14 @@
     cursor: not-allowed;
   }
 }
+
+// ── Acúmulos rollup detail (Fase 3) ─────────────────────────────────────────────
+
+.tag-accum-detail {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ew-ink-3);
+}

@@ -136,6 +136,8 @@ describe('TagPage — Acúmulos tab', () => {
           tagName: 'Food',
           parentId: null,
           total: 1075,
+          directTotal: 1075,
+          inheritedTotal: 0,
           breakdown: { EXPENSE: 50, INSTALLMENT: 1000, SUBSCRIPTION: 25 },
         },
       ],
@@ -151,7 +153,7 @@ describe('TagPage — Acúmulos tab', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].tagName).toBe('Food');
     expect(rows[0].total).toBe(1075);
-    const nbsp = '\u00A0';
+    const nbsp = ' ';
     expect(rows[0].breakdownLabel).toBe(
       `Expense: R$${nbsp}50,00 · Installment: R$${nbsp}1.000,00 · Subscription: R$${nbsp}25,00`,
     );
@@ -168,9 +170,9 @@ describe('TagPage — Acúmulos tab', () => {
       entries: [
         // sub-1 (for root-1) appears BEFORE root-1 itself in the source data — the subtag
         // must still be grouped right after its parent in the output, not left in place.
-        { tagId: 'sub-1', tagName: 'Restaurants', parentId: 'root-1', total: 40, breakdown: { EXPENSE: 40 } },
-        { tagId: 'root-2', tagName: 'Transport', parentId: null, total: 200, breakdown: { EXPENSE: 200 } },
-        { tagId: 'root-1', tagName: 'Food', parentId: null, total: 60, breakdown: { EXPENSE: 60 } },
+        { tagId: 'sub-1', tagName: 'Restaurants', parentId: 'root-1', total: 40, directTotal: 40, inheritedTotal: 0, breakdown: { EXPENSE: 40 } },
+        { tagId: 'root-2', tagName: 'Transport', parentId: null, total: 200, directTotal: 200, inheritedTotal: 0, breakdown: { EXPENSE: 200 } },
+        { tagId: 'root-1', tagName: 'Food', parentId: null, total: 100, directTotal: 60, inheritedTotal: 40, breakdown: { EXPENSE: 60 } },
       ],
     });
     fixture.detectChanges();
@@ -189,11 +191,15 @@ describe('TagPage — Acúmulos tab', () => {
   });
 
   it('still shows a subtag whose parent has no accumulation entry of its own', () => {
+    // Defensive fallback: the current backend (Fase 3) always includes the parent's own
+    // entry once any of its subtags accumulate something (confirmed via
+    // TagAccumulationEndToEndTest#accumulation_taggedOnlyOnSubtag_...), so this specific
+    // shape shouldn't occur in practice anymore — kept as a guard against a payload where
+    // the parent entry is missing for any other reason (partial response, future API change).
     tagAccumulationService.accumulation$.next({
       walletId: 'wallet-1',
-      // root-1 (the parent) never appears — it had zero contributions across all origins.
       entries: [
-        { tagId: 'sub-1', tagName: 'Restaurants', parentId: 'root-1', total: 40, breakdown: { EXPENSE: 40 } },
+        { tagId: 'sub-1', tagName: 'Restaurants', parentId: 'root-1', total: 40, directTotal: 40, inheritedTotal: 0, breakdown: { EXPENSE: 40 } },
       ],
     });
     fixture.detectChanges();
@@ -203,5 +209,135 @@ describe('TagPage — Acúmulos tab', () => {
     ).accumulationRows();
 
     expect(rows.map((r) => r.tagId)).toEqual(['sub-1']);
+  });
+
+  // ── Fase 3: rollup detail (directTotal/inheritedTotal) ─────────────────────
+
+  it('shows a "Direto · Herdado" rollup detail on a parent-tag row', () => {
+    tagAccumulationService.accumulation$.next({
+      walletId: 'wallet-1',
+      entries: [
+        {
+          tagId: 'root-1',
+          tagName: 'Transporte',
+          parentId: null,
+          total: 170,
+          directTotal: 50,
+          inheritedTotal: 120,
+          breakdown: { EXPENSE: 50, INSTALLMENT: 120 },
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    const rows = (
+      component as unknown as {
+        accumulationRows: () => readonly { total: number; rollupDetail: string | null }[];
+      }
+    ).accumulationRows();
+
+    const nbsp = ' ';
+    expect(rows[0].total).toBe(170);
+    expect(rows[0].rollupDetail).toBe(`Direto: R$${nbsp}50,00 · Herdado: R$${nbsp}120,00`);
+  });
+
+  it('formats a parent-only-inherited row (directTotal: 0) correctly', () => {
+    // Mirrors the backend's own E2E case (accumulation_taggedOnlyOnSubtag_
+    // parentInheritsWithoutManualDoubleTagging): an item tagged ONLY on the subtag —
+    // the parent gets an entry with directTotal 0, inheritedTotal == the subtag's total,
+    // no manual double-tagging needed.
+    tagAccumulationService.accumulation$.next({
+      walletId: 'wallet-1',
+      entries: [
+        {
+          tagId: 'root-1',
+          tagName: 'Casa',
+          parentId: null,
+          total: 80,
+          directTotal: 0,
+          inheritedTotal: 80,
+          breakdown: { EXPENSE: 80 },
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    const rows = (
+      component as unknown as {
+        accumulationRows: () => readonly { total: number; rollupDetail: string | null }[];
+      }
+    ).accumulationRows();
+
+    const nbsp = ' ';
+    expect(rows[0].total).toBe(80);
+    expect(rows[0].rollupDetail).toBe(`Direto: R$${nbsp}0,00 · Herdado: R$${nbsp}80,00`);
+  });
+
+  it('never shows a rollup detail on a subtag row', () => {
+    tagAccumulationService.accumulation$.next({
+      walletId: 'wallet-1',
+      entries: [
+        {
+          tagId: 'sub-1',
+          tagName: 'Uber',
+          parentId: 'root-1',
+          total: 120,
+          directTotal: 120,
+          inheritedTotal: 0,
+          breakdown: { INSTALLMENT: 120 },
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    const rows = (
+      component as unknown as { accumulationRows: () => readonly { rollupDetail: string | null }[] }
+    ).accumulationRows();
+
+    expect(rows[0].rollupDetail).toBeNull();
+  });
+
+  it('matches the README example: parent with direct items + a subtag rolls up correctly', () => {
+    // "Transporte" (pai) tem 2 itens tagueados diretamente (R$50) + subtag "Uber" com
+    // R$120 tagueados nela — Transporte → Total R$170, Direto R$50, Herdado R$120.
+    tagAccumulationService.accumulation$.next({
+      walletId: 'wallet-1',
+      entries: [
+        {
+          tagId: 'root-1',
+          tagName: 'Transporte',
+          parentId: null,
+          total: 170,
+          directTotal: 50,
+          inheritedTotal: 120,
+          breakdown: { EXPENSE: 50, INSTALLMENT: 120 },
+        },
+        {
+          tagId: 'sub-1',
+          tagName: 'Uber',
+          parentId: 'root-1',
+          total: 120,
+          directTotal: 120,
+          inheritedTotal: 0,
+          breakdown: { INSTALLMENT: 120 },
+        },
+      ],
+    });
+    fixture.detectChanges();
+
+    const rows = (
+      component as unknown as {
+        accumulationRows: () => readonly { tagId: string; total: number; rollupDetail: string | null }[];
+      }
+    ).accumulationRows();
+
+    const nbsp = ' ';
+    const parentRow = rows.find((r) => r.tagId === 'root-1');
+    const subRow = rows.find((r) => r.tagId === 'sub-1');
+
+    expect(parentRow?.total).toBe(170);
+    expect(parentRow?.rollupDetail).toBe(`Direto: R$${nbsp}50,00 · Herdado: R$${nbsp}120,00`);
+    expect(subRow?.total).toBe(120);
+    expect(subRow?.rollupDetail).toBeNull();
   });
 });

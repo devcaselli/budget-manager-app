@@ -37,6 +37,8 @@ interface AccumulationRow {
   readonly total: number;
   readonly breakdownLabel: string;
   readonly isSubtag: boolean;
+  /** "Direto: R$X · Herdado: R$Y" — only set for a parent-tag row (Fase 3 rollup). Always `null` for a subtag row. */
+  readonly rollupDetail: string | null;
 }
 
 @Component({
@@ -82,19 +84,29 @@ export class TagPage {
     const result = this.accumulation();
     if (!result) return [];
 
-    const toRow = (entry: (typeof result.entries)[number]): AccumulationRow => ({
-      tagId: entry.tagId,
-      tagName: entry.tagName,
-      total: entry.total,
-      breakdownLabel: (Object.entries(entry.breakdown) as [TagAccumulationOrigin, number][])
-        .map(([source, amount]) => `${ACCUMULATION_ORIGIN_LABEL[source]}: ${formatBrl(amount)}`)
-        .join(' · '),
-      isSubtag: entry.parentId !== null,
-    });
+    const toRow = (entry: (typeof result.entries)[number]): AccumulationRow => {
+      const isSubtag = entry.parentId !== null;
+      return {
+        tagId: entry.tagId,
+        tagName: entry.tagName,
+        total: entry.total,
+        breakdownLabel: (Object.entries(entry.breakdown) as [TagAccumulationOrigin, number][])
+          .map(([source, amount]) => `${ACCUMULATION_ORIGIN_LABEL[source]}: ${formatBrl(amount)}`)
+          .join(' · '),
+        isSubtag,
+        // Rollup detail only makes sense on a parent row — a subtag's total is already its
+        // own isolated direct sum (inheritedTotal is always 0 there), so showing "Direto/Herdado"
+        // under a subtag would just repeat its own total for no reason.
+        rollupDetail: isSubtag
+          ? null
+          : `Direto: ${formatBrl(entry.directTotal)} · Herdado: ${formatBrl(entry.inheritedTotal)}`,
+      };
+    };
 
-    // No rollup (backend decision) means a subtag's total is NOT folded into its parent's —
-    // grouping root-then-its-subtags here (same order as the Tags view's tagGroups) at least
-    // makes that relationship visible, instead of every tag appearing as an unrelated flat row.
+    // Rollup (Fase 3) is computed backend-side into entry.directTotal/inheritedTotal above —
+    // this grouping is purely visual: root-then-its-subtags (same order as the Tags view's
+    // tagGroups) so the parent/child relationship reads clearly in the table, on top of the
+    // numeric rollup already reflected in each row's total/rollupDetail.
     const roots = result.entries.filter((entry) => entry.parentId === null);
     const subtagsByParent = new Map<string, typeof result.entries>();
     for (const entry of result.entries) {

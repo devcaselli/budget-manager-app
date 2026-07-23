@@ -28,6 +28,8 @@ describe('TagAccumulationService', () => {
           tagName: 'Food',
           parentId: null,
           total: 1075,
+          directTotal: 1075,
+          inheritedTotal: 0,
           breakdown: { EXPENSE: 50, INSTALLMENT: 1000, SUBSCRIPTION: 25 },
         },
       ],
@@ -71,7 +73,7 @@ describe('TagAccumulationService', () => {
     const walletOne: TagAccumulation = {
       walletId: 'wallet-1',
       entries: [
-        { tagId: 'tag-1', tagName: 'Food', parentId: null, total: 100, breakdown: { EXPENSE: 100 } },
+        { tagId: 'tag-1', tagName: 'Food', parentId: null, total: 100, directTotal: 100, inheritedTotal: 0, breakdown: { EXPENSE: 100 } },
       ],
     };
     const emitted: (TagAccumulation | null)[] = [];

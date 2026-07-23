@@ -142,7 +142,12 @@
           <tbody>
             @for (row of accumulationRows(); track row.tagId) {
               <tr>
-                <td>{{ row.isSubtag ? '— ' + row.tagName : row.tagName }}</td>
+                <td>
+                  {{ row.isSubtag ? '— ' + row.tagName : row.tagName }}
+                  @if (row.rollupDetail) {
+                    <span class="tag-accum-detail">{{ row.rollupDetail }}</span>
+                  }
+                </td>
                 <td class="ew-blur">{{ row.total | brlCurrency }}</td>
                 <td>{{ row.breakdownLabel }}</td>
               </tr>
