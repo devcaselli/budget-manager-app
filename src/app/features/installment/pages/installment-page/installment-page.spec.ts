@@ -79,6 +79,7 @@ describe('InstallmentPage — search by name or tag', () => {
   let tagService: FakeTagService;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     installmentService = new FakeInstallmentService();
     tagService = new FakeTagService();
 
@@ -99,6 +100,10 @@ describe('InstallmentPage — search by name or tag', () => {
     fixture.detectChanges();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   function filteredListItems() {
     return (
       component as unknown as {
@@ -107,8 +112,14 @@ describe('InstallmentPage — search by name or tag', () => {
     ).filteredListItems();
   }
 
-  function setSearch(value: string): void {
-    (component as unknown as { onSearchTermChange: (v: string) => void }).onSearchTermChange(value);
+  function searchControl() {
+    return (component as unknown as { searchControl: { setValue: (v: string) => void } }).searchControl;
+  }
+
+  /** Sets the search control and flushes its 150ms debounce. */
+  async function setSearch(value: string): Promise<void> {
+    searchControl().setValue(value);
+    await vi.advanceTimersByTimeAsync(150);
     fixture.detectChanges();
   }
 
@@ -122,19 +133,19 @@ describe('InstallmentPage — search by name or tag', () => {
     expect(filteredListItems()).toHaveLength(2);
   });
 
-  it('filters by case-insensitive name match', () => {
+  it('filters by case-insensitive name match', async () => {
     installmentService.installments$.next([
       buildInstallment({ id: 'a', description: 'Notebook' }),
       buildInstallment({ id: 'b', description: 'Phone' }),
     ]);
     fixture.detectChanges();
 
-    setSearch('note');
+    await setSearch('note');
 
     expect(filteredListItems().map((i) => i.id)).toEqual(['a']);
   });
 
-  it('filters by assigned tag name, not just item name', () => {
+  it('filters by assigned tag name, not just item name', async () => {
     tagService.tags$.next([{ id: 'tag-1', name: 'Electronics', parentId: null }]);
     installmentService.installments$.next([
       buildInstallment({ id: 'a', description: 'Notebook', tagIds: ['tag-1'] }),
@@ -142,17 +153,53 @@ describe('InstallmentPage — search by name or tag', () => {
     ]);
     fixture.detectChanges();
 
-    setSearch('electronics');
+    await setSearch('electronics');
 
     expect(filteredListItems().map((i) => i.id)).toEqual(['a']);
   });
 
-  it('returns no items when nothing matches name or tag', () => {
+  it('returns no items when nothing matches name or tag', async () => {
     installmentService.installments$.next([buildInstallment({ id: 'a', description: 'Notebook' })]);
     fixture.detectChanges();
 
-    setSearch('nonexistent');
+    await setSearch('nonexistent');
 
     expect(filteredListItems()).toHaveLength(0);
+  });
+
+  it('actually narrows the rendered rows, not just the computed', async () => {
+    installmentService.installments$.next([
+      buildInstallment({ id: 'a', description: 'Notebook' }),
+      buildInstallment({ id: 'b', description: 'Phone' }),
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.installment-alloc').length).toBe(2);
+
+    await setSearch('note');
+
+    const rows = fixture.nativeElement.querySelectorAll('.installment-alloc');
+    expect(rows.length).toBe(1);
+    expect(rows[0].textContent).toContain('Notebook');
+  });
+
+  it('debounces rapid typing into a single filter pass', async () => {
+    installmentService.installments$.next([
+      buildInstallment({ id: 'a', description: 'Notebook' }),
+      buildInstallment({ id: 'b', description: 'Phone' }),
+    ]);
+    fixture.detectChanges();
+
+    const control = searchControl();
+    control.setValue('n');
+    control.setValue('no');
+    control.setValue('not');
+    await vi.advanceTimersByTimeAsync(50); // still within the 150ms debounce window
+    fixture.detectChanges();
+    expect(filteredListItems()).toHaveLength(2);
+
+    await vi.advanceTimersByTimeAsync(150);
+    fixture.detectChanges();
+    expect(filteredListItems().map((i) => i.id)).toEqual(['a']);
   });
 });

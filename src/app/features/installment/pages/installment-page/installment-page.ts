@@ -8,7 +8,8 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { merge, of, switchMap } from 'rxjs';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { debounceTime, merge, of, switchMap } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 
@@ -21,6 +22,7 @@ import {
   TagPickerDialogResult,
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 import { matchesNameOrTag } from '@shared/utils/search-filter';
+import { TagChip, toTagChips } from '@shared/utils/tag-chips';
 
 import { InstallmentService } from '../../services/installment.service';
 import { Installment, InstallmentSortOrder, PatchInstallmentRequest, SaveInstallmentRequest } from '../../models/installment';
@@ -49,10 +51,6 @@ import {
   InstallmentFinishedDialogData,
 } from '../../components/installment-finished-dialog/installment-finished-dialog.component';
 
-interface InstallmentTagChip {
-  readonly id: string;
-  readonly name: string;
-}
 
 interface InstallmentListItem {
   readonly id: string;
@@ -73,7 +71,7 @@ interface InstallmentListItem {
   readonly remainingAmount: number;
   readonly lastInstallmentDate: string;
   readonly tagIds: readonly string[];
-  readonly tagChips: readonly InstallmentTagChip[];
+  readonly tagChips: readonly TagChip[];
 }
 
 interface MonthlyLoad {
@@ -96,7 +94,7 @@ const MONTH_LABEL_FORMAT = new Intl.DateTimeFormat('en-US', { month: '2-digit', 
 @Component({
   selector: 'app-installment-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BrlCurrencyPipe, MatIconModule],
+  imports: [BrlCurrencyPipe, MatIconModule, ReactiveFormsModule],
   templateUrl: './installment-page.html',
   styleUrl: './installment-page.scss',
 })
@@ -129,11 +127,23 @@ export class InstallmentPage {
 
   private readonly currentMonthKey = this.buildCurrentMonthKey();
 
-  protected readonly searchTerm = signal('');
+  /** Debounced client-side search, no HTTP — Reactive Forms for consistency with Expense's
+   * filter pattern (Installment/Subscription previously used a raw `[value]`+`(input)` signal). */
+  protected readonly searchControl = new FormControl('', { nonNullable: true });
+  protected readonly searchTerm = toSignal(
+    this.searchControl.valueChanges.pipe(debounceTime(150)),
+    { initialValue: '' },
+  );
+
+  // Memoized on its own — depends only on tags(), so it's not rebuilt when listItems
+  // recomputes for unrelated reasons (installments/creditCards changing).
+  private readonly tagMap = computed<ReadonlyMap<string, string>>(
+    () => new Map(this.tags().map((t) => [t.id, t.name])),
+  );
 
   protected readonly listItems = computed<readonly InstallmentListItem[]>(() => {
     const cardMap = this.buildCreditCardMap();
-    const tagMap = this.buildTagMap();
+    const tagMap = this.tagMap();
     return this.installments().map((inst) => this.toListItem(inst, cardMap, tagMap));
   });
 
@@ -224,10 +234,6 @@ export class InstallmentPage {
   }
 
   // ── Filter / pagination actions ───────────────────────────────────────────
-
-  protected onSearchTermChange(value: string): void {
-    this.searchTerm.set(value);
-  }
 
   protected onCreditCardFilterChange(creditCardId: string): void {
     this.installmentService.setFilter({ creditCardId: creditCardId || null });
@@ -476,7 +482,7 @@ export class InstallmentPage {
       remainingAmount: effectiveInstallmentValue * Math.max(remaining, 0),
       lastInstallmentDate: this.formatMonthKey(inst.lastInstallmentDate),
       tagIds,
-      tagChips: tagIds.map((id) => ({ id, name: tagMap.get(id) ?? id })),
+      tagChips: toTagChips(tagIds, tagMap),
     };
   }
 
@@ -543,10 +549,6 @@ export class InstallmentPage {
 
   private buildCreditCardMap(): ReadonlyMap<string, string> {
     return new Map(this.creditCards().map((c) => [c.id, c.name]));
-  }
-
-  private buildTagMap(): ReadonlyMap<string, string> {
-    return new Map(this.tags().map((t) => [t.id, t.name]));
   }
 
   private buildCurrentMonthKey(): string {

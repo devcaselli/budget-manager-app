@@ -67,8 +67,7 @@
         <input
           class="ew-input installment-search-input"
           type="text"
-          [value]="searchTerm()"
-          (input)="onSearchTermChange($any($event.target).value)"
+          [formControl]="searchControl"
           placeholder="Search name or tag"
           aria-label="Search by name or tag"
         />
