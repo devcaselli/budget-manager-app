@@ -1,3 +1,6 @@
+/** Mirrors backend `AccumulationSourceType` — the origin of a slice of a tag's accumulated total. */
+export type TagAccumulationOrigin = 'EXPENSE' | 'INSTALLMENT' | 'SUBSCRIPTION';
+
 /**
  * Per-tag accumulated totals for a wallet, cross-cutting Expense+Installment+Subscription.
  * Mirrors `GET /tags/accumulation?walletId=` (backend `TagAccumulationResponseDto`).
@@ -8,8 +11,8 @@ export interface TagAccumulationEntry {
   readonly tagName: string;
   readonly parentId: string | null;
   readonly total: number;
-  /** Keyed by origin: `EXPENSE` | `INSTALLMENT` | `SUBSCRIPTION`. Only origins with a nonzero contribution are present. */
-  readonly breakdown: Readonly<Record<string, number>>;
+  /** Only origins with a nonzero contribution are present. */
+  readonly breakdown: Readonly<Partial<Record<TagAccumulationOrigin, number>>>;
 }
 
 export interface TagAccumulation {

@@ -7,6 +7,7 @@ import { formatBrl } from '@shared/utils/currency';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { TagAccumulationService } from '@features/tag/services/tag-accumulation.service';
+import { TagAccumulationOrigin } from '@features/tag/models/tag-accumulation';
 
 import {
   TagDeleteDialogComponent,
@@ -23,11 +24,19 @@ import { groupTagsByParent } from '../../utils/group-tags-by-parent';
 
 type TagViewMode = 'tags' | 'accumulation';
 
+/** Exhaustive — a new `TagAccumulationOrigin` member fails to compile here until added. */
+const ACCUMULATION_ORIGIN_LABEL: Readonly<Record<TagAccumulationOrigin, string>> = {
+  EXPENSE: 'Expense',
+  INSTALLMENT: 'Installment',
+  SUBSCRIPTION: 'Subscription',
+};
+
 interface AccumulationRow {
   readonly tagId: string;
   readonly tagName: string;
   readonly total: number;
   readonly breakdownLabel: string;
+  readonly isSubtag: boolean;
 }
 
 @Component({
@@ -73,14 +82,36 @@ export class TagPage {
     const result = this.accumulation();
     if (!result) return [];
 
-    return result.entries.map((entry) => ({
+    const toRow = (entry: (typeof result.entries)[number]): AccumulationRow => ({
       tagId: entry.tagId,
       tagName: entry.tagName,
       total: entry.total,
-      breakdownLabel: Object.entries(entry.breakdown)
-        .map(([source, amount]) => `${this.breakdownSourceLabel(source)}: ${formatBrl(amount)}`)
+      breakdownLabel: (Object.entries(entry.breakdown) as [TagAccumulationOrigin, number][])
+        .map(([source, amount]) => `${ACCUMULATION_ORIGIN_LABEL[source]}: ${formatBrl(amount)}`)
         .join(' · '),
-    }));
+      isSubtag: entry.parentId !== null,
+    });
+
+    // No rollup (backend decision) means a subtag's total is NOT folded into its parent's —
+    // grouping root-then-its-subtags here (same order as the Tags view's tagGroups) at least
+    // makes that relationship visible, instead of every tag appearing as an unrelated flat row.
+    const roots = result.entries.filter((entry) => entry.parentId === null);
+    const subtagsByParent = new Map<string, typeof result.entries>();
+    for (const entry of result.entries) {
+      if (entry.parentId === null) continue;
+      const siblings = subtagsByParent.get(entry.parentId) ?? [];
+      subtagsByParent.set(entry.parentId, [...siblings, entry]);
+    }
+    const orphanSubtags = result.entries.filter(
+      (entry) => entry.parentId !== null && !roots.some((root) => root.tagId === entry.parentId),
+    );
+
+    return [
+      ...roots.flatMap((root) => [toRow(root), ...(subtagsByParent.get(root.tagId) ?? []).map(toRow)]),
+      // A subtag can accumulate without its parent tag ever having its own entry (parent has
+      // zero contributions across Expense/Installment/Subscription) — still show it.
+      ...orphanSubtags.map(toRow),
+    ];
   });
 
   constructor() {
@@ -99,24 +130,13 @@ export class TagPage {
   protected setViewMode(mode: TagViewMode): void {
     this.viewMode.set(mode);
 
-    if (mode === 'accumulation' && !this.accumulationVisited()) {
-      this.accumulationVisited.set(true);
-      const walletId = this.selectedWallet()?.id;
-      if (walletId) this.tagAccumulationService.loadByWalletId(walletId);
-    }
-  }
-
-  private breakdownSourceLabel(source: string): string {
-    switch (source) {
-      case 'EXPENSE':
-        return 'Expense';
-      case 'INSTALLMENT':
-        return 'Installment';
-      case 'SUBSCRIPTION':
-        return 'Subscription';
-      default:
-        return source;
-    }
+    // Flips `accumulationVisited` false→true on first visit — the constructor `effect()`
+    // is the single owner of the actual load, triggered by this signal change. Do NOT also
+    // call loadByWalletId() here: it reads accumulationVisited() too, so calling both would
+    // fire the request twice on first visit (verified via a failing call-count assertion in
+    // tag-page.spec.ts before this fix). `signal.set()` with the same value is a no-op, so
+    // repeat visits to the tab correctly don't refire.
+    if (mode === 'accumulation') this.accumulationVisited.set(true);
   }
 
   protected onNewClick(): void {

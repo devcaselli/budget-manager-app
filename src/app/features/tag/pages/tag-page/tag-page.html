@@ -142,7 +142,7 @@
           <tbody>
             @for (row of accumulationRows(); track row.tagId) {
               <tr>
-                <td>{{ row.tagName }}</td>
+                <td>{{ row.isSubtag ? '— ' + row.tagName : row.tagName }}</td>
                 <td class="ew-blur">{{ row.total | brlCurrency }}</td>
                 <td>{{ row.breakdownLabel }}</td>
               </tr>

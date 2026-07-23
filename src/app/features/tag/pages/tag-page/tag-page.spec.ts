@@ -82,6 +82,10 @@ describe('TagPage — Acúmulos tab', () => {
     expect(tagAccumulationService.loadByWalletId).not.toHaveBeenCalled();
 
     setViewMode('accumulation');
+    // Exact count, not just "was called" — this is the assertion that would have caught
+    // the double-fetch bug (setViewMode + the constructor effect both calling
+    // loadByWalletId on first visit) that a plain toHaveBeenCalledWith missed.
+    expect(tagAccumulationService.loadByWalletId).toHaveBeenCalledTimes(1);
     expect(tagAccumulationService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
 
     tagAccumulationService.loadByWalletId.mockClear();
@@ -89,6 +93,14 @@ describe('TagPage — Acúmulos tab', () => {
     setViewMode('accumulation');
 
     // Second visit does not trigger another load (already visited).
+    expect(tagAccumulationService.loadByWalletId).not.toHaveBeenCalled();
+  });
+
+  it('does not fire a second request when switching to the Acúmulos tab with no wallet selected', () => {
+    // No wallet selected at all — setViewMode still flips accumulationVisited, but neither
+    // it nor the constructor effect has a walletId to load with.
+    setViewMode('accumulation');
+
     expect(tagAccumulationService.loadByWalletId).not.toHaveBeenCalled();
   });
 
@@ -102,6 +114,7 @@ describe('TagPage — Acúmulos tab', () => {
     walletService.selectedWallet$.next({ id: 'wallet-2' } as Wallet);
     fixture.detectChanges();
 
+    expect(tagAccumulationService.loadByWalletId).toHaveBeenCalledTimes(1);
     expect(tagAccumulationService.loadByWalletId).toHaveBeenCalledWith('wallet-2');
   });
 
@@ -147,5 +160,48 @@ describe('TagPage — Acúmulos tab', () => {
   it('returns an empty array when no accumulation has loaded yet', () => {
     const rows = (component as unknown as { accumulationRows: () => readonly unknown[] }).accumulationRows();
     expect(rows).toEqual([]);
+  });
+
+  it('groups a subtag directly under its parent, regardless of source order', () => {
+    tagAccumulationService.accumulation$.next({
+      walletId: 'wallet-1',
+      entries: [
+        // sub-1 (for root-1) appears BEFORE root-1 itself in the source data — the subtag
+        // must still be grouped right after its parent in the output, not left in place.
+        { tagId: 'sub-1', tagName: 'Restaurants', parentId: 'root-1', total: 40, breakdown: { EXPENSE: 40 } },
+        { tagId: 'root-2', tagName: 'Transport', parentId: null, total: 200, breakdown: { EXPENSE: 200 } },
+        { tagId: 'root-1', tagName: 'Food', parentId: null, total: 60, breakdown: { EXPENSE: 60 } },
+      ],
+    });
+    fixture.detectChanges();
+
+    const rows = (
+      component as unknown as {
+        accumulationRows: () => readonly { tagId: string; isSubtag: boolean }[];
+      }
+    ).accumulationRows();
+
+    // Roots keep the entries' relative order (root-2 before root-1, matching source);
+    // sub-1 is pulled out of its original position and placed right after root-1.
+    expect(rows.map((r) => r.tagId)).toEqual(['root-2', 'root-1', 'sub-1']);
+    expect(rows.find((r) => r.tagId === 'sub-1')?.isSubtag).toBe(true);
+    expect(rows.find((r) => r.tagId === 'root-1')?.isSubtag).toBe(false);
+  });
+
+  it('still shows a subtag whose parent has no accumulation entry of its own', () => {
+    tagAccumulationService.accumulation$.next({
+      walletId: 'wallet-1',
+      // root-1 (the parent) never appears — it had zero contributions across all origins.
+      entries: [
+        { tagId: 'sub-1', tagName: 'Restaurants', parentId: 'root-1', total: 40, breakdown: { EXPENSE: 40 } },
+      ],
+    });
+    fixture.detectChanges();
+
+    const rows = (
+      component as unknown as { accumulationRows: () => readonly { tagId: string }[] }
+    ).accumulationRows();
+
+    expect(rows.map((r) => r.tagId)).toEqual(['sub-1']);
   });
 });
