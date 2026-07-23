@@ -27,6 +27,12 @@ export class TagAccumulationService {
   private fetch(walletId: string): Observable<TagAccumulation> {
     this.loadingSubject.next(true);
     this.errorSubject.next(null);
+    // Clear the previous wallet's totals before the new request lands — this service is
+    // providedIn: 'root', so without this a wallet switch would render the OLD wallet's
+    // accumulated amounts under the NEW wallet's context for the duration of the request,
+    // with only the loading flag (easy to miss) hinting it's stale. Financial figures under
+    // the wrong wallet is a meaningful misread risk.
+    this.accumulationSubject.next(null);
 
     const params = new HttpParams().set('walletId', walletId);
 

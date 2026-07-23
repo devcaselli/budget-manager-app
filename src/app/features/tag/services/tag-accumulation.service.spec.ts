@@ -66,4 +66,27 @@ describe('TagAccumulationService', () => {
 
     expect(errors.at(-1)).toBe('Não foi possível carregar os acúmulos por tag.');
   });
+
+  it('clears the previous accumulation before a new wallet finishes loading', () => {
+    const walletOne: TagAccumulation = {
+      walletId: 'wallet-1',
+      entries: [
+        { tagId: 'tag-1', tagName: 'Food', parentId: null, total: 100, breakdown: { EXPENSE: 100 } },
+      ],
+    };
+    const emitted: (TagAccumulation | null)[] = [];
+    service.accumulation$.subscribe((value) => emitted.push(value));
+
+    service.loadByWalletId('wallet-1');
+    httpMock.expectOne((c) => c.url === '/api/tags/accumulation').flush(walletOne);
+    expect(emitted.at(-1)).toEqual(walletOne);
+
+    // Switching wallets must not keep rendering wallet-1's totals under wallet-2's context
+    // while the new request is in flight — this was a MINOR finding (stale state).
+    service.loadByWalletId('wallet-2');
+    expect(emitted.at(-1)).toBeNull();
+
+    httpMock.expectOne((c) => c.url === '/api/tags/accumulation').flush({ walletId: 'wallet-2', entries: [] });
+    expect(emitted.at(-1)).toEqual({ walletId: 'wallet-2', entries: [] });
+  });
 });
