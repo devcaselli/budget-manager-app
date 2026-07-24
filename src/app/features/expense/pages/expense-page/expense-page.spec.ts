@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 
 import { BulletService } from '@features/bullet/services/bullet.service';
@@ -13,6 +13,7 @@ import { ShareService } from '@features/share/services/share.service';
 import { TagService } from '@features/tag/services/tag.service';
 import { SyncService } from '@features/sync/services/sync.service';
 import { SyncIngestResult, SyncReport } from '@features/sync/models/sync';
+import { PendingReviewService } from '@features/pending-review/services/pending-review.service';
 import { Tag } from '@features/tag/models/tag';
 import { Expense } from '@features/expense/models/expense';
 import { Share } from '@features/share/models/share';
@@ -85,6 +86,13 @@ class FakeSyncService {
   ingest = vi.fn().mockReturnValue(of(buildSyncIngestResult()));
 }
 
+class FakePendingReviewService {
+  readonly pendingReviews$ = new BehaviorSubject<readonly unknown[]>([]);
+  readonly loading$ = new BehaviorSubject(false);
+  readonly error$ = new BehaviorSubject<string | null>(null);
+  applySyncResult = vi.fn();
+}
+
 function buildExpense(overrides: Partial<Expense> = {}): Expense {
   return {
     id: 'expense-1',
@@ -128,11 +136,21 @@ describe('ExpensePage — share derivation & split button visibility', () => {
   let expenseService: FakeExpenseService;
   let shareService: FakeShareService;
   let syncService: FakeSyncService;
+  let pendingReviewService: FakePendingReviewService;
+  let dialog: { open: ReturnType<typeof vi.fn> };
+  let dialogAfterClosed: BehaviorSubject<unknown>;
 
   beforeEach(() => {
     expenseService = new FakeExpenseService();
     shareService = new FakeShareService();
     syncService = new FakeSyncService();
+    pendingReviewService = new FakePendingReviewService();
+    dialogAfterClosed = new BehaviorSubject<unknown>(undefined);
+    dialog = {
+      open: vi.fn().mockReturnValue({
+        afterClosed: () => dialogAfterClosed.asObservable(),
+      } as unknown as MatDialogRef<unknown>),
+    };
 
     TestBed.configureTestingModule({
       imports: [ExpensePage],
@@ -147,7 +165,8 @@ describe('ExpensePage — share derivation & split button visibility', () => {
         { provide: WalletService, useClass: FakeWalletService },
         { provide: TagService, useClass: FakeTagService },
         { provide: SyncService, useValue: syncService },
-        { provide: MatDialog, useValue: { open: vi.fn() } },
+        { provide: PendingReviewService, useValue: pendingReviewService },
+        { provide: MatDialog, useValue: dialog },
       ],
     });
 
@@ -259,30 +278,58 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     expect(expenseService.assignTags).not.toHaveBeenCalled();
   });
 
-  it('calls SyncService.ingest and reloads the wallet expenses when items were created', () => {
+  it('calls SyncService.ingest, applies the result to PendingReviewService, and opens the review dialog', () => {
     const walletService = TestBed.inject(WalletService) as unknown as {
       selectedWallet$: BehaviorSubject<Wallet | null>;
     };
     walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
     fixture.detectChanges();
 
-    syncService.ingest.mockReturnValue(of(buildSyncIngestResult({ created: 3, skipped: 1 })));
-    expenseService.loadByWalletId.mockClear();
+    const result = buildSyncIngestResult({ created: 3, skipped: 1 });
+    syncService.ingest.mockReturnValue(of(result));
 
     (component as unknown as { syncNow: () => void }).syncNow();
 
     expect(syncService.ingest).toHaveBeenCalled();
-    expect(expenseService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
+    expect(pendingReviewService.applySyncResult).toHaveBeenCalledWith(result);
+    expect(dialog.open).toHaveBeenCalledTimes(1);
   });
 
-  it('does not reload expenses when sync creates nothing', () => {
+  it('reloads the wallet expenses when the review dialog closes, even with no new items at sync time', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
     fixture.detectChanges();
+
+    // Expense creation now happens inside the modal on confirm, not at sync time, so
+    // `report.created === 0` must still reload once the dialog closes — items may have
+    // been confirmed during the dialog session (CA #6). The fake dialog's `afterClosed()`
+    // is a BehaviorSubject, so closing is observed synchronously on subscribe here.
     syncService.ingest.mockReturnValue(of(buildSyncIngestResult({ created: 0, skipped: 4 })));
     expenseService.loadByWalletId.mockClear();
 
     (component as unknown as { syncNow: () => void }).syncNow();
 
-    expect(expenseService.loadByWalletId).not.toHaveBeenCalled();
+    expect(expenseService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
+  });
+
+  it('reloads again if the dialog is closed a second time (no stale unconditional-reload guard)', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    fixture.detectChanges();
+
+    syncService.ingest.mockReturnValue(of(buildSyncIngestResult({ created: 0 })));
+    expenseService.loadByWalletId.mockClear();
+
+    (component as unknown as { syncNow: () => void }).syncNow();
+    expect(expenseService.loadByWalletId).toHaveBeenCalledTimes(1);
+
+    dialogAfterClosed.next(undefined);
+
+    expect(expenseService.loadByWalletId).toHaveBeenCalledTimes(2);
   });
 
   it('is a no-op when a sync is already in flight', () => {
@@ -292,5 +339,6 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     (component as unknown as { syncNow: () => void }).syncNow();
 
     expect(syncService.ingest).not.toHaveBeenCalled();
+    expect(dialog.open).not.toHaveBeenCalled();
   });
 });

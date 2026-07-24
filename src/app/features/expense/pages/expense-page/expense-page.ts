@@ -31,6 +31,8 @@ import { Share } from '@features/share/models/share';
 import { ShareService } from '@features/share/services/share.service';
 import { TagService } from '@features/tag/services/tag.service';
 import { SyncService } from '@features/sync/services/sync.service';
+import { PendingReviewService } from '@features/pending-review/services/pending-review.service';
+import { PendingReviewDialogComponent } from '@features/pending-review/components/pending-review-dialog/pending-review-dialog.component';
 import {
   TagPickerDialogComponent,
   TagPickerDialogData,
@@ -98,6 +100,7 @@ export class ExpensePage {
   private readonly shareService = inject(ShareService);
   private readonly tagService = inject(TagService);
   private readonly syncService = inject(SyncService);
+  private readonly pendingReviewService = inject(PendingReviewService);
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
@@ -391,16 +394,33 @@ export class ExpensePage {
       .ingest()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ report }) => {
+        next: (result) => {
+          const { report } = result;
           this.syncResultMessage.set(
             `${report.created} created, ${report.skipped} skipped, ${report.fallback} need a card, ${report.errors} errors`,
           );
-          if (report.created > 0) {
-            const walletId = this.selectedWallet()?.id ?? null;
-            this.expenseService.loadByWalletId(walletId);
-          }
+          this.pendingReviewService.applySyncResult(result);
+          this.openPendingReviewDialog();
         },
         error: () => undefined,
+      });
+  }
+
+  private openPendingReviewDialog(): void {
+    this.dialog
+      .open(PendingReviewDialogComponent, {
+        width: '40rem',
+        maxWidth: 'calc(100vw - 2rem)',
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        // Unconditional reload: Expense creation now happens on confirm *inside* the
+        // modal, not at sync time, so `report.created` no longer indicates whether new
+        // Expenses exist — the previous `if (report.created > 0)` guard would miss
+        // expenses confirmed during this dialog session (CA #6 of the handoff).
+        const walletId = this.selectedWallet()?.id ?? null;
+        this.expenseService.loadByWalletId(walletId);
       });
   }
 
