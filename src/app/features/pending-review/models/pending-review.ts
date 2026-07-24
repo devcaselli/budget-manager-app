@@ -52,25 +52,3 @@ export interface ConfirmPendingReviewsResult {
   readonly confirmed: readonly ConfirmedPendingReview[];
   readonly failed: readonly FailedPendingReview[];
 }
-
-/**
- * Mirrors `SyncIngestResponseDto` (backend slice `sync`). Placeholder field names —
- * Task 2 confirms/corrects these against the real DTO before this type is relied upon
- * outside Task 1.
- */
-export interface SyncIngestResult {
-  readonly report: SyncReport;
-  readonly pendingReviews: readonly PendingReview[];
-}
-
-/**
- * Local structural mirror of `SyncReport` (`@features/sync/models/sync`) to avoid Task 1
- * depending on the `sync` feature. Task 2 reconciles this with the real `SyncReport` type
- * and removes the duplication if the shapes stay identical.
- */
-export interface SyncReport {
-  readonly created: number;
-  readonly skipped: number;
-  readonly fallback: number;
-  readonly errors: number;
-}

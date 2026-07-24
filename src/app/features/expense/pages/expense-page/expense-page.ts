@@ -391,7 +391,7 @@ export class ExpensePage {
       .ingest()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (report) => {
+        next: ({ report }) => {
           this.syncResultMessage.set(
             `${report.created} created, ${report.skipped} skipped, ${report.fallback} need a card, ${report.errors} errors`,
           );

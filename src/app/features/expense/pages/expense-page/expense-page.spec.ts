@@ -12,7 +12,7 @@ import { InstallmentService } from '@features/installment/services/installment.s
 import { ShareService } from '@features/share/services/share.service';
 import { TagService } from '@features/tag/services/tag.service';
 import { SyncService } from '@features/sync/services/sync.service';
-import { SyncReport } from '@features/sync/models/sync';
+import { SyncIngestResult, SyncReport } from '@features/sync/models/sync';
 import { Tag } from '@features/tag/models/tag';
 import { Expense } from '@features/expense/models/expense';
 import { Share } from '@features/share/models/share';
@@ -75,10 +75,14 @@ function buildSyncReport(overrides: Partial<SyncReport> = {}): SyncReport {
   return { created: 0, skipped: 0, fallback: 0, errors: 0, ...overrides };
 }
 
+function buildSyncIngestResult(overrides: Partial<SyncReport> = {}): SyncIngestResult {
+  return { report: buildSyncReport(overrides), pendingReviews: [] };
+}
+
 class FakeSyncService {
   readonly syncing$ = new BehaviorSubject(false);
   readonly error$ = new BehaviorSubject<string | null>(null);
-  ingest = vi.fn().mockReturnValue(of(buildSyncReport()));
+  ingest = vi.fn().mockReturnValue(of(buildSyncIngestResult()));
 }
 
 function buildExpense(overrides: Partial<Expense> = {}): Expense {
@@ -262,7 +266,7 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
     fixture.detectChanges();
 
-    syncService.ingest.mockReturnValue(of(buildSyncReport({ created: 3, skipped: 1 })));
+    syncService.ingest.mockReturnValue(of(buildSyncIngestResult({ created: 3, skipped: 1 })));
     expenseService.loadByWalletId.mockClear();
 
     (component as unknown as { syncNow: () => void }).syncNow();
@@ -273,7 +277,7 @@ describe('ExpensePage — share derivation & split button visibility', () => {
 
   it('does not reload expenses when sync creates nothing', () => {
     fixture.detectChanges();
-    syncService.ingest.mockReturnValue(of(buildSyncReport({ created: 0, skipped: 4 })));
+    syncService.ingest.mockReturnValue(of(buildSyncIngestResult({ created: 0, skipped: 4 })));
     expenseService.loadByWalletId.mockClear();
 
     (component as unknown as { syncNow: () => void }).syncNow();

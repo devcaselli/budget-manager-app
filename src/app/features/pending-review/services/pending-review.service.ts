@@ -3,13 +3,9 @@ import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject, catchError, EMPTY, finalize, Observable, of, ReplaySubject, tap } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { SyncIngestResult } from '@features/sync/models/sync';
 
-import {
-  ConfirmPendingReviewsResult,
-  PendingReview,
-  PendingReviewPatchRequest,
-  SyncIngestResult,
-} from '../models/pending-review';
+import { ConfirmPendingReviewsResult, PendingReview, PendingReviewPatchRequest } from '../models/pending-review';
 
 @Injectable({ providedIn: 'root' })
 export class PendingReviewService {

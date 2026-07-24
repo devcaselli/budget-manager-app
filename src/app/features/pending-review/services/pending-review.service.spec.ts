@@ -2,11 +2,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import {
-  ConfirmPendingReviewsResult,
-  PendingReview,
-  SyncIngestResult,
-} from '../models/pending-review';
+import { SyncIngestResult } from '@features/sync/models/sync';
+
+import { ConfirmPendingReviewsResult, PendingReview } from '../models/pending-review';
 import { PendingReviewService } from './pending-review.service';
 
 const PENDING_REVIEWS_URL = '/api/pending-reviews';

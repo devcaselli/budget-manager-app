@@ -4,7 +4,7 @@ import { BehaviorSubject, finalize, Observable, ReplaySubject, tap } from 'rxjs'
 
 import { environment } from '@environments/environment';
 
-import { SyncReport } from '../models/sync';
+import { SyncIngestResult } from '../models/sync';
 
 @Injectable({ providedIn: 'root' })
 export class SyncService {
@@ -19,16 +19,19 @@ export class SyncService {
 
   /**
    * POST /sync/ingest — triggers a bank-SMS ingest run for the authenticated owner
-   * (no body; owner derived from the auth token). Returns per-run counts.
+   * (no body; owner derived from the auth token). Returns the run's report plus the
+   * current full `PENDING_REVIEW` list in one round-trip (`SyncIngestResponseDto`,
+   * backend slice `sync`), so callers can populate the review screen without a
+   * follow-up `GET /pending-reviews`.
    */
-  ingest(): Observable<SyncReport> {
-    const subject = new ReplaySubject<SyncReport>(1);
+  ingest(): Observable<SyncIngestResult> {
+    const subject = new ReplaySubject<SyncIngestResult>(1);
 
     this.syncingSubject.next(true);
     this.errorSubject.next(null);
 
     this.http
-      .post<SyncReport>(`${this.syncUrl}/ingest`, {})
+      .post<SyncIngestResult>(`${this.syncUrl}/ingest`, {})
       .pipe(
         tap({
           error: () => this.errorSubject.next('Could not run sync.'),
@@ -36,8 +39,8 @@ export class SyncService {
         finalize(() => this.syncingSubject.next(false)),
       )
       .subscribe({
-        next: (report) => {
-          subject.next(report);
+        next: (result) => {
+          subject.next(result);
           subject.complete();
         },
         error: (err: unknown) => subject.error(err),
