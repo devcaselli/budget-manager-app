@@ -185,6 +185,25 @@ describe('PendingReviewListComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Pending review not found');
   });
 
+  it('mixed batch: a failed item stays visible, checked, and re-confirmable, without leaking its error onto other items', () => {
+    setItems([buildItem({ id: 'ok-1' }), buildItem({ id: 'bad-1' })]);
+    // Service already removed 'ok-1' from the model after a successful confirm — only the
+    // still-pending 'bad-1' remains in `items`, matching PendingReviewService.confirm().
+    setItems([buildItem({ id: 'bad-1' })]);
+    fixture.componentRef.setInput('errorsById', new Map([['bad-1', 'Pending review not found']]));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Pending review not found');
+    expect(api().isSelected('bad-1')).toBe(true);
+    expect(api().errorFor(buildItem({ id: 'ok-1' }))).toBeUndefined();
+
+    const emitted: (readonly string[])[] = [];
+    component.confirmSelected.subscribe((ids) => emitted.push(ids));
+    api().onConfirmSelected();
+
+    expect(emitted).toEqual([['bad-1']]);
+  });
+
   it('prunes local state (form controls, selection) for ids no longer in items()', () => {
     setItems([buildItem({ id: 'a' }), buildItem({ id: 'b' })]);
     api().nameControlFor(buildItem({ id: 'a' }));

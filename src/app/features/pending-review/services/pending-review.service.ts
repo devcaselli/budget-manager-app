@@ -92,8 +92,9 @@ export class PendingReviewService {
    * POST /pending-reviews/confirm — always HTTP 200, even with partial failures (not an
    * HTTP error). On success: items in `result.confirmed` are removed locally (materialized
    * into real Expenses); items in `result.failed` stay untouched (still `PENDING_REVIEW`
-   * on the backend). Per-item failure messages are the smart layer's responsibility
-   * (Task 3) — `error$` here is reserved for real network/HTTP failure of the POST itself.
+   * on the backend), so they remain visible/re-confirmable in the UI. Per-item failure
+   * messages are the smart layer's responsibility (`PendingReviewPage.confirmErrorsById`)
+   * — `error$` here is reserved for real network/HTTP failure of the POST itself.
    *
    * Empty `ids`: guarded locally, no HTTP call — mirrors the backend's `@NotEmpty`
    * validation and avoids a request that would just 400. Resolves immediately with an

@@ -38,8 +38,8 @@ export class PendingReviewListComponent {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly items = input.required<readonly PendingReview[]>();
-  /** Per-item error message from the last batch confirm (Task 6 populates this;
-   * kept empty/absent until then so the contract doesn't need to change later). */
+  /** Per-item error message from the last batch confirm, verbatim from the backend's
+   * `FailedItem.errorMessage` (already human-readable — not rewritten/translated here). */
   readonly errorsById = input<ReadonlyMap<string, string>>(new Map());
 
   readonly rename = output<{ id: string; value: string }>();

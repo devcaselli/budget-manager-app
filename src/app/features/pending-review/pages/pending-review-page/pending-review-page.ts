@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { take } from 'rxjs';
 
@@ -30,6 +30,15 @@ export class PendingReviewPage {
    * `pendingExpenseReviewId`. Task 6 exercises this end-to-end; wired here so the
    * `errorsById` contract into `pending-review-list` doesn't change later. */
   protected readonly confirmErrorsById = signal<ReadonlyMap<string, string>>(new Map());
+
+  /** Aggregate "X confirmed, Y failed" note from the last `confirm()` call — reuses the
+   * `ew-alert` pattern already used for the post-sync summary (`expense-page.syncNow()`),
+   * no new toast/summary component. `null` until a confirm happens; cleared on the next
+   * `confirmSelected` call so a stale summary doesn't linger across attempts. */
+  protected readonly confirmSummary = signal<string | null>(null);
+  /** Drives which visual treatment `confirmSummary` gets — `ew-alert` (role="alert") when
+   * the last batch had failures, a neutral status note otherwise. */
+  protected readonly hasConfirmFailures = computed(() => this.confirmErrorsById().size > 0);
 
   constructor() {
     // Only fetch if the service doesn't already have data — avoids a redundant GET right
@@ -80,6 +89,8 @@ export class PendingReviewPage {
       return;
     }
 
+    this.confirmSummary.set(null);
+
     this.pendingReviewService
       .confirm(ids)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -87,6 +98,11 @@ export class PendingReviewPage {
         next: (result) => {
           const errors = new Map(result.failed.map((item) => [item.pendingExpenseReviewId, item.errorMessage]));
           this.confirmErrorsById.set(errors);
+          const failedCount = result.failed.length;
+          const failedLabel = failedCount === 1 ? 'falhou' : 'falharam';
+          this.confirmSummary.set(
+            `${result.confirmed.length} confirmado(s), ${failedCount} ${failedLabel}.`,
+          );
         },
         error: () => undefined,
       });

@@ -47,6 +47,8 @@ function buildItem(overrides: Partial<PendingReview> = {}): PendingReview {
 
 interface Internals {
   confirmErrorsById: () => ReadonlyMap<string, string>;
+  confirmSummary: () => string | null;
+  hasConfirmFailures: () => boolean;
   onRename: (event: { id: string; value: string }) => void;
   onToggleInstallment: () => void;
   onSetInstallmentNumber: (event: { id: string; value: number }) => void;
@@ -143,12 +145,80 @@ describe('PendingReviewPage', () => {
     expect(api().confirmErrorsById().has('ok-1')).toBe(false);
   });
 
+  it('builds an aggregate "X confirmed, Y failed" summary from a mixed batch, flagged as a failure note', () => {
+    service.confirm.mockReturnValueOnce(
+      of({
+        confirmed: [{ pendingExpenseReviewId: 'ok-1', expenseId: 'exp-1' }],
+        failed: [{ pendingExpenseReviewId: 'bad-1', errorMessage: 'Pending review not found' }],
+      }),
+    );
+    createComponent();
+
+    api().onConfirmSelected(['ok-1', 'bad-1']);
+
+    expect(api().confirmSummary()).toBe('1 confirmado(s), 1 falhou.');
+    expect(api().hasConfirmFailures()).toBe(true);
+  });
+
+  it('builds a non-failure summary when the whole batch confirms successfully', () => {
+    service.confirm.mockReturnValueOnce(
+      of({
+        confirmed: [
+          { pendingExpenseReviewId: 'ok-1', expenseId: 'exp-1' },
+          { pendingExpenseReviewId: 'ok-2', expenseId: 'exp-2' },
+        ],
+        failed: [],
+      }),
+    );
+    createComponent();
+
+    api().onConfirmSelected(['ok-1', 'ok-2']);
+
+    expect(api().confirmSummary()).toBe('2 confirmado(s), 0 falharam.');
+    expect(api().hasConfirmFailures()).toBe(false);
+  });
+
+  it('clears the previous summary as soon as a new confirm batch starts', () => {
+    service.confirm.mockReturnValueOnce(
+      of({ confirmed: [], failed: [{ pendingExpenseReviewId: 'bad-1', errorMessage: 'boom' }] }),
+    );
+    createComponent();
+    api().onConfirmSelected(['bad-1']);
+    expect(api().confirmSummary()).not.toBeNull();
+
+    service.confirm.mockReturnValueOnce(
+      new Observable(() => {
+        // Never emits — simulates an in-flight request so we can assert the summary was
+        // cleared before the new result arrives, not just overwritten after.
+      }),
+    );
+    api().onConfirmSelected(['bad-1']);
+
+    expect(api().confirmSummary()).toBeNull();
+  });
+
   it('does not call confirm() with an empty id list', () => {
     createComponent();
 
     api().onConfirmSelected([]);
 
     expect(service.confirm).not.toHaveBeenCalled();
+  });
+
+  it('renders the failure summary as an ew-alert and the all-success summary as a status note', () => {
+    service.confirm.mockReturnValueOnce(
+      of({
+        confirmed: [],
+        failed: [{ pendingExpenseReviewId: 'bad-1', errorMessage: 'Pending review not found' }],
+      }),
+    );
+    createComponent();
+
+    api().onConfirmSelected(['bad-1']);
+    fixture.detectChanges();
+
+    const alert = fixture.nativeElement.querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain('0 confirmado(s), 1 falhou.');
   });
 
   it('swallows patch errors without throwing (subscriber tears down safely)', () => {

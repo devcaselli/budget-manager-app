@@ -9,6 +9,12 @@
 
   @if (errorMessage()) {
     <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  } @else if (confirmSummary(); as summary) {
+    @if (hasConfirmFailures()) {
+      <div class="ew-alert" role="alert">{{ summary }}</div>
+    } @else {
+      <div class="prp-confirm-note" role="status">{{ summary }}</div>
+    }
   }
 
   @if (isLoading()) {
