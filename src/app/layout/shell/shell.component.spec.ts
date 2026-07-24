@@ -211,14 +211,14 @@ describe('ShellComponent — activityNav', () => {
     vi.unstubAllGlobals();
   });
 
-  it('includes a "Revisar Importações" entry pointing at /review-imports, positioned right after "Connected accounts" and before "Settings"', () => {
+  it('includes a "Review imports" entry pointing at /review-imports, positioned right after "Connected accounts" and before "Settings"', () => {
     const nav = (fixture.componentInstance as unknown as {
       activityNav: readonly { label: string; route: string; num: string }[];
     }).activityNav;
 
     const reviewEntry = nav.find((n) => n.route === '/review-imports');
     expect(reviewEntry).toBeTruthy();
-    expect(reviewEntry?.label).toBe('Revisar Importações');
+    expect(reviewEntry?.label).toBe('Review imports');
 
     const connectedIdx = nav.findIndex((n) => n.route === '/connected-accounts');
     const reviewIdx = nav.findIndex((n) => n.route === '/review-imports');
@@ -227,9 +227,9 @@ describe('ShellComponent — activityNav', () => {
     expect(settingsIdx).toBe(reviewIdx + 1);
   });
 
-  it('renders the "Revisar Importações" link in the sidebar', () => {
+  it('renders the "Review imports" link in the sidebar', () => {
     const link = fixture.nativeElement.querySelector(
-      'a.ew-nav-item[data-go="revisar importações"]',
+      'a.ew-nav-item[data-go="review imports"]',
     ) as HTMLAnchorElement | null;
 
     expect(link).toBeTruthy();
@@ -245,7 +245,7 @@ describe('ShellComponent — activityNav', () => {
     expect(new Set(nums).size).toBe(nums.length);
   });
 
-  it('does not reuse the `num` now assigned to "Revisar Importações" in toolsNav', () => {
+  it('does not reuse the `num` now assigned to "Review imports" in toolsNav', () => {
     const instance = fixture.componentInstance as unknown as {
       activityNav: readonly { num: string; route: string }[];
       toolsNav: readonly { num: string }[];

@@ -117,7 +117,7 @@ export class ShellComponent {
     { label: 'Payments',      route: '/payments',      num: '11' },
     { label: 'Connect bank',  route: '/connect-bank',  num: '12' },
     { label: 'Connected accounts', route: '/connected-accounts', num: '13' },
-    { label: 'Revisar Importações', route: '/review-imports', num: '14' },
+    { label: 'Review imports', route: '/review-imports', num: '14' },
     { label: 'Settings',      route: '/settings',      num: '15' },
   ];
 

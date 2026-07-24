@@ -53,7 +53,7 @@ describe('PendingReviewService', () => {
       service.loadAll();
       httpMock.expectOne(PENDING_REVIEWS_URL).flush(null, { status: 500, statusText: 'Error' });
 
-      expect(errors.at(-1)).toBe('Não foi possível carregar as importações pendentes.');
+      expect(errors.at(-1)).toBe('Could not load pending imports.');
       expect(emitted.at(-1)).toEqual([pendingReview]);
     });
 
@@ -63,7 +63,7 @@ describe('PendingReviewService', () => {
 
       service.loadAll();
       httpMock.expectOne(PENDING_REVIEWS_URL).flush(null, { status: 500, statusText: 'Error' });
-      expect(errors.at(-1)).toBe('Não foi possível carregar as importações pendentes.');
+      expect(errors.at(-1)).toBe('Could not load pending imports.');
 
       service.loadAll();
       httpMock.expectOne(PENDING_REVIEWS_URL).flush([pendingReview]);
@@ -105,7 +105,7 @@ describe('PendingReviewService', () => {
         .flush(null, { status: 500, statusText: 'Error' });
 
       expect(errored).toBe(true);
-      expect(errors.at(-1)).toBe('Não foi possível salvar a alteração.');
+      expect(errors.at(-1)).toBe('Could not save the change.');
     });
   });
 
@@ -136,7 +136,7 @@ describe('PendingReviewService', () => {
         .expectOne(`${PENDING_REVIEWS_URL}/${pendingReview.id}`)
         .flush(null, { status: 500, statusText: 'Error' });
 
-      expect(errors.at(-1)).toBe('Não foi possível excluir o item.');
+      expect(errors.at(-1)).toBe('Could not discard the item.');
     });
   });
 
@@ -182,7 +182,7 @@ describe('PendingReviewService', () => {
 
       httpMock.expectOne(`${PENDING_REVIEWS_URL}/confirm`).flush(null, { status: 500, statusText: 'Error' });
 
-      expect(errors.at(-1)).toBe('Não foi possível confirmar as importações selecionadas.');
+      expect(errors.at(-1)).toBe('Could not confirm the selected imports.');
     });
   });
 

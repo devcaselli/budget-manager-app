@@ -73,7 +73,7 @@ describe('PendingReviewListComponent', () => {
   it('shows the empty state when there are no items', () => {
     setItems([]);
 
-    expect(fixture.nativeElement.textContent).toContain('Nenhuma importação pendente.');
+    expect(fixture.nativeElement.textContent).toContain('No pending imports.');
   });
 
   it('defaults every item to selected', () => {

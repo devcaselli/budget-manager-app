@@ -1,8 +1,8 @@
 <div class="ew-panel" aria-label="Pending reviews">
   <div class="ew-panel-head">
     <div>
-      <h3>Importações <em>pendentes</em></h3>
-      <p>{{ items().length }} item(ns)</p>
+      <h3>Pending <em>imports</em></h3>
+      <p>{{ items().length }} item(s)</p>
     </div>
     <button
       type="button"
@@ -10,7 +10,7 @@
       [disabled]="items().length === 0"
       (click)="onConfirmSelected()"
     >
-      Confirmar selecionados
+      Confirm selected
     </button>
   </div>
 
@@ -20,14 +20,14 @@
         <input
           type="checkbox"
           class="prl-check"
-          [attr.aria-label]="'Selecionar ' + item.resolvedName"
+          [attr.aria-label]="'Select ' + item.resolvedName"
           [checked]="isSelected(item.id)"
           (change)="onToggleSelected(item.id)"
         />
 
         <div class="prl-fields">
           <div class="ew-field prl-name-field">
-            <label [attr.for]="'prl-name-' + item.id">Nome</label>
+            <label [attr.for]="'prl-name-' + item.id">Name</label>
             <input
               [id]="'prl-name-' + item.id"
               class="ew-input"
@@ -45,12 +45,12 @@
             (click)="onToggleInstallment(item)"
           >
             <i></i>
-            <span>É parcelado?</span>
+            <span>Installment?</span>
           </button>
 
           @if (isInstallment(item)) {
             <div class="ew-field prl-installment-field">
-              <label [attr.for]="'prl-installments-' + item.id">Parcelas</label>
+              <label [attr.for]="'prl-installments-' + item.id">Installments</label>
               <input
                 [id]="'prl-installments-' + item.id"
                 class="ew-input"
@@ -67,8 +67,8 @@
           <button
             type="button"
             class="prl-discard"
-            [attr.aria-label]="'Excluir ' + item.resolvedName"
-            title="Excluir"
+            [attr.aria-label]="'Discard ' + item.resolvedName"
+            title="Discard"
             (click)="onDiscard(item)"
           >
             ×
@@ -80,7 +80,7 @@
         }
       </div>
     } @empty {
-      <p class="ew-empty">Nenhuma importação pendente.</p>
+      <p class="ew-empty">No pending imports.</p>
     }
   </div>
 </div>

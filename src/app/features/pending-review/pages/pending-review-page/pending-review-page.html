@@ -1,9 +1,9 @@
 <div class="pending-review-page">
   <div class="ew-page-head">
     <div>
-      <div class="ew-eyebrow">Revisar importações</div>
-      <h1 class="ew-page-title">Importações <em>pendentes.</em></h1>
-      <p class="ew-page-sub">Revise, edite ou descarte antes de confirmar como despesas.</p>
+      <div class="ew-eyebrow">Review imports</div>
+      <h1 class="ew-page-title">Pending <em>imports.</em></h1>
+      <p class="ew-page-sub">Review, edit, or discard before confirming as expenses.</p>
     </div>
   </div>
 
@@ -18,7 +18,7 @@
   }
 
   @if (isLoading()) {
-    <p class="ew-empty">Carregando…</p>
+    <p class="ew-empty">Loading…</p>
   } @else {
     <app-pending-review-list
       [items]="items()"

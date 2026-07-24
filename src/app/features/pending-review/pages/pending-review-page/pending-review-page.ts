@@ -99,10 +99,7 @@ export class PendingReviewPage {
           const errors = new Map(result.failed.map((item) => [item.pendingExpenseReviewId, item.errorMessage]));
           this.confirmErrorsById.set(errors);
           const failedCount = result.failed.length;
-          const failedLabel = failedCount === 1 ? 'falhou' : 'falharam';
-          this.confirmSummary.set(
-            `${result.confirmed.length} confirmado(s), ${failedCount} ${failedLabel}.`,
-          );
+          this.confirmSummary.set(`${result.confirmed.length} confirmed, ${failedCount} failed.`);
         },
         error: () => undefined,
       });

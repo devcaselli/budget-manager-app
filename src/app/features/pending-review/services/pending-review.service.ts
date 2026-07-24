@@ -30,7 +30,7 @@ export class PendingReviewService {
       .pipe(
         tap((items) => this.pendingReviewsSubject.next(items)),
         catchError(() => {
-          this.errorSubject.next('Não foi possível carregar as importações pendentes.');
+          this.errorSubject.next('Could not load pending imports.');
           return EMPTY;
         }),
         finalize(() => this.loadingSubject.next(false)),
@@ -49,7 +49,7 @@ export class PendingReviewService {
       .pipe(
         tap({
           next: (updated) => this.upsertLocal(updated),
-          error: () => this.errorSubject.next('Não foi possível salvar a alteração.'),
+          error: () => this.errorSubject.next('Could not save the change.'),
         }),
       )
       .subscribe({
@@ -74,7 +74,7 @@ export class PendingReviewService {
       .pipe(
         tap({
           next: () => this.removeLocal(id),
-          error: () => this.errorSubject.next('Não foi possível excluir o item.'),
+          error: () => this.errorSubject.next('Could not discard the item.'),
         }),
       )
       .subscribe({
@@ -114,7 +114,7 @@ export class PendingReviewService {
       .pipe(
         tap({
           next: (result) => this.removeConfirmedLocal(result),
-          error: () => this.errorSubject.next('Não foi possível confirmar as importações selecionadas.'),
+          error: () => this.errorSubject.next('Could not confirm the selected imports.'),
         }),
       )
       .subscribe({

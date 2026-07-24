@@ -156,7 +156,7 @@ describe('PendingReviewPage', () => {
 
     api().onConfirmSelected(['ok-1', 'bad-1']);
 
-    expect(api().confirmSummary()).toBe('1 confirmado(s), 1 falhou.');
+    expect(api().confirmSummary()).toBe('1 confirmed, 1 failed.');
     expect(api().hasConfirmFailures()).toBe(true);
   });
 
@@ -174,7 +174,7 @@ describe('PendingReviewPage', () => {
 
     api().onConfirmSelected(['ok-1', 'ok-2']);
 
-    expect(api().confirmSummary()).toBe('2 confirmado(s), 0 falharam.');
+    expect(api().confirmSummary()).toBe('2 confirmed, 0 failed.');
     expect(api().hasConfirmFailures()).toBe(false);
   });
 
@@ -218,7 +218,7 @@ describe('PendingReviewPage', () => {
     fixture.detectChanges();
 
     const alert = fixture.nativeElement.querySelector('[role="alert"]');
-    expect(alert?.textContent).toContain('0 confirmado(s), 1 falhou.');
+    expect(alert?.textContent).toContain('0 confirmed, 1 failed.');
   });
 
   it('swallows patch errors without throwing (subscriber tears down safely)', () => {

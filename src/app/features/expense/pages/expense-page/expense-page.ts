@@ -413,7 +413,7 @@ export class ExpensePage {
   private openPendingReviewDialog(): void {
     this.dialog
       .open(PendingReviewDialogComponent, {
-        width: '40rem',
+        width: '60rem',
         maxWidth: 'calc(100vw - 2rem)',
       })
       .afterClosed()

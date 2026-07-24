@@ -43,4 +43,17 @@ describe('PendingReviewDialogComponent', () => {
     const closeButtons = fixture.nativeElement.querySelectorAll('[mat-dialog-close]');
     expect(closeButtons.length).toBeGreaterThan(0);
   });
+
+  it('makes the dialog draggable via cdkDrag, scoped to the header as the drag handle', () => {
+    const root = fixture.nativeElement.querySelector('.prd__root');
+    expect(root?.hasAttribute('cdkdrag')).toBe(true);
+
+    const handle = fixture.nativeElement.querySelector('.prd__head');
+    expect(handle?.hasAttribute('cdkdraghandle')).toBe(true);
+
+    // Body/content is not itself a drag handle — dragging by scrolling/reading the list
+    // must not move the dialog.
+    const body = fixture.nativeElement.querySelector('.prd__body');
+    expect(body?.hasAttribute('cdkdraghandle')).toBe(false);
+  });
 });
