@@ -60,6 +60,10 @@ export class PendingReviewListComponent {
 
   /** One FormControl per item id, debounced independently before emitting `rename`. */
   private readonly nameControls = new Map<string, FormControl<string>>();
+  /** Last `resolvedName` each control was synced to — lets a re-sync (e.g. re-clicking
+   * Sync while the list is still open) detect a backend-side name change and distinguish
+   * it from an in-flight local edit that hasn't round-tripped yet. */
+  private readonly lastSyncedNameById = new Map<string, string>();
   private readonly renameEmitted = new Subject<{ id: string; value: string }>();
 
   constructor() {
@@ -71,12 +75,16 @@ export class PendingReviewListComponent {
     // `items()` — without this, `nameControls` grows unbounded across a long session as
     // items get confirmed/discarded and new ones arrive (each leaves behind a live
     // FormControl + debounced subscription that's never cleaned up until the whole
-    // component is destroyed).
+    // component is destroyed). Also re-syncs existing controls whose backing item's
+    // `resolvedName` changed upstream (e.g. a second Sync click upserts the raw `merchant`
+    // for a still-pending item) without touching a control the user is actively editing.
     effect(() => {
-      const currentIds = new Set(this.items().map((item) => item.id));
+      const currentItems = this.items();
+      const currentIds = new Set(currentItems.map((item) => item.id));
       this.pruneStaleControls(currentIds);
       this.pruneStaleSetEntries(this.deselectedIds, currentIds);
       this.pruneStaleSetEntries(this.installmentEnabledIds, currentIds);
+      this.resyncNameControls(currentItems);
     });
   }
 
@@ -92,7 +100,28 @@ export class PendingReviewListComponent {
       .subscribe((value) => this.renameEmitted.next({ id: item.id, value }));
 
     this.nameControls.set(item.id, control);
+    this.lastSyncedNameById.set(item.id, item.resolvedName);
     return control;
+  }
+
+  /** Updates a cached control's value when `resolvedName` moved upstream since the last
+   * sync point AND the control's current value still matches the old upstream value —
+   * i.e. the user hasn't typed an unsaved edit into it. A control the user is mid-edit on
+   * (value diverged from `lastSyncedNameById`) is left alone so a re-sync never clobbers
+   * unsaved input. */
+  private resyncNameControls(currentItems: readonly PendingReview[]): void {
+    for (const item of currentItems) {
+      const control = this.nameControls.get(item.id);
+      const lastSynced = this.lastSyncedNameById.get(item.id);
+      if (!control || lastSynced === undefined) {
+        continue;
+      }
+
+      if (lastSynced !== item.resolvedName && control.value === lastSynced) {
+        control.setValue(item.resolvedName);
+      }
+      this.lastSyncedNameById.set(item.id, item.resolvedName);
+    }
   }
 
   protected isSelected(id: string): boolean {
@@ -156,6 +185,7 @@ export class PendingReviewListComponent {
     for (const id of this.nameControls.keys()) {
       if (!currentIds.has(id)) {
         this.nameControls.delete(id);
+        this.lastSyncedNameById.delete(id);
       }
     }
   }

@@ -396,8 +396,12 @@ export class ExpensePage {
       .subscribe({
         next: (result) => {
           const { report } = result;
+          // `report.fallback` is always 0 in the staging-only flow (card resolution moved
+          // to confirm time — backend commit 38cab7e) and `created` now means "staged for
+          // review", not "Expense created" (that happens on confirm inside the dialog that
+          // opens next) — omitted/reworded here so the summary doesn't imply either.
           this.syncResultMessage.set(
-            `${report.created} created, ${report.skipped} skipped, ${report.fallback} need a card, ${report.errors} errors`,
+            `${report.created} staged for review, ${report.skipped} skipped, ${report.errors} errors`,
           );
           this.pendingReviewService.applySyncResult(result);
           this.openPendingReviewDialog();

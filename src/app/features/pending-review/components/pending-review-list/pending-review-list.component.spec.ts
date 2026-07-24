@@ -12,7 +12,7 @@ interface Internals {
   onInstallmentNumberChange: (item: PendingReview, rawValue: string) => void;
   onDiscard: (item: PendingReview) => void;
   onConfirmSelected: () => void;
-  nameControlFor: (item: PendingReview) => { value: string };
+  nameControlFor: (item: PendingReview) => { value: string; setValue: (v: string) => void };
   nameControls: Map<string, unknown>;
 }
 
@@ -202,6 +202,36 @@ describe('PendingReviewListComponent', () => {
     api().onConfirmSelected();
 
     expect(emitted).toEqual([['bad-1']]);
+  });
+
+  it('re-syncs a cached name control when resolvedName changes upstream and the field was untouched', () => {
+    setItems([buildItem({ id: 'a', resolvedName: 'Old merchant name' })]);
+    const control = api().nameControlFor(buildItem({ id: 'a', resolvedName: 'Old merchant name' }));
+    expect(control.value).toBe('Old merchant name');
+
+    // Re-clicking Sync upserted the raw merchant for this still-pending item — same id,
+    // new resolvedName (user never edited it, so no nameOverride was set on the backend).
+    setItems([buildItem({ id: 'a', resolvedName: 'New merchant name' })]);
+
+    expect(api().nameControlFor(buildItem({ id: 'a', resolvedName: 'New merchant name' })).value).toBe(
+      'New merchant name',
+    );
+  });
+
+  it('does not clobber an unsaved local edit when resolvedName changes upstream for the same id', () => {
+    setItems([buildItem({ id: 'a', resolvedName: 'Old merchant name' })]);
+    const control = api().nameControlFor(buildItem({ id: 'a', resolvedName: 'Old merchant name' }));
+
+    // User is mid-edit, debounce hasn't fired/round-tripped yet — control value diverges
+    // from the item's last-known resolvedName.
+    control.setValue('User is typing…');
+
+    // Re-sync arrives with a different backend-side resolvedName for the same id.
+    setItems([buildItem({ id: 'a', resolvedName: 'New merchant name' })]);
+
+    expect(
+      api().nameControlFor(buildItem({ id: 'a', resolvedName: 'New merchant name' })).value,
+    ).toBe('User is typing…');
   });
 
   it('prunes local state (form controls, selection) for ids no longer in items()', () => {
