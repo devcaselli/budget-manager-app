@@ -1,0 +1,27 @@
+<div class="pending-review-page">
+  <div class="ew-page-head">
+    <div>
+      <div class="ew-eyebrow">Revisar importações</div>
+      <h1 class="ew-page-title">Importações <em>pendentes.</em></h1>
+      <p class="ew-page-sub">Revise, edite ou descarte antes de confirmar como despesas.</p>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  }
+
+  @if (isLoading()) {
+    <p class="ew-empty">Carregando…</p>
+  } @else {
+    <app-pending-review-list
+      [items]="items()"
+      [errorsById]="confirmErrorsById()"
+      (rename)="onRename($event)"
+      (toggleInstallment)="onToggleInstallment()"
+      (setInstallmentNumber)="onSetInstallmentNumber($event)"
+      (discard)="onDiscard($event)"
+      (confirmSelected)="onConfirmSelected($event)"
+    />
+  }
+</div>

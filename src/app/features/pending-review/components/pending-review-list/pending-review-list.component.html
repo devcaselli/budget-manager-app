@@ -1,0 +1,86 @@
+<div class="ew-panel" aria-label="Pending reviews">
+  <div class="ew-panel-head">
+    <div>
+      <h3>Importações <em>pendentes</em></h3>
+      <p>{{ items().length }} item(ns)</p>
+    </div>
+    <button
+      type="button"
+      class="ew-btn ew-btn--primary"
+      [disabled]="items().length === 0"
+      (click)="onConfirmSelected()"
+    >
+      Confirmar selecionados
+    </button>
+  </div>
+
+  <div class="prl-list">
+    @for (item of items(); track item.id) {
+      <div class="prl-item">
+        <input
+          type="checkbox"
+          class="prl-check"
+          [attr.aria-label]="'Selecionar ' + item.resolvedName"
+          [checked]="isSelected(item.id)"
+          (change)="onToggleSelected(item.id)"
+        />
+
+        <div class="prl-fields">
+          <div class="ew-field prl-name-field">
+            <label [attr.for]="'prl-name-' + item.id">Nome</label>
+            <input
+              [id]="'prl-name-' + item.id"
+              class="ew-input"
+              type="text"
+              [formControl]="nameControlFor(item)"
+            />
+          </div>
+
+          <div class="prl-amount">{{ item.amount | brlCurrency }}</div>
+
+          <button
+            type="button"
+            class="ew-checkbox prl-installment-toggle"
+            [class.ew-checkbox--on]="isInstallment(item)"
+            (click)="onToggleInstallment(item)"
+          >
+            <i></i>
+            <span>É parcelado?</span>
+          </button>
+
+          @if (isInstallment(item)) {
+            <div class="ew-field prl-installment-field">
+              <label [attr.for]="'prl-installments-' + item.id">Parcelas</label>
+              <input
+                [id]="'prl-installments-' + item.id"
+                class="ew-input"
+                type="number"
+                [min]="minInstallmentNumber"
+                [max]="maxInstallmentNumber"
+                step="1"
+                [value]="item.installmentNumber ?? ''"
+                (change)="onInstallmentNumberChange(item, $any($event.target).value)"
+              />
+            </div>
+          }
+
+          <button
+            type="button"
+            class="prl-discard"
+            [attr.aria-label]="'Excluir ' + item.resolvedName"
+            title="Excluir"
+            (click)="onDiscard(item)"
+          >
+            ×
+          </button>
+        </div>
+
+        @if (errorFor(item); as error) {
+          <p class="prl-error">{{ error }}</p>
+        }
+      </div>
+    } @empty {
+      <p class="ew-empty">Nenhuma importação pendente.</p>
+    }
+  </div>
+</div>

@@ -1,0 +1,83 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.prl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 26px 20px;
+}
+
+.prl-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--ew-line);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.prl-check {
+  margin-top: 12px;
+  flex-shrink: 0;
+}
+
+.prl-fields {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  min-width: 0;
+}
+
+.prl-name-field {
+  flex: 1;
+  min-width: 180px;
+}
+
+.prl-amount {
+  padding-bottom: 9px;
+  color: var(--ew-ink-2);
+  font-family: var(--ew-mono);
+  white-space: nowrap;
+}
+
+.prl-installment-toggle {
+  flex-shrink: 0;
+}
+
+.prl-installment-field {
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.prl-discard {
+  flex-shrink: 0;
+  align-self: center;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--ew-ink-3);
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px 6px;
+  transition: color 0.15s;
+
+  &:hover {
+    color: var(--ew-bad);
+  }
+}
+
+.prl-error {
+  flex-basis: 100%;
+  margin: 6px 0 0;
+  color: var(--ew-bad);
+  font-family: var(--ew-mono);
+  font-size: 12px;
+}
