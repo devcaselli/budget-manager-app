@@ -12,6 +12,8 @@ interface Internals {
   onInstallmentNumberChange: (item: PendingReview, rawValue: string) => void;
   onDiscard: (item: PendingReview) => void;
   onConfirmSelected: () => void;
+  nameControlFor: (item: PendingReview) => { value: string };
+  nameControls: Map<string, unknown>;
 }
 
 function buildItem(overrides: Partial<PendingReview> = {}): PendingReview {
@@ -181,5 +183,22 @@ describe('PendingReviewListComponent', () => {
 
     expect(api().errorFor(item)).toBe('Pending review not found');
     expect(fixture.nativeElement.textContent).toContain('Pending review not found');
+  });
+
+  it('prunes local state (form controls, selection) for ids no longer in items()', () => {
+    setItems([buildItem({ id: 'a' }), buildItem({ id: 'b' })]);
+    api().nameControlFor(buildItem({ id: 'a' }));
+    api().nameControlFor(buildItem({ id: 'b' }));
+    api().onToggleSelected('a');
+    expect(api().nameControls.has('a')).toBe(true);
+    expect(api().nameControls.has('b')).toBe(true);
+
+    // 'a' confirmed/discarded and removed from items(); 'c' arrives fresh.
+    setItems([buildItem({ id: 'b' }), buildItem({ id: 'c' })]);
+
+    expect(api().nameControls.has('a')).toBe(false);
+    expect(api().nameControls.has('b')).toBe(true);
+    // A fresh id with no prior interaction still reads as selected (opt-out default intact).
+    expect(api().isSelected('c')).toBe(true);
   });
 });

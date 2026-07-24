@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  WritableSignal,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { Subject, debounceTime } from 'rxjs';
@@ -55,6 +65,18 @@ export class PendingReviewListComponent {
   constructor() {
     this.renameEmitted.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((event) => {
       this.rename.emit(event);
+    });
+
+    // Prune per-item local state (form controls + selection sets) for ids no longer in
+    // `items()` — without this, `nameControls` grows unbounded across a long session as
+    // items get confirmed/discarded and new ones arrive (each leaves behind a live
+    // FormControl + debounced subscription that's never cleaned up until the whole
+    // component is destroyed).
+    effect(() => {
+      const currentIds = new Set(this.items().map((item) => item.id));
+      this.pruneStaleControls(currentIds);
+      this.pruneStaleSetEntries(this.deselectedIds, currentIds);
+      this.pruneStaleSetEntries(this.installmentEnabledIds, currentIds);
     });
   }
 
@@ -129,4 +151,22 @@ export class PendingReviewListComponent {
 
   protected readonly minInstallmentNumber = MIN_INSTALLMENT_NUMBER;
   protected readonly maxInstallmentNumber = MAX_INSTALLMENT_NUMBER;
+
+  private pruneStaleControls(currentIds: ReadonlySet<string>): void {
+    for (const id of this.nameControls.keys()) {
+      if (!currentIds.has(id)) {
+        this.nameControls.delete(id);
+      }
+    }
+  }
+
+  private pruneStaleSetEntries(
+    idSet: WritableSignal<ReadonlySet<string>>,
+    currentIds: ReadonlySet<string>,
+  ): void {
+    const next = new Set([...idSet()].filter((id) => currentIds.has(id)));
+    if (next.size !== idSet().size) {
+      idSet.set(next);
+    }
+  }
 }
