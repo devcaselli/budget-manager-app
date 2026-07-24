@@ -117,11 +117,12 @@ export class ShellComponent {
     { label: 'Payments',      route: '/payments',      num: '11' },
     { label: 'Connect bank',  route: '/connect-bank',  num: '12' },
     { label: 'Connected accounts', route: '/connected-accounts', num: '13' },
-    { label: 'Settings',      route: '/settings',      num: '14' },
+    { label: 'Revisar Importações', route: '/review-imports', num: '14' },
+    { label: 'Settings',      route: '/settings',      num: '15' },
   ];
 
   protected readonly toolsNav: readonly NavEntry[] = [
-    { label: 'Tags', route: '/tags', num: '15' },
+    { label: 'Tags', route: '/tags', num: '16' },
   ];
 
   protected readonly toolsMenuOpen = signal(false);

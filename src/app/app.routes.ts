@@ -133,6 +133,14 @@ export const routes: Routes = [
         title: 'Connected Accounts | Budget Manager',
       },
       {
+        path: 'review-imports',
+        loadComponent: () =>
+          import('@features/pending-review/pages/pending-review-page/pending-review-page').then(
+            (c) => c.PendingReviewPage,
+          ),
+        title: 'Revisar Importações | Budget Manager',
+      },
+      {
         path: 'settings',
         loadComponent: () =>
           import('@features/settings/pages/settings-page/settings-page').then(

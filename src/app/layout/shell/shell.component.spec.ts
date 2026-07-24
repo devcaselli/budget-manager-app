@@ -17,68 +17,76 @@ import { WalletService } from '@features/wallet/services/wallet.service';
 
 import { ShellComponent } from './shell.component';
 
+/**
+ * Stubs `localStorage` (shell reads/writes `bm_tweaks_pos` directly for the Tweaks panel drag
+ * position) and configures the `TestBed` with the same provider set every `ShellComponent` spec
+ * needs. Shared across `describe` blocks below to avoid duplicating the provider list.
+ */
+async function setUpShellFixture(): Promise<ComponentFixture<ShellComponent>> {
+  const store = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => store.set(key, value),
+    removeItem: (key: string) => store.delete(key),
+    clear: () => store.clear(),
+  });
+
+  await TestBed.configureTestingModule({
+    imports: [ShellComponent],
+    providers: [
+      provideNoopAnimations(),
+      provideRouter([{ path: 'tags', component: StubTagsPage }]),
+      PreferencesService,
+      {
+        provide: WalletService,
+        useValue: {
+          selectedWallet$: of(null),
+          wallets$: of([]),
+          loadWallets: vi.fn(),
+          selectWallet: vi.fn(),
+        },
+      },
+      {
+        provide: BulletService,
+        useValue: {
+          bullets$: of([]),
+          loading$: of(false),
+          loadByWalletId: vi.fn(),
+        },
+      },
+      {
+        provide: InstallmentService,
+        useValue: {
+          creditCards$: of([]),
+        },
+      },
+      {
+        provide: ExpenseService,
+        useValue: {
+          loadByWalletId: vi.fn(),
+          create: vi.fn(),
+        },
+      },
+      {
+        provide: AuthService,
+        useValue: {
+          currentUser$: of(null),
+          logout: vi.fn(),
+        },
+      },
+    ],
+  }).compileComponents();
+
+  const fixture = TestBed.createComponent(ShellComponent);
+  fixture.detectChanges();
+  return fixture;
+}
+
 describe('ShellComponent — Tools submenu', () => {
   let fixture: ComponentFixture<ShellComponent>;
 
   beforeEach(async () => {
-    // shell.component.ts reads/writes 'bm_tweaks_pos' via localStorage directly (Tweaks panel
-    // drag position) — stub it so component construction doesn't depend on jsdom's storage setup.
-    const store = new Map<string, string>();
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => store.set(key, value),
-      removeItem: (key: string) => store.delete(key),
-      clear: () => store.clear(),
-    });
-
-    await TestBed.configureTestingModule({
-      imports: [ShellComponent],
-      providers: [
-        provideNoopAnimations(),
-        provideRouter([{ path: 'tags', component: StubTagsPage }]),
-        PreferencesService,
-        {
-          provide: WalletService,
-          useValue: {
-            selectedWallet$: of(null),
-            wallets$: of([]),
-            loadWallets: vi.fn(),
-            selectWallet: vi.fn(),
-          },
-        },
-        {
-          provide: BulletService,
-          useValue: {
-            bullets$: of([]),
-            loading$: of(false),
-            loadByWalletId: vi.fn(),
-          },
-        },
-        {
-          provide: InstallmentService,
-          useValue: {
-            creditCards$: of([]),
-          },
-        },
-        {
-          provide: ExpenseService,
-          useValue: {
-            loadByWalletId: vi.fn(),
-            create: vi.fn(),
-          },
-        },
-        {
-          provide: AuthService,
-          useValue: {
-            currentUser$: of(null),
-            logout: vi.fn(),
-          },
-        },
-      ],
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(ShellComponent);
-    fixture.detectChanges();
+    fixture = await setUpShellFixture();
   });
 
   afterEach(() => {
@@ -189,5 +197,61 @@ describe('ShellComponent — Tools submenu', () => {
     fixture.detectChanges();
 
     expect(submenu()).toBeFalsy();
+  });
+});
+
+describe('ShellComponent — activityNav', () => {
+  let fixture: ComponentFixture<ShellComponent>;
+
+  beforeEach(async () => {
+    fixture = await setUpShellFixture();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('includes a "Revisar Importações" entry pointing at /review-imports, positioned right after "Connected accounts" and before "Settings"', () => {
+    const nav = (fixture.componentInstance as unknown as {
+      activityNav: readonly { label: string; route: string; num: string }[];
+    }).activityNav;
+
+    const reviewEntry = nav.find((n) => n.route === '/review-imports');
+    expect(reviewEntry).toBeTruthy();
+    expect(reviewEntry?.label).toBe('Revisar Importações');
+
+    const connectedIdx = nav.findIndex((n) => n.route === '/connected-accounts');
+    const reviewIdx = nav.findIndex((n) => n.route === '/review-imports');
+    const settingsIdx = nav.findIndex((n) => n.route === '/settings');
+    expect(reviewIdx).toBe(connectedIdx + 1);
+    expect(settingsIdx).toBe(reviewIdx + 1);
+  });
+
+  it('renders the "Revisar Importações" link in the sidebar', () => {
+    const link = fixture.nativeElement.querySelector(
+      'a.ew-nav-item[data-go="revisar importações"]',
+    ) as HTMLAnchorElement | null;
+
+    expect(link).toBeTruthy();
+    expect(link?.getAttribute('href')).toBe('/review-imports');
+  });
+
+  it('has no duplicate `num` values within activityNav (own sequence, unaffected by the new entry)', () => {
+    const instance = fixture.componentInstance as unknown as {
+      activityNav: readonly { num: string }[];
+    };
+    const nums = instance.activityNav.map((n) => n.num);
+
+    expect(new Set(nums).size).toBe(nums.length);
+  });
+
+  it('does not reuse the `num` now assigned to "Revisar Importações" in toolsNav', () => {
+    const instance = fixture.componentInstance as unknown as {
+      activityNav: readonly { num: string; route: string }[];
+      toolsNav: readonly { num: string }[];
+    };
+    const reviewNum = instance.activityNav.find((n) => n.route === '/review-imports')?.num;
+
+    expect(instance.toolsNav.some((n) => n.num === reviewNum)).toBe(false);
   });
 });
