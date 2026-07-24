@@ -7,6 +7,47 @@
   min-width: 220px;
 }
 
+.ep-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    color: var(--ew-acc);
+    border-color: var(--ew-acc);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.ep-sync-note {
+  padding: 0.6rem 0.9rem;
+  margin: 0 0 1rem;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.85rem;
+}
+
 .ep-filters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

@@ -22,6 +22,7 @@ import {
 } from '../../components/credit-card-delete-dialog/credit-card-delete-dialog.component';
 import { CreditCardService } from '../../services/credit-card.service';
 import { CreditCard, EMPTY_CREDIT_CARD_CHARGES } from '../../models/credit-card';
+import { parseLabelsInput, formatLabelsInput } from '../../utils/labels-input';
 
 interface MonthOption {
   readonly label: string;
@@ -99,7 +100,12 @@ export class CreditCardPage {
 
   protected readonly newCardForm = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
+    labels: [''],
   });
+
+  /** Per-card labels editor text, keyed by card id. Populated lazily as cards load. */
+  protected readonly labelsDraft = signal<ReadonlyMap<string, string>>(new Map());
+  protected readonly savingLabelsId = signal<string | null>(null);
 
   protected readonly monthOptions = computed<readonly MonthOption[]>(() => {
     const options: MonthOption[] = [];
@@ -225,6 +231,30 @@ export class CreditCardPage {
       this.selectedMonth.set(month);
       this.loadChargesForSelection();
     });
+
+    // Keeps the per-card labels draft text in sync with the card list: seeds new cards
+    // (without clobbering in-progress edits on unrelated reloads) and prunes drafts for
+    // cards that no longer exist, so deleting a card doesn't leak its draft entry forever.
+    effect(() => {
+      const cards = this.cards();
+      const cardIds = new Set(cards.map((card) => card.id));
+      const current = this.labelsDraft();
+      const next = new Map<string, string>();
+      let changed = current.size !== cardIds.size;
+
+      for (const card of cards) {
+        if (current.has(card.id)) {
+          next.set(card.id, current.get(card.id)!);
+        } else {
+          next.set(card.id, formatLabelsInput(card.labels));
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        this.labelsDraft.set(next);
+      }
+    });
   }
 
   protected onMonthSelect(year: number, month: number): void {
@@ -256,10 +286,34 @@ export class CreditCardPage {
     }
 
     const value = this.newCardForm.getRawValue();
+    const labels = parseLabelsInput(value.labels);
     this.creditCardService
-      .create({ name: value.name.trim() })
+      .create({ name: value.name.trim(), ...(labels.length > 0 ? { labels } : {}) })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: () => this.newCardForm.reset({ name: '' }), error: () => undefined });
+      .subscribe({
+        next: () => this.newCardForm.reset({ name: '', labels: '' }),
+        error: () => undefined,
+      });
+  }
+
+  protected onLabelsInput(cardId: string, raw: string): void {
+    const next = new Map(this.labelsDraft());
+    next.set(cardId, raw);
+    this.labelsDraft.set(next);
+  }
+
+  protected saveLabels(card: CreditCard): void {
+    const raw = this.labelsDraft().get(card.id) ?? '';
+    const labels = parseLabelsInput(raw);
+
+    this.savingLabelsId.set(card.id);
+    this.creditCardService
+      .patch(card.id, { labels })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.savingLabelsId.set(null),
+        error: () => this.savingLabelsId.set(null),
+      });
   }
 
   protected onDeleteCard(card: CreditCard): void {

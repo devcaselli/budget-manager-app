@@ -95,6 +95,53 @@ describe('CreditCardService', () => {
     expect(emitted.at(-1)).toEqual([makeCard({ id: 'card-1' }), created]);
   });
 
+  it('sends labels on create when provided', () => {
+    service.loadAll();
+    httpMock
+      .expectOne((r) => r.url === CARDS_URL)
+      .flush({ content: [], totalElements: 0, totalPages: 0, page: 0, size: 100 });
+
+    const created = makeCard({ id: 'card-1', labels: ['Uniclass'] });
+    service.create({ name: 'Nubank', labels: ['Uniclass'] }).subscribe();
+
+    const req = httpMock.expectOne(CARDS_URL);
+    expect(req.request.body).toEqual({ name: 'Nubank', labels: ['Uniclass'] });
+    req.flush(created);
+  });
+
+  it('patches labels and updates the matching card in cards$', () => {
+    const a = makeCard({ id: 'card-1', labels: [] });
+    service.loadAll();
+    httpMock
+      .expectOne((r) => r.url === CARDS_URL)
+      .flush({ content: [a], totalElements: 1, totalPages: 1, page: 0, size: 100 });
+
+    const updated = makeCard({ id: 'card-1', labels: ['Uniclass', 'Nu Mastercard'] });
+    const emitted: (readonly CreditCard[])[] = [];
+    service.cards$.subscribe((v) => emitted.push(v));
+
+    let result: CreditCard | undefined;
+    service.patch('card-1', { labels: ['Uniclass', 'Nu Mastercard'] }).subscribe((c) => (result = c));
+
+    const req = httpMock.expectOne(`${CARDS_URL}/card-1`);
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ labels: ['Uniclass', 'Nu Mastercard'] });
+    req.flush(updated);
+
+    expect(result).toEqual(updated);
+    expect(emitted.at(-1)).toEqual([updated]);
+  });
+
+  it('sets error$ when patching labels fails', () => {
+    const errors: (string | null)[] = [];
+    service.error$.subscribe((v) => errors.push(v));
+
+    service.patch('card-1', { labels: ['Uniclass'] }).subscribe({ error: () => undefined });
+    httpMock.expectOne(`${CARDS_URL}/card-1`).flush(null, { status: 500, statusText: 'Error' });
+
+    expect(errors.at(-1)).toBe('Could not update credit card.');
+  });
+
   it('removes a deleted card from cards$', () => {
     const a = makeCard({ id: 'card-1' });
     const b = makeCard({ id: 'card-2' });

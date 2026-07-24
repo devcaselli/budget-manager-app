@@ -22,6 +22,11 @@
   @if (paymentErrorMessage()) {
     <div class="ew-alert" role="alert">{{ paymentErrorMessage() }}</div>
   }
+  @if (syncErrorMessage()) {
+    <div class="ew-alert" role="alert">{{ syncErrorMessage() }}</div>
+  } @else if (syncResultMessage()) {
+    <div class="ep-sync-note" role="status">{{ syncResultMessage() }}</div>
+  }
 
   <div class="ew-row">
     <!-- Expense ledger -->
@@ -30,6 +35,19 @@
         <div class="ep-panel-head-main">
           <h3>Expense ledger</h3>
           <p>{{ filteredExpenseItems().length }} of {{ expenseItems().length }} expense(s) in cycle</p>
+        </div>
+        <div class="ew-panel-head-actions">
+          <button
+            class="ep-sync-btn"
+            type="button"
+            [disabled]="isSyncing()"
+            (click)="syncNow()"
+            aria-label="Sync bank SMS expenses"
+            title="Sync bank SMS expenses"
+          >
+            <mat-icon aria-hidden="true">sync</mat-icon>
+            {{ isSyncing() ? 'Syncing...' : 'Sync' }}
+          </button>
         </div>
       </div>
       <div class="ep-filters" [formGroup]="filtersForm">

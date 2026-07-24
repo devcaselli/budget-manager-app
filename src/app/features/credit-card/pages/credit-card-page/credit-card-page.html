@@ -180,18 +180,38 @@
           <ul class="ccp-card-list">
             @for (card of cards(); track card.id) {
               <li class="ccp-card-item">
-                <span class="ccp-card-name">{{ card.name }}</span>
-                <button
-                  class="ccp-delete-btn"
-                  type="button"
-                  aria-label="Delete card"
-                  [disabled]="deletingId() === card.id"
-                  (click)="onDeleteCard(card)"
-                >
-                  <mat-icon aria-hidden="true">
-                    {{ deletingId() === card.id ? 'hourglass_empty' : 'delete_outline' }}
-                  </mat-icon>
-                </button>
+                <div class="ccp-card-row">
+                  <span class="ccp-card-name">{{ card.name }}</span>
+                  <button
+                    class="ccp-delete-btn"
+                    type="button"
+                    aria-label="Delete card"
+                    [disabled]="deletingId() === card.id"
+                    (click)="onDeleteCard(card)"
+                  >
+                    <mat-icon aria-hidden="true">
+                      {{ deletingId() === card.id ? 'hourglass_empty' : 'delete_outline' }}
+                    </mat-icon>
+                  </button>
+                </div>
+                <div class="ccp-labels-row">
+                  <input
+                    class="ew-input ccp-labels-input"
+                    type="text"
+                    [attr.aria-label]="'Sync labels for ' + card.name"
+                    placeholder="Sync labels, e.g. Uniclass, Nu Mastercard"
+                    [value]="labelsDraft().get(card.id) ?? ''"
+                    (input)="onLabelsInput(card.id, $any($event.target).value)"
+                  />
+                  <button
+                    class="ccp-labels-save-btn"
+                    type="button"
+                    [disabled]="savingLabelsId() === card.id"
+                    (click)="saveLabels(card)"
+                  >
+                    {{ savingLabelsId() === card.id ? 'Saving...' : 'Save' }}
+                  </button>
+                </div>
               </li>
             }
           </ul>
@@ -219,6 +239,18 @@
               @if (newCardForm.controls.name.touched && newCardForm.controls.name.invalid) {
                 <p class="ccp-field-error">Enter a card name.</p>
               }
+            </div>
+            <div class="ew-field">
+              <label for="ccp-card-labels">Sync labels</label>
+              <input
+                id="ccp-card-labels"
+                class="ew-input"
+                formControlName="labels"
+                placeholder="e.g. Uniclass, Nu Mastercard"
+              />
+              <p class="ccp-field-hint">
+                Comma-separated names as they appear in bank SMS alerts, for auto-sync matching.
+              </p>
             </div>
             <button
               class="ew-btn-submit"

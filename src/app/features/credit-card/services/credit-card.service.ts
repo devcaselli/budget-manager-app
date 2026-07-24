@@ -18,6 +18,7 @@ import {
   CreateCreditCardRequest,
   EMPTY_CREDIT_CARD_CHARGES,
   PagedCreditCardResponse,
+  PatchCreditCardRequest,
 } from '../models/credit-card';
 
 export interface LoadChargesParams {
@@ -125,6 +126,40 @@ export class CreditCardService {
       .subscribe({
         next: (card) => {
           subject.next(card);
+          subject.complete();
+        },
+        error: (err: unknown) => subject.error(err),
+      });
+
+    return subject.asObservable();
+  }
+
+  /**
+   * Does not touch `savingSubject`/`saving$` — that flag guards the "Add card" create
+   * form's submit button, and callers patching an existing card's fields (e.g. labels)
+   * already track their own in-flight state (see CreditCardPage.savingLabelsId). Reusing
+   * savingSubject here would spuriously disable the unrelated create button while a patch
+   * is in flight.
+   */
+  patch(id: string, request: PatchCreditCardRequest): Observable<CreditCard> {
+    const subject = new ReplaySubject<CreditCard>(1);
+
+    this.errorSubject.next(null);
+
+    this.http
+      .patch<CreditCard>(`${this.creditCardsUrl}/${id}`, request)
+      .pipe(
+        tap({
+          next: (updated) => {
+            const current = this.cardsSubject.getValue();
+            this.cardsSubject.next(current.map((c) => (c.id === id ? updated : c)));
+          },
+          error: () => this.errorSubject.next('Could not update credit card.'),
+        }),
+      )
+      .subscribe({
+        next: (updated) => {
+          subject.next(updated);
           subject.complete();
         },
         error: (err: unknown) => subject.error(err),

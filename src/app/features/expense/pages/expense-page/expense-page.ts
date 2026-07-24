@@ -30,6 +30,7 @@ import { Payer } from '@features/payer/models/payer';
 import { Share } from '@features/share/models/share';
 import { ShareService } from '@features/share/services/share.service';
 import { TagService } from '@features/tag/services/tag.service';
+import { SyncService } from '@features/sync/services/sync.service';
 import {
   TagPickerDialogComponent,
   TagPickerDialogData,
@@ -96,6 +97,7 @@ export class ExpensePage {
   private readonly installmentService = inject(InstallmentService);
   private readonly shareService = inject(ShareService);
   private readonly tagService = inject(TagService);
+  private readonly syncService = inject(SyncService);
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
@@ -122,6 +124,9 @@ export class ExpensePage {
   protected readonly paymentErrorMessage = toSignal(this.paymentService.error$, {
     initialValue: null,
   });
+  protected readonly isSyncing = toSignal(this.syncService.syncing$, { initialValue: false });
+  protected readonly syncErrorMessage = toSignal(this.syncService.error$, { initialValue: null });
+  protected readonly syncResultMessage = signal<string | null>(null);
   protected readonly hasCreditCards = computed(() => this.creditCards().length > 0);
   protected readonly createExpenseBlockerMessage = computed(() => {
     if (!this.wallet()) {
@@ -375,6 +380,27 @@ export class ExpensePage {
           this.shareService.loadAll();
           this.reloadWalletPayers(id);
         }
+      });
+  }
+
+  protected syncNow(): void {
+    if (this.isSyncing()) return;
+
+    this.syncResultMessage.set(null);
+    this.syncService
+      .ingest()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (report) => {
+          this.syncResultMessage.set(
+            `${report.created} created, ${report.skipped} skipped, ${report.fallback} need a card, ${report.errors} errors`,
+          );
+          if (report.created > 0) {
+            const walletId = this.selectedWallet()?.id ?? null;
+            this.expenseService.loadByWalletId(walletId);
+          }
+        },
+        error: () => undefined,
       });
   }
 

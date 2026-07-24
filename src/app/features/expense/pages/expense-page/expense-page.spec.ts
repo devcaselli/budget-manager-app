@@ -11,6 +11,8 @@ import { WalletService } from '@features/wallet/services/wallet.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
 import { ShareService } from '@features/share/services/share.service';
 import { TagService } from '@features/tag/services/tag.service';
+import { SyncService } from '@features/sync/services/sync.service';
+import { SyncReport } from '@features/sync/models/sync';
 import { Tag } from '@features/tag/models/tag';
 import { Expense } from '@features/expense/models/expense';
 import { Share } from '@features/share/models/share';
@@ -69,6 +71,16 @@ class FakeWalletService {
   }
 }
 
+function buildSyncReport(overrides: Partial<SyncReport> = {}): SyncReport {
+  return { created: 0, skipped: 0, fallback: 0, errors: 0, ...overrides };
+}
+
+class FakeSyncService {
+  readonly syncing$ = new BehaviorSubject(false);
+  readonly error$ = new BehaviorSubject<string | null>(null);
+  ingest = vi.fn().mockReturnValue(of(buildSyncReport()));
+}
+
 function buildExpense(overrides: Partial<Expense> = {}): Expense {
   return {
     id: 'expense-1',
@@ -111,10 +123,12 @@ describe('ExpensePage — share derivation & split button visibility', () => {
   let component: ExpensePage;
   let expenseService: FakeExpenseService;
   let shareService: FakeShareService;
+  let syncService: FakeSyncService;
 
   beforeEach(() => {
     expenseService = new FakeExpenseService();
     shareService = new FakeShareService();
+    syncService = new FakeSyncService();
 
     TestBed.configureTestingModule({
       imports: [ExpensePage],
@@ -128,6 +142,7 @@ describe('ExpensePage — share derivation & split button visibility', () => {
         { provide: InstallmentService, useClass: FakeInstallmentService },
         { provide: WalletService, useClass: FakeWalletService },
         { provide: TagService, useClass: FakeTagService },
+        { provide: SyncService, useValue: syncService },
         { provide: MatDialog, useValue: { open: vi.fn() } },
       ],
     });
@@ -238,5 +253,40 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     (component as unknown as { onTagsClick: (e: unknown) => void }).onTagsClick(item);
 
     expect(expenseService.assignTags).not.toHaveBeenCalled();
+  });
+
+  it('calls SyncService.ingest and reloads the wallet expenses when items were created', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    fixture.detectChanges();
+
+    syncService.ingest.mockReturnValue(of(buildSyncReport({ created: 3, skipped: 1 })));
+    expenseService.loadByWalletId.mockClear();
+
+    (component as unknown as { syncNow: () => void }).syncNow();
+
+    expect(syncService.ingest).toHaveBeenCalled();
+    expect(expenseService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
+  });
+
+  it('does not reload expenses when sync creates nothing', () => {
+    fixture.detectChanges();
+    syncService.ingest.mockReturnValue(of(buildSyncReport({ created: 0, skipped: 4 })));
+    expenseService.loadByWalletId.mockClear();
+
+    (component as unknown as { syncNow: () => void }).syncNow();
+
+    expect(expenseService.loadByWalletId).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op when a sync is already in flight', () => {
+    syncService.syncing$.next(true);
+    fixture.detectChanges();
+
+    (component as unknown as { syncNow: () => void }).syncNow();
+
+    expect(syncService.ingest).not.toHaveBeenCalled();
   });
 });
