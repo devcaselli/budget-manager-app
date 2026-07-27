@@ -22,6 +22,35 @@ import { PayerService } from '@features/payer/services/payer.service';
 import { CreateShareRequest, Share } from '@features/share/models/share';
 import { ShareService } from '@features/share/services/share.service';
 
+/**
+ * Task 5 (frontend-tasks.md, improvement-shares) decision: this dialog deliberately does
+ * NOT get the PERCENT split mode that `ShareFormComponent` (Task 4) has. Four reasons,
+ * checked and closed on 2026-07-27 — do not reopen by inertia ("the other form has it, so
+ * should this one"):
+ *
+ * 1. It solves nothing here. This dialog always creates exactly ONE quota (see `submit()`
+ *    below) — with N=1, "70%" and "R$ 700 of R$ 1000" are the same information typed on a
+ *    different keypad. The actual value PERCENT mode adds is splitting across N people
+ *    without doing the arithmetic yourself; that value is zero at N=1. `ownerAmount()`
+ *    (below) is already auto-computed as `cost - amount`, which is the whole point PERCENT
+ *    mode would otherwise buy.
+ * 2. It's the highest-risk place to add it. This dialog creates EXPENSE-sourced shares
+ *    exclusively (`buildRequest()`'s `sourceType: 'EXPENSE'`) — the one source type
+ *    affected by the `Expense.pay()` cent-exact debt (see
+ *    `expense_pay_cent_exact_blocks_percentage_shares` in the tech-debt wiki). Adding a
+ *    percent→R$ conversion here, of all places, would plant that bug in the app's
+ *    most-used sharing entry point for a UX gain that's already zero per point 1.
+ * 3. Real, non-trivial cost. This dialog shares no code with `ShareFormComponent` — its
+ *    own form, its own 3-step wizard, its own validation (`Validators.max(cost)`).
+ *    PERCENT mode here would be new, duplicated implementation, not reuse.
+ * 4. Out of scope. The plan's scope was "the create-share form on SharePage" — this
+ *    dialog was never named.
+ *
+ * Task 5 also re-verified this dialog after Tasks 1 and 4 changed things it depends on
+ * (`Share.sourceName` added to the model; `ShareService.create()`'s error message now
+ * extracts the backend's `detail` field instead of always showing the generic one) — no
+ * production code change was needed; this file's only diff for Task 5 is this comment.
+ */
 export interface InteractiveShareDialogExpense {
   readonly id: string;
   readonly name: string;
