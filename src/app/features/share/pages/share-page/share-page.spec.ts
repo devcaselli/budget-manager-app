@@ -134,6 +134,12 @@ describe('SharePage — client-side wallet filtering & source exclusion', () => 
     return (component as unknown as { sourceOptions: () => readonly { id: string }[] }).sourceOptions();
   }
 
+  function shareItemsWithLabels() {
+    return (
+      component as unknown as { shareItems: () => readonly { id: string; sourceLabel: string }[] }
+    ).shareItems();
+  }
+
   describe('shareItems (wallet filter)', () => {
     it('returns no shares until a wallet is selected', () => {
       shareService.shares$.next([buildShare()]);
@@ -194,6 +200,44 @@ describe('SharePage — client-side wallet filtering & source exclusion', () => 
       fixture.detectChanges();
 
       expect(sourceOptions().map((o) => o.id)).toContain('expense-1');
+    });
+  });
+
+  describe('sourceLabel fallback chain (Task 2)', () => {
+    beforeEach(() => selectWallet('wallet-1'));
+
+    it('uses share.sourceName directly, even when the source is not in any locally loaded list', () => {
+      // This is the bug the Victor reported: a source belonging to another wallet/month
+      // used to fall through to the raw-id fallback because the local expenses/installments/
+      // subscriptions lists never had it loaded. With sourceName resolved server-side, the
+      // label is correct regardless of what the client happens to have loaded locally.
+      expenseService.expenses$.next([]); // source NOT in the local list
+      shareService.shares$.next([
+        buildShare({ sourceType: 'EXPENSE', sourceId: 'expense-elsewhere', sourceName: 'Aluguel' }),
+      ]);
+      fixture.detectChanges();
+
+      expect(shareItemsWithLabels()[0].sourceLabel).toBe('Aluguel');
+    });
+
+    it('falls back to the local list lookup when sourceName is null but the source is loaded locally', () => {
+      expenseService.expenses$.next([buildExpense({ id: 'expense-1', name: 'Groceries' })]);
+      shareService.shares$.next([
+        buildShare({ sourceType: 'EXPENSE', sourceId: 'expense-1', sourceName: null }),
+      ]);
+      fixture.detectChanges();
+
+      expect(shareItemsWithLabels()[0].sourceLabel).toBe('Groceries');
+    });
+
+    it('falls back to the raw id slice as a last resort when sourceName is null and the source is not loaded locally', () => {
+      expenseService.expenses$.next([]);
+      shareService.shares$.next([
+        buildShare({ sourceType: 'EXPENSE', sourceId: 'expense-nowhere-12345', sourceName: null }),
+      ]);
+      fixture.detectChanges();
+
+      expect(shareItemsWithLabels()[0].sourceLabel).toBe('expense-nowhere-12345'.slice(0, 8));
     });
   });
 });

@@ -462,7 +462,7 @@ export class SharePage {
   private toShareListItem(share: Share): ShareListItem {
     return {
       id: share.id,
-      sourceLabel: this.describeSource(share.sourceType, share.sourceId),
+      sourceLabel: share.sourceName ?? this.describeSource(share.sourceType, share.sourceId),
       sourceType: share.sourceType,
       totalAmount: Number(share.totalAmount),
       ownerShare: Number(share.ownerShare),
@@ -480,6 +480,18 @@ export class SharePage {
     };
   }
 
+  /**
+   * Fallback only — the common path is `share.sourceName` (resolved server-side), which
+   * makes this a rare-case lookup, not the primary one. Covers a window where the backend
+   * couldn't resolve the name but the client already has the source loaded locally; the
+   * final fallback (`sourceId.slice(0, 8)`) covers the case where neither has it (source
+   * deleted, or belongs to another owner/wallet/month).
+   *
+   * Deliberately still a linear `.find()` per call — O(n·m) if this ran for every share in
+   * a `.map()`, but with `sourceName` covering the common case it now only runs for the
+   * rare fallback. Do not pre-build a `Map` index here "to optimize": that would cost O(n)
+   * unconditionally to speed up a path that, by construction, almost never executes.
+   */
   private describeSource(sourceType: ShareSourceType, sourceId: string): string {
     if (sourceType === 'EXPENSE') {
       return this.expenses().find((expense) => expense.id === sourceId)?.name ?? sourceId.slice(0, 8);
