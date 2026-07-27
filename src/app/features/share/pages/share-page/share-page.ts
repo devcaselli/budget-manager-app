@@ -183,11 +183,17 @@ export class SharePage {
   );
 
   constructor() {
+    // Owner-scoped, not wallet-scoped — load once, not on every wallet switch (self-review
+    // finding: an earlier version of this moved the call inside the wallet-change effect
+    // below, which re-fetched all subscriptions redundantly on every wallet switch). This
+    // page only reads subscriptions() as describeSource()'s SUBSCRIPTION fallback — the
+    // list itself doesn't depend on which wallet is selected.
+    this.subscriptionService.loadSubscriptions();
+
     effect(() => {
       const walletId = this.selectedWallet()?.id ?? null;
       this.expenseService.loadByWalletId(walletId);
       this.installmentService.loadByWalletId(walletId);
-      this.subscriptionService.loadSubscriptions();
       // Both share sources feed the Active tab (effective + stopped) — load both on
       // every wallet change, not just one per tab.
       this.shareService.loadAll();
@@ -321,5 +327,4 @@ export class SharePage {
   }
 
   protected readonly sourceLabel = SOURCE_LABEL;
-  protected readonly payers = this.walletPayers;
 }
