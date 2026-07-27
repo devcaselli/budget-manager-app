@@ -36,7 +36,10 @@ export class ExpenseService {
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
-  private readonly loadExpensesTrigger$ = new Subject<string | null>();
+  private readonly loadExpensesTrigger$ = new Subject<{
+    walletId: string | null;
+    unhidden: boolean;
+  }>();
 
   readonly expenses$ = this.expensesSubject.asObservable();
   readonly allExpenses$ = this.allExpensesSubject.asObservable();
@@ -48,7 +51,7 @@ export class ExpenseService {
   constructor() {
     this.loadExpensesTrigger$
       .pipe(
-        tap((walletId) => {
+        tap(({ walletId }) => {
           this.errorSubject.next(null);
 
           if (!walletId) {
@@ -58,12 +61,14 @@ export class ExpenseService {
 
           this.loadingCounter.start();
         }),
-        switchMap((walletId) => {
+        // switchMap cancels the in-flight request on every new trigger, so rapid wallet
+        // switches or `unhidden` toggles can never let a stale response win the race.
+        switchMap(({ walletId, unhidden }) => {
           if (!walletId) {
             return EMPTY;
           }
 
-          return this.findByWalletId(walletId).pipe(
+          return this.findByWalletId(walletId, 0, 100, unhidden).pipe(
             tap((response) => this.expensesSubject.next(response.content)),
             catchError(() => {
               this.errorSubject.next('Não foi possível carregar as expenses.');
@@ -76,10 +81,21 @@ export class ExpenseService {
       .subscribe();
   }
 
-  findByWalletId(walletId: string, page = 0, size = 100): Observable<PagedExpenseResponse> {
-    const params = new HttpParams()
+  findByWalletId(
+    walletId: string,
+    page = 0,
+    size = 100,
+    unhidden = false,
+  ): Observable<PagedExpenseResponse> {
+    let params = new HttpParams()
       .set('page', page)
       .set('size', size);
+
+    // Backend defaults to `unhidden=false`; only send it when it deviates so existing
+    // call-sites keep producing the exact same request they always have.
+    if (unhidden) {
+      params = params.set('unhidden', unhidden);
+    }
 
     return this.http.get<PagedExpenseResponse>(`${this.expensesUrl}/wallet/${walletId}`, {
       params,
@@ -165,8 +181,8 @@ export class ExpenseService {
     return deletedExpenseSubject.asObservable();
   }
 
-  loadByWalletId(walletId: string | null): void {
-    this.loadExpensesTrigger$.next(walletId);
+  loadByWalletId(walletId: string | null, unhidden = false): void {
+    this.loadExpensesTrigger$.next({ walletId, unhidden });
   }
 
   patch(

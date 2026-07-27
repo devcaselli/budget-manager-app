@@ -50,6 +50,54 @@ describe('ExpenseService', () => {
     expect(emittedExpenses.at(-1)).toEqual([expense]);
   });
 
+  it('should not send unhidden when loadByWalletId is called without it (default false)', () => {
+    service.loadByWalletId('wallet-1');
+
+    const request = httpMock.expectOne(
+      (candidate) => candidate.url === '/api/expenses/wallet/wallet-1',
+    );
+    expect(request.request.params.has('unhidden')).toBe(false);
+    request.flush(pagedResponse([expense]));
+  });
+
+  it('should send unhidden=true when loadByWalletId is called with unhidden=true', () => {
+    service.loadByWalletId('wallet-1', true);
+
+    const request = httpMock.expectOne(
+      (candidate) => candidate.url === '/api/expenses/wallet/wallet-1',
+    );
+    expect(request.request.params.get('unhidden')).toBe('true');
+    request.flush(pagedResponse([expense]));
+  });
+
+  it('should only let the latest loadByWalletId trigger populate expenses$ (switchMap guard)', () => {
+    const emittedExpenses: (readonly Expense[])[] = [];
+    service.expenses$.subscribe((value) => emittedExpenses.push(value));
+
+    service.loadByWalletId('wallet-1');
+    service.loadByWalletId('wallet-1', true);
+
+    const requests = httpMock.match(
+      (candidate) => candidate.url === '/api/expenses/wallet/wallet-1',
+    );
+    expect(requests).toHaveLength(2);
+
+    const staleRequest = requests.find((r) => !r.request.params.has('unhidden'));
+    const latestRequest = requests.find((r) => r.request.params.get('unhidden') === 'true');
+    expect(staleRequest).toBeDefined();
+    expect(latestRequest).toBeDefined();
+
+    // switchMap already unsubscribed the stale request when the second trigger fired —
+    // it's cancelled outright (flushing it throws), proving there's no way for a slow
+    // first response to win a race against a faster second one.
+    expect(staleRequest!.cancelled).toBe(true);
+
+    const latestExpense: Expense = { ...expense, id: 'latest-expense' };
+    latestRequest!.flush(pagedResponse([latestExpense]));
+
+    expect(emittedExpenses.at(-1)).toEqual([latestExpense]);
+  });
+
   it('should create an expense and prepend it to expenses$', () => {
     const input: CreateExpenseRequest = {
       name: 'Mercado',
