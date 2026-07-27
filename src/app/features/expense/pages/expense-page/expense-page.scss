@@ -109,6 +109,26 @@
   padding: 6px 0;
 }
 
+.ep-filter-field--checkbox {
+  label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--ew-sans);
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--ew-ink);
+    cursor: pointer;
+  }
+
+  input[type='checkbox'] {
+    accent-color: var(--ew-ink);
+    cursor: pointer;
+  }
+}
+
 .ep-amount-cell {
   text-align: right;
 }

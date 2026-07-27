@@ -343,3 +343,163 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     expect(dialog.open).not.toHaveBeenCalled();
   });
 });
+
+describe('ExpensePage — unhidden filter checkbox (Task 8a) & share indicator (Task 8b verification)', () => {
+  let fixture: ComponentFixture<ExpensePage>;
+  let component: ExpensePage;
+  let expenseService: FakeExpenseService;
+  let shareService: FakeShareService;
+  let bulletService: { loadByWalletId: ReturnType<typeof vi.fn> };
+  let paymentService: { loadByWalletId: ReturnType<typeof vi.fn> };
+  let installmentService: { loadByWalletId: ReturnType<typeof vi.fn> };
+  let walletService: { selectedWallet$: BehaviorSubject<Wallet | null> };
+
+  function filtersForm() {
+    return (component as unknown as { filtersForm: { controls: { unhidden: { setValue: (v: boolean) => void } } } }).filtersForm;
+  }
+
+  function expenseItems() {
+    return (
+      component as unknown as {
+        expenseItems: () => readonly {
+          id: string;
+          hasShare: boolean;
+          shareSummary: string;
+          statusLabel: string;
+          cost: number;
+          remaining: number;
+          paid: number;
+        }[];
+      }
+    ).expenseItems();
+  }
+
+  beforeEach(() => {
+    expenseService = new FakeExpenseService();
+    shareService = new FakeShareService();
+
+    TestBed.configureTestingModule({
+      imports: [ExpensePage],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ExpenseService, useValue: expenseService },
+        { provide: ShareService, useValue: shareService },
+        { provide: PaymentService, useClass: FakePaymentService },
+        { provide: BulletService, useClass: FakeBulletService },
+        { provide: InstallmentService, useClass: FakeInstallmentService },
+        { provide: WalletService, useClass: FakeWalletService },
+        { provide: TagService, useClass: FakeTagService },
+        { provide: SyncService, useClass: FakeSyncService },
+        { provide: PendingReviewService, useClass: FakePendingReviewService },
+        {
+          provide: MatDialog,
+          useValue: { open: vi.fn().mockReturnValue({ afterClosed: () => of(undefined) }) },
+        },
+      ],
+    });
+
+    fixture = TestBed.createComponent(ExpensePage);
+    component = fixture.componentInstance;
+    bulletService = TestBed.inject(BulletService) as unknown as typeof bulletService;
+    paymentService = TestBed.inject(PaymentService) as unknown as typeof paymentService;
+    installmentService = TestBed.inject(InstallmentService) as unknown as typeof installmentService;
+    walletService = TestBed.inject(WalletService) as unknown as typeof walletService;
+    fixture.detectChanges();
+  });
+
+  it('checkbox off by default: switching wallet loads expenses without unhidden=true', () => {
+    expenseService.loadByWalletId.mockClear();
+
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    fixture.detectChanges();
+
+    expect(expenseService.loadByWalletId).toHaveBeenCalledWith('wallet-1', false);
+  });
+
+  it('toggling the checkbox on re-fetches expenses for the current wallet with unhidden=true', () => {
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    fixture.detectChanges();
+    expenseService.loadByWalletId.mockClear();
+
+    filtersForm().controls.unhidden.setValue(true);
+    fixture.detectChanges();
+
+    expect(expenseService.loadByWalletId).toHaveBeenCalledWith('wallet-1', true);
+  });
+
+  it('switching wallet with the checkbox on keeps passing unhidden=true (no silent filter reset)', () => {
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    fixture.detectChanges();
+    filtersForm().controls.unhidden.setValue(true);
+    fixture.detectChanges();
+    expenseService.loadByWalletId.mockClear();
+
+    walletService.selectedWallet$.next({ id: 'wallet-2' } as Wallet);
+    fixture.detectChanges();
+
+    expect(expenseService.loadByWalletId).toHaveBeenCalledWith('wallet-2', true);
+  });
+
+  it('toggling the checkbox does NOT re-trigger bullet/payment/installment/share loads or resetForm', () => {
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    fixture.detectChanges();
+
+    bulletService.loadByWalletId.mockClear();
+    paymentService.loadByWalletId.mockClear();
+    installmentService.loadByWalletId.mockClear();
+    shareService.loadAll.mockClear();
+    const resetFormSpy = vi.spyOn(component as unknown as { resetForm: () => void }, 'resetForm' as never);
+
+    filtersForm().controls.unhidden.setValue(true);
+    fixture.detectChanges();
+
+    expect(bulletService.loadByWalletId).not.toHaveBeenCalled();
+    expect(paymentService.loadByWalletId).not.toHaveBeenCalled();
+    expect(installmentService.loadByWalletId).not.toHaveBeenCalled();
+    expect(shareService.loadAll).not.toHaveBeenCalled();
+    expect(resetFormSpy).not.toHaveBeenCalled();
+  });
+
+  it('8b: a fully-shared expense (remaining 0, active share) renders the share indicator, PAID pill, and struck-through original cost', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'expense-1', cost: 100, remaining: 0 })]);
+    shareService.shares$.next([buildShare({ sourceId: 'expense-1' })]);
+    fixture.detectChanges();
+
+    const [item] = expenseItems();
+    expect(item.hasShare).toBe(true);
+    expect(item.shareSummary).toContain('Maria');
+    expect(item.statusLabel).toBe('PAID');
+    expect(item.paid).toBe(100);
+
+    const indicator = fixture.nativeElement.querySelector('.ep-share-indicator');
+    expect(indicator).toBeTruthy();
+    expect(indicator.getAttribute('title')).toContain('Maria');
+
+    const pill = fixture.nativeElement.querySelector('.ew-pill--paid');
+    expect(pill).toBeTruthy();
+
+    const originalCost = fixture.nativeElement.querySelector('.ep-amount-original');
+    expect(originalCost).toBeTruthy();
+
+    // Split button must stay hidden — already-shared expenses don't offer a re-split.
+    expect(fixture.nativeElement.querySelector('button[title="Split expense"]')).toBeNull();
+  });
+
+  it('regression: expense without a share and expense with a partial share behave unchanged', () => {
+    expenseService.expenses$.next([
+      buildExpense({ id: 'expense-1', cost: 100, remaining: 100 }),
+      buildExpense({ id: 'expense-2', cost: 200, remaining: 150 }),
+    ]);
+    shareService.shares$.next([buildShare({ sourceId: 'expense-2' })]);
+    fixture.detectChanges();
+
+    const [unshared, partiallyShared] = expenseItems();
+    expect(unshared.hasShare).toBe(false);
+    expect(unshared.statusLabel).toBe('OPEN');
+
+    expect(partiallyShared.hasShare).toBe(true);
+    expect(partiallyShared.statusLabel).toBe('OPEN');
+    expect(partiallyShared.remaining).toBe(150);
+  });
+});

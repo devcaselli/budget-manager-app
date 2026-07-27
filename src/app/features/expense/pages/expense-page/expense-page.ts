@@ -6,6 +6,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -159,6 +160,10 @@ export class ExpensePage {
     paymentStatus: ['ALL' as ExpensePaymentStatus],
     startDate: [''],
     endDate: [''],
+    // Server-side filter (Task 7's `unhidden` param on GET /expenses/wallet/{id}), not a
+    // client-side criterion. ExpenseResponseDto has no `hidden` field, so there is no way
+    // to filter this client-side — expense-list.filters.ts is deliberately left untouched.
+    unhidden: [false],
   });
 
   protected readonly showInstallments = toSignal(
@@ -170,6 +175,9 @@ export class ExpensePage {
   });
   private readonly filtersValue = toSignal(this.filtersForm.valueChanges, {
     initialValue: this.filtersForm.getRawValue(),
+  });
+  private readonly unhiddenFilter = toSignal(this.filtersForm.controls.unhidden.valueChanges, {
+    initialValue: false,
   });
   protected readonly canSubmitExpense = computed(() =>
     !!this.wallet() && this.hasCreditCards() && this.formStatus() === 'VALID' && !this.isSaving(),
@@ -252,15 +260,38 @@ export class ExpensePage {
   );
 
   constructor() {
+    // Wallet switch: reloads everything scoped to the wallet and resets the create-expense
+    // form. Reads `unhiddenFilter()` with `untracked()` — it needs the *current* value of the
+    // checkbox so switching wallets doesn't silently reset the filter, but must NOT become a
+    // reactive dependency, otherwise toggling the checkbox would re-fire all 5 loads and
+    // resetForm() below (split into its own effect specifically to avoid that).
     effect(() => {
       const walletId = this.selectedWallet()?.id ?? null;
+      const unhidden = untracked(this.unhiddenFilter);
       this.bulletService.loadByWalletId(walletId);
-      this.expenseService.loadByWalletId(walletId);
+      this.expenseService.loadByWalletId(walletId, unhidden);
       this.paymentService.loadByWalletId(walletId);
       // Load credit cards for the dropdown
       this.installmentService.loadByWalletId(walletId);
       this.shareService.loadAll();
       this.resetForm();
+    });
+
+    // `unhidden` checkbox toggle: re-fetch expenses only, for the current wallet. Deliberately
+    // separate from the wallet effect above so toggling the checkbox never re-triggers the
+    // other 5 wallet-scoped loads or resets the create-expense form.
+    // Skips its own first run: the wallet effect above already issues the initial
+    // loadByWalletId call (reading the same initial `unhidden` value via untracked()), so
+    // without this guard the two effects would double-fire an identical request on construction.
+    let isFirstUnhiddenRun = true;
+    effect(() => {
+      const unhidden = this.unhiddenFilter();
+      if (isFirstUnhiddenRun) {
+        isFirstUnhiddenRun = false;
+        return;
+      }
+      const walletId = untracked(this.selectedWallet)?.id ?? null;
+      this.expenseService.loadByWalletId(walletId, unhidden);
     });
 
     effect(() => {
