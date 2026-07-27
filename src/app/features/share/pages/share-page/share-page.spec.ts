@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import { BehaviorSubject, Observable, of, Subject } from 'rxjs';
 
 import { ExpenseService } from '@features/expense/services/expense.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
@@ -353,6 +353,29 @@ describe('SharePage', () => {
 
       expect(shareService.revert).toHaveBeenCalledWith('share-1');
       expect(shareService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
+    });
+
+    it('reloads the CURRENTLY selected wallet, not the one selected when revert() was called — ' +
+      'guards against a stale walletId if the user switches wallets while the revert is in flight', () => {
+      // Self-review finding: walletId must be read inside the next() callback, not captured
+      // in a closure before the async revert() resolves. Simulate an in-flight revert with a
+      // manually-controlled Subject so the wallet switch can happen before it completes.
+      const revertResult = new Subject<undefined>();
+      shareService.revert.mockReturnValue(revertResult);
+      selectWallet('wallet-1');
+      shareService.loadByWalletId.mockClear();
+
+      (component as unknown as { revertShare: (id: string) => void }).revertShare('share-1');
+      expect(shareService.loadByWalletId).not.toHaveBeenCalled(); // still in flight
+
+      selectWallet('wallet-2'); // user switches wallets before the revert resolves
+      shareService.loadByWalletId.mockClear(); // clear the call the wallet-change effect just made
+
+      revertResult.next(undefined);
+      revertResult.complete();
+
+      expect(shareService.loadByWalletId).toHaveBeenCalledWith('wallet-2');
+      expect(shareService.loadByWalletId).not.toHaveBeenCalledWith('wallet-1');
     });
   });
 

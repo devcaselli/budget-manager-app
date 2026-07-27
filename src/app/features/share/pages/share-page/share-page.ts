@@ -530,15 +530,18 @@ export class SharePage {
    * caller it documented as responsible for that: reverting a share must move it out of
    * the Active tab, which is composed from `walletShares$` too — without this reload the
    * Active tab would keep showing the just-reverted share until the next wallet switch.
+   *
+   * `walletId` is read inside the `next` callback, not captured before the async
+   * `revert()` call — reading it upfront would close over a stale value if the user
+   * switches wallets while the revert is in flight, reloading the wrong (now-deselected)
+   * wallet's shares right after the wallet-change effect already loaded the new one.
    */
   protected revertShare(id: string): void {
-    const walletId = this.selectedWallet()?.id ?? null;
-
     this.shareService
       .revert(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.shareService.loadByWalletId(walletId),
+        next: () => this.shareService.loadByWalletId(this.selectedWallet()?.id ?? null),
         error: () => undefined,
       });
   }
