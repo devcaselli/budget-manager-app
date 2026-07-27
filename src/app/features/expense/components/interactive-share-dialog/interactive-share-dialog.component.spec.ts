@@ -33,6 +33,7 @@ function buildShare(overrides: Partial<Share> = {}): Share {
     walletId: 'wallet-1',
     sourceType: 'EXPENSE',
     sourceId: 'expense-1',
+    sourceName: 'Some expense',
     totalAmount: 100,
     ownerShare: 70,
     ownerRatio: 0.7,

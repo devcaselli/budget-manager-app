@@ -15,6 +15,9 @@ export interface Share {
   readonly walletId: string;
   readonly sourceType: ShareSourceType;
   readonly sourceId: string;
+  /** Nome legível do source, resolvido pelo backend. `null` quando o source foi
+   *  deletado ou pertence a outro owner. */
+  readonly sourceName: string | null;
   readonly totalAmount: number;
   readonly ownerShare: number;
   readonly ownerRatio: number;
