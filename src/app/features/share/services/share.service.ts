@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import {
   BehaviorSubject,
@@ -126,7 +126,7 @@ export class ShareService {
               ...current.filter((share) => share.id !== created.id),
             ]);
           },
-          error: () => this.errorSubject.next('Não foi possível criar o compartilhamento.'),
+          error: (error: unknown) => this.errorSubject.next(this.createErrorMessage(error)),
         }),
         finalize(() => this.savingSubject.next(false)),
       )
@@ -139,6 +139,32 @@ export class ShareService {
       });
 
     return subject.asObservable();
+  }
+
+  /**
+   * Extracts a user-facing message from a failed `create()` call, falling back to a
+   * generic one when the backend didn't send anything usable. Without this, every
+   * creation error (including the `Expense.pay()` cent-exact drift on EXPENSE shares —
+   * achado nº 5 of the plan, backend Task 3's `Share.balanceTolerance` absorbs the common
+   * case but not every case) surfaced as an opaque "não foi possível criar", leaving the
+   * user with no idea what to fix.
+   *
+   * The backend's `GlobalExceptionHandler` (infra/.../rest/advice/GlobalExceptionHandler.java)
+   * returns RFC 7807 `ProblemDetail` bodies, where the human-readable message is the
+   * `detail` field — confirmed directly in `GlobalExceptionHandlerTest.java` (every
+   * `jsonPath("$.detail")` assertion in that file). This is `error.error?.detail`, not
+   * `error.error?.message` — the frontend-tasks.md draft assumed `.message` before this was
+   * checked against the real backend contract; there is no `.message` field in this API's
+   * error responses.
+   */
+  private createErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const detail = (error.error as { detail?: unknown } | null)?.detail;
+      if (typeof detail === 'string' && detail.trim().length > 0) {
+        return detail;
+      }
+    }
+    return 'Não foi possível criar o compartilhamento.';
   }
 
   /**

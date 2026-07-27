@@ -226,6 +226,73 @@ describe('ShareService', () => {
 
       expect(emitted.at(-1)).toEqual([created]);
     });
+
+    it('should extract the backend ProblemDetail "detail" field as the error message when present', () => {
+      // GlobalExceptionHandler (budget-manager-api-public) returns RFC 7807 ProblemDetail
+      // bodies — the human-readable message is `detail`, not `message`. This is what
+      // surfaces the Expense.pay() cent-exact drift (achado nº 5) to the user instead of a
+      // generic "não foi possível criar".
+      const errors: (string | null)[] = [];
+      service.error$.subscribe((value) => errors.push(value));
+
+      service.create({
+        walletId: 'wallet-1',
+        sourceType: 'EXPENSE',
+        sourceId: 'expense-1',
+        totalAmount: 100,
+        currency: 'BRL',
+        ownerShare: 70,
+        quotas: [{ payerId: 'payer-1', amount: 30 }],
+      }).subscribe({ error: () => undefined });
+
+      httpMock.expectOne('/api/shares').flush(
+        { type: 'about:blank', title: 'Domain rule violation', status: 422, detail: 'Quota amounts exceed the remaining balance by R$ 0,02.' },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+
+      expect(errors.at(-1)).toBe('Quota amounts exceed the remaining balance by R$ 0,02.');
+    });
+
+    it('should fall back to the generic message when the backend body has no usable detail', () => {
+      const errors: (string | null)[] = [];
+      service.error$.subscribe((value) => errors.push(value));
+
+      service.create({
+        walletId: 'wallet-1',
+        sourceType: 'EXPENSE',
+        sourceId: 'expense-1',
+        totalAmount: 100,
+        currency: 'BRL',
+        ownerShare: 70,
+        quotas: [{ payerId: 'payer-1', amount: 30 }],
+      }).subscribe({ error: () => undefined });
+
+      httpMock.expectOne('/api/shares').flush(null, { status: 500, statusText: 'Server Error' });
+
+      expect(errors.at(-1)).toBe('Não foi possível criar o compartilhamento.');
+    });
+
+    it('should fall back to the generic message when detail is an empty string', () => {
+      const errors: (string | null)[] = [];
+      service.error$.subscribe((value) => errors.push(value));
+
+      service.create({
+        walletId: 'wallet-1',
+        sourceType: 'EXPENSE',
+        sourceId: 'expense-1',
+        totalAmount: 100,
+        currency: 'BRL',
+        ownerShare: 70,
+        quotas: [{ payerId: 'payer-1', amount: 30 }],
+      }).subscribe({ error: () => undefined });
+
+      httpMock.expectOne('/api/shares').flush(
+        { detail: '   ' },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+
+      expect(errors.at(-1)).toBe('Não foi possível criar o compartilhamento.');
+    });
   });
 
   describe('revert', () => {
