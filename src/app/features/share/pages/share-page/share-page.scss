@@ -134,6 +134,23 @@
   color: rgba(226, 232, 240, 0.92);
 }
 
+// "Stopped" shares are still ACTIVE (Share.stopFrom() is non-destructive — it stays
+// valid for past months, only future ones stop applying), so they deliberately do NOT
+// get the reverted/.share-card--muted treatment — confirmed against direction-c.html:
+// the design's own "Stops from · 09/2026" example (Notebook Dell, sh-list) keeps the
+// card in its normal "Active" pill styling, only adding a second line in the footer.
+// A stopped share still shows this badge alongside the normal Active pill.
+.share-badge--stopped {
+  background: rgba(251, 191, 36, 0.16);
+  color: rgba(253, 224, 71, 0.95);
+}
+
+// Applied only to REVERTED cards (History tab) — see share-page.html, gated on
+// `!share.active`. Stopped shares (still ACTIVE) are excluded on purpose, see above.
+.share-card--muted {
+  opacity: 0.62;
+}
+
 @media (max-width: 1100px) {
   .share-layout {
     grid-template-columns: 1fr;

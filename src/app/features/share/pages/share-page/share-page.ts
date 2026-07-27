@@ -52,6 +52,11 @@ interface ShareListItem {
   readonly currency: string;
   readonly status: string;
   readonly active: boolean;
+  /** ACTIVE with a stoppedFromMonth in effect — still valid for past months, just no
+   *  longer applying going forward. Distinct from `active` (which stays true for a
+   *  stopped share — see Share.java:291-294, revert() only rejects REVERTED) and from
+   *  `status`/`Reverted` (stopping is non-destructive, unlike revert). */
+  readonly stopped: boolean;
   readonly quotasLabel: string;
   readonly paymentsCount: number;
   readonly createdAt: string;
@@ -118,6 +123,7 @@ export class SharePage {
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
   private readonly installments = toSignal(this.installmentService.allInstallments$, { initialValue: [] });
   private readonly shares = toSignal(this.shareService.shares$, { initialValue: [] });
+  private readonly walletShares = toSignal(this.shareService.walletShares$, { initialValue: [] });
   private readonly subscriptions = toSignal(this.subscriptionService.subscriptions$, {
     initialValue: [],
   });
@@ -126,6 +132,9 @@ export class SharePage {
   });
   private readonly walletPayers = signal<readonly Payer[]>([]);
   protected readonly wallet = this.selectedWallet;
+
+  /** Which tab of the share ledger is visible. Default 'active' per the plan (Task 3). */
+  protected readonly shareView = signal<'active' | 'history'>('active');
 
   protected readonly isLoading = toSignal(this.shareService.loading$, { initialValue: false });
   protected readonly isSaving = toSignal(this.shareService.saving$, { initialValue: false });
@@ -210,28 +219,100 @@ export class SharePage {
     this.sourceOptions().find((option) => option.id === this.sourceIdValue()) ?? null,
   );
 
-  protected readonly shareItems = computed<readonly ShareListItem[]>(() => {
+  /**
+   * Effective shares for the selected wallet — the authoritative source for the Active
+   * tab. Backed by `walletShares$` (GET /wallets/{id}/shares), which the backend already
+   * filters to ACTIVE + effective-for-the-wallet's-month across all 3 source types
+   * (fixed in backend commit 644cfca — see Task 1's doc on `ShareService`). Deliberately
+   * NOT re-filtered by status here: doing so would mask a backend regression instead of
+   * surfacing it (e.g. if the endpoint started returning REVERTED shares again, this
+   * computed would silently show them as "effective" rather than failing loudly).
+   */
+  private readonly effectiveShareItems = computed<readonly ShareListItem[]>(() =>
+    this.walletShares().map((share) => this.toShareListItem(share)),
+  );
+
+  /**
+   * Stopped shares for the selected wallet — a share is ACTIVE with `stoppedFromMonth`
+   * set, non-effective for the wallet's current month, but still valid for past months
+   * (Share.stopFrom() is non-destructive, unlike revert — Share.java, achado nº 1b of the
+   * plan). These are omitted by `walletShares$` by construction (that's what
+   * `isEffectiveFor` filters out), so they only exist in the owner-scoped `shares$`.
+   *
+   * This is NOT re-filtering the wallet-scoped result — it's a set the backend
+   * deliberately omits, disjoint from `effectiveShareItems` in the common case. It only
+   * overlaps for a `stoppedFromMonth` in the FUTURE: such a share is still effective (so
+   * it's also returned by `walletShares$`) while also matching this client-side
+   * `stoppedFromMonth !== null` check — replicating the exact `walletMonth >=
+   * stoppedFromMonth` comparison here isn't worth it just to avoid an overlap that the
+   * union step below already dedupes by id.
+   */
+  private readonly stoppedShareItems = computed<readonly ShareListItem[]>(() => {
     const walletId = this.selectedWallet()?.id;
     if (!walletId) {
       return [];
     }
 
-    // GET /shares is owner-scoped (every wallet, ACTIVE + REVERTED). Scope to the
-    // selected wallet client-side via the share's stored walletId.
     return this.shares()
-      .filter((share) => share.walletId === walletId)
+      .filter((share) => share.walletId === walletId && share.status === 'ACTIVE' && share.stoppedFromMonth !== null)
+      .map((share) => this.toShareListItem(share));
+  });
+
+  /**
+   * The Active tab's contents: effective shares ∪ stopped shares, deduped by `id` (the
+   * wallet-scoped item wins on overlap — see `stoppedShareItems`' doc for why an overlap
+   * can happen at all), sorted newest-first (same ordering the old single-source
+   * `shareItems()` used).
+   */
+  protected readonly activeShareItems = computed<readonly ShareListItem[]>(() => {
+    const byId = new Map<string, ShareListItem>();
+    for (const item of this.stoppedShareItems()) {
+      byId.set(item.id, item);
+    }
+    for (const item of this.effectiveShareItems()) {
+      byId.set(item.id, item); // wallet-scoped wins on overlap (future stoppedFromMonth case)
+    }
+
+    return [...byId.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  });
+
+  /**
+   * The History tab's contents — REVERTED shares for the selected wallet. `shares$` is
+   * owner-scoped and unfiltered (every wallet, every status), so the walletId scoping
+   * here is mandatory, not optional — without it, another wallet's reverted shares leak
+   * into this list.
+   */
+  protected readonly revertedShareItems = computed<readonly ShareListItem[]>(() => {
+    const walletId = this.selectedWallet()?.id;
+    if (!walletId) {
+      return [];
+    }
+
+    return this.shares()
+      .filter((share) => share.walletId === walletId && share.status === 'REVERTED')
       .map((share) => this.toShareListItem(share))
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   });
 
-  protected readonly activeShareCount = computed(
-    () => this.shareItems().filter((share) => share.active).length,
+  protected readonly visibleShareItems = computed<readonly ShareListItem[]>(() =>
+    this.shareView() === 'active' ? this.activeShareItems() : this.revertedShareItems(),
   );
-  protected readonly revertedShareCount = computed(
-    () => this.shareItems().filter((share) => !share.active).length,
-  );
+
+  // Active count includes stopped shares — consistent with what the Active tab shows.
+  protected readonly activeShareCount = computed(() => this.activeShareItems().length);
+  protected readonly revertedShareCount = computed(() => this.revertedShareItems().length);
+
+  /**
+   * Pre-existing bug fix: this used to sum ACTIVE + REVERTED together (the old single
+   * `shareItems()`), which is wrong — a reverted share no longer affects the ledger by
+   * definition. Now sums only `activeShareItems()` (effective + stopped; stopped shares
+   * still count because "assigned" isn't scoped to "this month", and this is the closest
+   * behavior to what the label already implied — not chasing more precision than that
+   * without Victor asking). This changes a visible number on the page; expected, not a
+   * regression — flagged for Victor's manual test pass.
+   */
   protected readonly sharedTotal = computed(() =>
-    this.shareItems().reduce((sum, share) => sum + share.totalAmount, 0),
+    this.activeShareItems().reduce((sum, share) => sum + share.totalAmount, 0),
   );
   protected readonly quotasTotal = computed(() =>
     this.shareFormValue().quotas.reduce(
@@ -296,7 +377,10 @@ export class SharePage {
       const walletId = this.selectedWallet()?.id ?? null;
       this.expenseService.loadByWalletId(walletId);
       this.installmentService.loadByWalletId(walletId);
+      // Both share sources feed the Active tab (effective + stopped) — load both on
+      // every wallet change, not just one per tab.
       this.shareService.loadAll();
+      this.shareService.loadByWalletId(walletId);
 
       if (!walletId) {
         this.walletPayers.set([]);
@@ -440,11 +524,23 @@ export class SharePage {
       });
   }
 
+  /**
+   * `ShareService.revert()` reloads `shares$` on its own (see its JSDoc — the service has
+   * no notion of "selected wallet" so it can't reload `walletShares$` itself). This is the
+   * caller it documented as responsible for that: reverting a share must move it out of
+   * the Active tab, which is composed from `walletShares$` too — without this reload the
+   * Active tab would keep showing the just-reverted share until the next wallet switch.
+   */
   protected revertShare(id: string): void {
+    const walletId = this.selectedWallet()?.id ?? null;
+
     this.shareService
       .revert(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ error: () => undefined });
+      .subscribe({
+        next: () => this.shareService.loadByWalletId(walletId),
+        error: () => undefined,
+      });
   }
 
   protected payerName(payerId: string): string {
@@ -470,6 +566,7 @@ export class SharePage {
       currency: share.currency,
       status: share.status === 'ACTIVE' ? 'Active' : 'Reverted',
       active: share.status === 'ACTIVE',
+      stopped: share.status === 'ACTIVE' && share.stoppedFromMonth !== null,
       quotasLabel: share.quotas
         .map((quota) => `${quota.payerName || this.payerName(quota.payerId)} · ${this.fmt(Number(quota.amount), share.currency)}`)
         .join(' / '),

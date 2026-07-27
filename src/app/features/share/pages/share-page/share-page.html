@@ -230,18 +230,38 @@
       <div class="ew-panel-head">
         <div>
           <h3>Share <em>ledger</em></h3>
-          <p>{{ shareItems().length }} share(s) in this wallet</p>
+          <p>{{ visibleShareItems().length }} share(s) in this wallet</p>
+        </div>
+        <div class="ew-panel-head-actions">
+          <div class="ew-tabs" aria-label="View">
+            <button
+              [class.ew-tabs-on]="shareView() === 'active'"
+              type="button"
+              (click)="shareView.set('active')"
+            >Active ({{ activeShareCount() }})</button>
+            <button
+              [class.ew-tabs-on]="shareView() === 'history'"
+              type="button"
+              (click)="shareView.set('history')"
+            >History ({{ revertedShareCount() }})</button>
+          </div>
         </div>
       </div>
 
       <div class="share-list">
         @if (isLoading()) {
           <div class="ew-empty">Loading...</div>
-        } @else if (shareItems().length === 0) {
-          <div class="ew-empty">No shares yet for the selected wallet.</div>
+        } @else if (visibleShareItems().length === 0) {
+          <div class="ew-empty">
+            @if (shareView() === 'active') {
+              No active shares for the selected wallet.
+            } @else {
+              No reverted shares yet.
+            }
+          </div>
         } @else {
-          @for (share of shareItems(); track share.id) {
-            <article class="share-card">
+          @for (share of visibleShareItems(); track share.id) {
+            <article class="share-card" [class.share-card--muted]="!share.active">
               <div class="share-card__top">
                 <div>
                   <span class="share-card__type">{{ sourceLabel[share.sourceType] }}</span>
@@ -252,6 +272,9 @@
                   <span class="share-badge" [class.share-badge--muted]="!share.active">
                     {{ share.status }}
                   </span>
+                  @if (share.stopped) {
+                    <span class="share-badge share-badge--stopped">Stopped</span>
+                  }
                   <strong class="ew-blur">{{ share.totalAmount | brlCurrency }}</strong>
                 </div>
               </div>
