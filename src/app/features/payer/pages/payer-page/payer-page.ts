@@ -37,6 +37,27 @@ const TYPE_LABEL: Record<string, string> = {
   TRANSIENT: 'Transient',
 };
 
+/**
+ * `activeShareAmount` and `amountDue` are identical by construction today (both derive
+ * from `PayerAmountDue.monthly()` server-side) — the field exists to decouple the
+ * contract for when `amountDue` may one day include non-share sources, not because the
+ * values diverge yet. Rendering the full badge unconditionally would show the same
+ * number twice, which reads as a bug. Victor's decision (2026-07-26, improvement-shares
+ * frontend-tasks.md Task 6): render conditionally, and this holds even against the
+ * direction-c.html design brief where the badge is always-visible-with-value — the
+ * design predates the "same source" finding.
+ */
+export type ShareBadgeState =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'all' }
+  | { readonly kind: 'partial'; readonly amount: number };
+
+export function shareBadgeState(activeShareAmount: number, amountDue: number): ShareBadgeState {
+  if (activeShareAmount === 0) return { kind: 'none' };
+  if (activeShareAmount === amountDue) return { kind: 'all' };
+  return { kind: 'partial', amount: activeShareAmount };
+}
+
 @Component({
   selector: 'app-payer-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -95,6 +116,10 @@ export class PayerPage {
 
   protected typeLabel(type: string): string {
     return TYPE_LABEL[type] ?? type;
+  }
+
+  protected shareBadge(payer: Payer): ShareBadgeState {
+    return shareBadgeState(payer.activeShareAmount, payer.amountDue);
   }
 
   protected formatDate(iso: string): string {

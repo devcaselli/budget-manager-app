@@ -73,6 +73,14 @@
           <span class="payer-card-name">{{ payer.name }}</span>
           <span class="payer-card-badge">{{ typeLabel(payer.type) }}</span>
           <span class="payer-card-amount ew-blur">{{ payer.amountDue | brlCurrency }}</span>
+          @let cardShare = shareBadge(payer);
+          @if (cardShare.kind === 'all') {
+            <span class="pc-share-badge"><span class="pc-share-dot"></span>all from active shares</span>
+          } @else if (cardShare.kind === 'partial') {
+            <span class="pc-share-badge ew-blur">
+              <span class="pc-share-dot"></span>{{ cardShare.amount | brlCurrency }} from active shares
+            </span>
+          }
         </button>
       }
     </div>
@@ -120,6 +128,14 @@
             <div class="payer-alloc-nums">
               <b class="ew-blur">{{ payer.amountDue | brlCurrency }}</b>
               <small>{{ payer.currency }}</small>
+              @let rowShare = shareBadge(payer);
+              @if (rowShare.kind === 'all') {
+                <span class="pc-share-badge"><span class="pc-share-dot"></span>all from active shares</span>
+              } @else if (rowShare.kind === 'partial') {
+                <span class="pc-share-badge ew-blur">
+                  <span class="pc-share-dot"></span>{{ rowShare.amount | brlCurrency }} from active shares
+                </span>
+              }
             </div>
             <div class="payer-row-actions">
               <button

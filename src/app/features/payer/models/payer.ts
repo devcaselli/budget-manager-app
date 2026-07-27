@@ -8,6 +8,7 @@ export interface Payer {
   readonly subscriptionId: string | null;
   readonly paymentDate: string;
   readonly amountDue: number;
+  readonly activeShareAmount: number;
   readonly currency: string;
   readonly deleted: boolean;
 }

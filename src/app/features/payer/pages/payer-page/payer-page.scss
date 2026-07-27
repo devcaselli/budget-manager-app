@@ -120,6 +120,34 @@
   color: var(--ew-ink-2);
 }
 
+// ── Share badge ("R$ X from active shares") ──────────────────────────────────────
+// Ported from Claude Design direction-c.html (.pc-share-badge) — visual style only.
+// Display logic (conditional none/all/partial) is Victor's decision, prevails over
+// the design's always-visible-with-value treatment. See shareBadgeState() in payer-page.ts.
+
+.pc-share-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 6px;
+  padding: 5px 11px;
+  border-radius: 99px;
+  background: rgba(214, 163, 113, 0.08);
+  border: 1px solid rgba(214, 163, 113, 0.25);
+  font-family: var(--ew-mono);
+  font-size: 10.5px;
+  color: var(--ew-ink-2);
+  letter-spacing: 0.04em;
+
+  .pc-share-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ew-acc);
+    flex: 0 0 5px;
+  }
+}
+
 // ── List body ─────────────────────────────────────────────────────────────────
 
 .payer-list-body {

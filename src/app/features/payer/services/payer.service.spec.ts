@@ -14,6 +14,7 @@ function makePayer(overrides: Partial<Payer> = {}): Payer {
     subscriptionId: null,
     paymentDate: '2026-05-01',
     amountDue: 100,
+    activeShareAmount: 100,
     currency: 'BRL',
     deleted: false,
     ...overrides,
