@@ -115,6 +115,24 @@ describe('ShareService', () => {
       expect(emitted.at(-1)).toEqual(shares);
     });
 
+    it('should not re-filter the response by status — passes through whatever the backend returns as-is', () => {
+      // The backend already filters walletShares$ to ACTIVE + isEffectiveFor(month). Re-filtering
+      // client-side would silently mask a backend regression (e.g. a REVERTED or non-effective
+      // share leaking through) instead of surfacing it. This asserts the pass-through directly:
+      // if a future edit adds a client-side `.filter()`, this fails instead of the bug going unnoticed.
+      const shares = [
+        buildShare({ id: 'share-active', status: 'ACTIVE' }),
+        buildShare({ id: 'share-reverted', status: 'REVERTED' }),
+      ];
+      const emitted: (readonly Share[])[] = [];
+      service.walletShares$.subscribe((value) => emitted.push(value));
+
+      service.loadByWalletId('wallet-1');
+      httpMock.expectOne('/api/wallets/wallet-1/shares').flush(shares);
+
+      expect(emitted.at(-1)).toEqual(shares);
+    });
+
     it('should emit an empty array and skip the HTTP call when walletId is null', () => {
       const emitted: (readonly Share[])[] = [];
       service.walletShares$.subscribe((value) => emitted.push(value));
