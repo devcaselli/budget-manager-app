@@ -168,4 +168,68 @@
     </div>
   </div>
 
+  <!-- ── Obligations panel (Task 10: share-by-share decomposition) ──── -->
+  <!-- direction-c.html #py-obl-body, lines ~2112-2126. Filter dropdown replaces the
+       prototype's tab strip (#py-filter) — Victor's decision: payer count is unbounded,
+       a tab row would overflow. Reuses selectedPayerId(), no parallel filter state. -->
+  <div class="ew-panel">
+    <div class="ew-panel-head">
+      <div>
+        <h3><em>Obligations</em></h3>
+        <p>
+          {{ selectedPayerName() }} · {{ filteredObligationRows().length }}
+          {{ filteredObligationRows().length === 1 ? 'item' : 'items' }}
+        </p>
+      </div>
+      <div class="py-obl-filter">
+        <select
+          class="py-obl-select"
+          aria-label="Filter obligations by payer"
+          [value]="selectedPayerId() ?? 'all'"
+          (change)="selectPayer($any($event.target).value === 'all' ? null : $any($event.target).value)"
+        >
+          <option value="all">All</option>
+          @for (payer of payers(); track payer.id) {
+            <option [value]="payer.id">{{ payer.name }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    @if (filteredObligationRows().length === 0) {
+      <div class="ew-empty">
+        @if (obligationRows().length === 0) {
+          No active shares for the selected wallet.
+        } @else {
+          No obligations for the selected payer.
+        }
+      </div>
+    } @else {
+      <div class="ew-panel-table-wrap">
+        <table class="ew-table">
+          <thead>
+            <tr>
+              <th>Payer</th>
+              <th>Source</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of filteredObligationRows(); track row.shareId + row.payerId) {
+              <tr>
+                <td>{{ row.payerName }}</td>
+                <td>{{ row.sourceLabel }}</td>
+                <td><span class="ew-pill ew-pill--preview">{{ obligationSourceTypeLabel[row.sourceType] }}</span></td>
+                <td>{{ formatObligationDate(row.createdAt) }}</td>
+                <td class="ew-blur">{{ row.amount | brlCurrency }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
 </div>

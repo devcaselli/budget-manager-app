@@ -13,6 +13,8 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { WalletService } from '@features/wallet/services/wallet.service';
+import { Share, ShareSourceType } from '@features/share/models/share';
+import { ShareService } from '@features/share/services/share.service';
 import { PayerService } from '../../services/payer.service';
 import { Payer } from '../../models/payer';
 import {
@@ -36,6 +38,51 @@ const TYPE_LABEL: Record<string, string> = {
   STANDING: 'Standing',
   TRANSIENT: 'Transient',
 };
+
+/**
+ * Task 10 (improvement-shares/frontend-tasks.md): "Type" column of the Obligations panel.
+ * The prototype (direction-c.html) uses Type to distinguish Share vs. Manual rows —
+ * manual obligations don't exist in this system (confirmed by Victor 2026-07-27), so
+ * every row here would be "Share", a useless column. Repurposed for sourceType instead,
+ * which is real data already shown on the Shares screen.
+ */
+const SOURCE_TYPE_LABEL: Record<ShareSourceType, string> = {
+  EXPENSE: 'Expense',
+  SUBSCRIPTION: 'Subscription',
+  INSTALLMENT: 'Installment',
+};
+
+/** One row of the Obligations panel — one row per share quota, decomposing an
+ *  `activeShareAmount` badge into the individual shares that sum to it. */
+export interface ObligationRow {
+  readonly shareId: string;
+  readonly payerId: string;
+  readonly payerName: string;
+  readonly sourceLabel: string;
+  readonly sourceType: ShareSourceType;
+  readonly createdAt: string;
+  readonly amount: number;
+}
+
+/**
+ * Resolves a share's source into a display label. Reuses the two outer tiers of
+ * `SharePage.toShareListItem()`'s fallback chain (Task 2): prefer the backend-resolved
+ * `sourceName`, else the id's first 8 chars as a last resort. Deliberately does NOT
+ * reuse `SharePage`'s middle tier (a local lookup across loaded expenses/installments/
+ * subscriptions) — that tier only ever fires when the backend failed to resolve the name
+ * AND the client happens to have the source loaded locally, which would require injecting
+ * three more services into PayerPage solely to serve a rare fallback-of-a-fallback that
+ * this screen has no other use for. `sourceName` already covers the common case; the id
+ * slice covers "source deleted / belongs to another owner", the same last resort SharePage
+ * itself falls back to.
+ */
+function sourceLabelOf(share: Pick<Share, 'sourceName' | 'sourceId'>): string {
+  return share.sourceName ?? share.sourceId.slice(0, 8);
+}
+
+const OBLIGATION_DATE_FORMAT = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short',
+});
 
 /**
  * `activeShareAmount` and `amountDue` are identical by construction today (both derive
@@ -69,6 +116,7 @@ export class PayerPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly dialog = inject(MatDialog);
   private readonly payerService = inject(PayerService);
+  private readonly shareService = inject(ShareService);
   private readonly walletService = inject(WalletService);
 
   protected readonly payers = toSignal(this.payerService.payers$, { initialValue: [] });
@@ -79,6 +127,16 @@ export class PayerPage {
   protected readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
+  /**
+   * `walletShares$` (GET /wallets/{id}/shares), not the owner-scoped `shares$` — this is
+   * the source whose semantics actually match `activeShareAmount` (Task 6): both derive
+   * from ACTIVE shares effective for the wallet's current month. `shares$` would also
+   * include a *stopped* share (ACTIVE but no longer effective this month — see Task 3's
+   * "three states" finding), which `PayerAmountDue.monthly()` — and therefore
+   * `activeShareAmount` — excludes. Using `shares$` here would silently make the panel's
+   * total diverge from the badge it's supposed to decompose.
+   */
+  private readonly walletShares = toSignal(this.shareService.walletShares$, { initialValue: [] });
 
   /** null means "All" selected */
   protected readonly selectedPayerId = signal<string | null>(null);
@@ -107,10 +165,64 @@ export class PayerPage {
     return this.payers().find((p) => p.id === id)?.name ?? 'all payers';
   });
 
+  /**
+   * Task 10 — Obligations panel: one row per quota of every share in `walletShares$`,
+   * decomposing the `activeShareAmount` badge (Task 6) share-by-share. No client-side
+   * status/effectiveness filter here — the backend already restricts `walletShares$` to
+   * ACTIVE + effective-for-the-wallet's-month (see `ShareService.loadByWalletId`'s doc),
+   * which is exactly `activeShareAmount`'s own semantics (`PayerAmountDue.monthly()`).
+   * Re-filtering here would risk masking a backend regression instead of surfacing it —
+   * same rule Task 1/3 established for `SharePage`'s effective-shares computed.
+   *
+   * Big-O: O(shares · quotas) to flatten, which is the same order as the data itself —
+   * no avoidable nested lookups. Memoized by `computed`, recomputes only when
+   * `walletShares()` changes.
+   */
+  protected readonly obligationRows = computed<readonly ObligationRow[]>(() => {
+    const rows: ObligationRow[] = [];
+    for (const share of this.walletShares()) {
+      const label = sourceLabelOf(share);
+      for (const quota of share.quotas) {
+        rows.push({
+          shareId: share.id,
+          payerId: quota.payerId,
+          payerName: quota.payerName,
+          sourceLabel: label,
+          sourceType: share.sourceType,
+          createdAt: share.createdAt,
+          amount: Number(quota.amount),
+        });
+      }
+    }
+    return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  });
+
+  /**
+   * Filtered by the same `selectedPayerId` the payer selector strip uses (no parallel
+   * selection state, per the task spec).
+   *
+   * Transient-quota rows: a quota's `payerId` doesn't always correspond to a real `Payer`
+   * in `payers()` (transient payers created inline on a share — see `ShareQuotaMode`).
+   * Decision: these rows still show under "All" (id === null), using the `payerName` the
+   * backend already resolved for the quota — they're real obligations, just not tied to a
+   * standing/transient `Payer` record. They naturally disappear when a specific payer is
+   * selected (their `payerId` won't match), which is correct: they aren't that payer's row.
+   */
+  protected readonly filteredObligationRows = computed<readonly ObligationRow[]>(() => {
+    const id = this.selectedPayerId();
+    return id === null
+      ? this.obligationRows()
+      : this.obligationRows().filter((row) => row.payerId === id);
+  });
+
+  protected readonly obligationSourceTypeLabel = SOURCE_TYPE_LABEL;
+
   constructor() {
     effect(() => {
+      const walletId = this.selectedWallet()?.id ?? null;
       this.selectedPayerId.set(null);
-      this.payerService.loadByWalletId(this.selectedWallet()?.id ?? null);
+      this.payerService.loadByWalletId(walletId);
+      this.shareService.loadByWalletId(walletId);
     });
   }
 
@@ -125,6 +237,12 @@ export class PayerPage {
   protected formatDate(iso: string): string {
     const date = new Date(`${iso}T00:00:00Z`);
     return DATE_FORMAT.format(date);
+  }
+
+  /** `Share.createdAt` is a full ISO datetime (unlike `Payer.paymentDate`, a date-only
+   *  string) — needs its own formatter rather than `formatDate`'s `T00:00:00Z` shim. */
+  protected formatObligationDate(iso: string): string {
+    return OBLIGATION_DATE_FORMAT.format(new Date(iso));
   }
 
   protected selectPayer(id: string | null): void {

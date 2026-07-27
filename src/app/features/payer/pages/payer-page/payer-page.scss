@@ -259,6 +259,36 @@
   }
 }
 
+// ── Obligations panel (Task 10) ─────────────────────────────────────────────────
+// Filter select ported from .ccp-filter-select (credit-card-page) — same idiom as the
+// prototype's #py-filter tab strip, swapped for a native <select> per Victor's decision
+// (unbounded payer count would overflow a tab row).
+
+.py-obl-filter {
+  flex: 0 0 auto;
+}
+
+.py-obl-select {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--ew-line-2);
+  padding: 6px 0;
+  color: var(--ew-ink);
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  outline: none;
+  transition: border-color 0.15s;
+
+  &:focus { border-color: var(--ew-acc); }
+
+  option {
+    background: var(--ew-panel);
+    color: var(--ew-ink);
+  }
+}
+
 // ── Responsive ────────────────────────────────────────────────────────────────
 
 @media (max-width: 1280px) {
