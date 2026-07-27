@@ -1,6 +1,13 @@
 export type ShareSourceType = 'EXPENSE' | 'SUBSCRIPTION' | 'INSTALLMENT';
 export type ShareStatus = 'ACTIVE' | 'REVERTED';
 export type ShareQuotaMode = 'EXISTING' | 'TRANSIENT';
+/** UI-only: whether the create-share form's quotas are entered as fixed R$ amounts or
+ *  as percentages of the source total. Never sent to the backend — `CreateShareRequest`
+ *  always carries R$ amounts; PERCENT is converted client-side before submit (see
+ *  ShareFormComponent.createShare()). The backend absorbs any rounding drift from that
+ *  conversion via `Share.balanceTolerance(n) = 0.01 * (n+1)` (backend-tasks.md Task 3) —
+ *  do not add a "fix the last cent" step here, it isn't needed and would be fragile. */
+export type ShareSplitMode = 'FIXED' | 'PERCENT';
 
 export interface ShareQuota {
   readonly payerId: string;

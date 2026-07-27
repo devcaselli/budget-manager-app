@@ -1,0 +1,92 @@
+// Frame duplicated per-dialog on purpose — convention confirmed pre-existing across
+// ~20 dialogs in this project (no shared partial), see pending-review-dialog.component.scss
+// for the same header/close/actions styling repeated verbatim. Not extracting a partial
+// here per frontend-tasks.md Task 4 (would touch ~20 unrelated files).
+.sfd__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--ew-line);
+  margin: 0;
+  padding: 26px 28px 18px;
+}
+
+.sfd__title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ew-ink);
+  font-variation-settings: 'opsz' 32;
+
+  em {
+    font-style: italic;
+    color: var(--ew-ink-2);
+    font-weight: 300;
+  }
+}
+
+.sfd__subtitle {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--ew-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.sfd__close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink-2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: 0 0 34px;
+  font-size: 18px;
+
+  &:hover {
+    color: var(--ew-ink);
+    border-color: var(--ew-ink-3);
+  }
+}
+
+.sfd__body {
+  padding: 24px 28px;
+  max-height: 70vh;
+  min-width: min(40rem, calc(100vw - 4rem));
+}
+
+.sfd__actions {
+  gap: 10px;
+  padding: 18px 28px 24px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.ew-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  &--ghost {
+    border-color: transparent;
+  }
+}

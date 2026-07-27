@@ -1,0 +1,15 @@
+<div class="sfd__head" mat-dialog-title>
+  <div>
+    <h2 class="sfd__title">New <em>share</em></h2>
+    <p class="sfd__subtitle">Split a source across payers</p>
+  </div>
+  <button class="sfd__close" type="button" mat-dialog-close aria-label="Close">×</button>
+</div>
+
+<mat-dialog-content class="sfd__body">
+  <app-share-form (created)="onCreated($event)" />
+</mat-dialog-content>
+
+<mat-dialog-actions class="sfd__actions" align="end">
+  <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
+</mat-dialog-actions>

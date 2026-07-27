@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, Observable, of, Subject } from 'rxjs';
 
 import { ExpenseService } from '@features/expense/services/expense.service';
@@ -21,8 +22,9 @@ import { SharePage } from './share-page';
 // commit 644cfca) feeds the "effective" slice of the Active tab, while shares$
 // (owner-scoped, unfiltered) feeds both the "stopped" slice of Active (shares the
 // wallet-scoped endpoint omits because they're not effective) and all of History.
-// sourceOptions (EXPENSE dropdown exclusion) and the sourceLabel fallback chain
-// (Task 2) still key off shares$, unchanged from before.
+// The sourceLabel fallback chain (Task 2) still keys off shares$, unchanged from before.
+// The create-share form (sourceOptions, quota validation, etc.) moved to
+// ShareFormComponent in Task 4 — its tests live in share-form.component.spec.ts now.
 
 class FakeShareService {
   readonly shares$ = new BehaviorSubject<readonly Share[]>([]);
@@ -104,11 +106,13 @@ describe('SharePage', () => {
   let shareService: FakeShareService;
   let expenseService: FakeExpenseService;
   let walletService: FakeWalletService;
+  let dialog: { open: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     shareService = new FakeShareService();
     expenseService = new FakeExpenseService();
     walletService = new FakeWalletService();
+    dialog = { open: vi.fn() };
 
     TestBed.configureTestingModule({
       imports: [SharePage],
@@ -120,6 +124,7 @@ describe('SharePage', () => {
         { provide: InstallmentService, useClass: FakeInstallmentService },
         { provide: SubscriptionService, useClass: FakeSubscriptionService },
         { provide: WalletService, useValue: walletService },
+        { provide: MatDialog, useValue: dialog },
       ],
     });
 
@@ -150,10 +155,6 @@ describe('SharePage', () => {
   function setView(view: 'active' | 'history'): void {
     (component as unknown as { shareView: { set: (v: 'active' | 'history') => void } }).shareView.set(view);
     fixture.detectChanges();
-  }
-
-  function sourceOptions() {
-    return (component as unknown as { sourceOptions: () => readonly { id: string }[] }).sourceOptions();
   }
 
   describe('shareView default and tab switching', () => {
@@ -343,6 +344,32 @@ describe('SharePage', () => {
     });
   });
 
+  describe('openCreateShareDialog', () => {
+    it('reloads walletShares$ for the selected wallet when the dialog closes with a created share', () => {
+      selectWallet('wallet-1');
+      shareService.loadByWalletId.mockClear();
+      const afterClosed = new Subject<Share | undefined>();
+      dialog.open.mockReturnValue({ afterClosed: () => afterClosed.asObservable() });
+
+      (component as unknown as { openCreateShareDialog: () => void }).openCreateShareDialog();
+      afterClosed.next(buildShare({ id: 'new-share' }));
+
+      expect(shareService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
+    });
+
+    it('does not reload when the dialog closes without a result (Cancel)', () => {
+      selectWallet('wallet-1');
+      shareService.loadByWalletId.mockClear();
+      const afterClosed = new Subject<Share | undefined>();
+      dialog.open.mockReturnValue({ afterClosed: () => afterClosed.asObservable() });
+
+      (component as unknown as { openCreateShareDialog: () => void }).openCreateShareDialog();
+      afterClosed.next(undefined);
+
+      expect(shareService.loadByWalletId).not.toHaveBeenCalled();
+    });
+  });
+
   describe('revertShare', () => {
     it('reloads walletShares$ (via loadByWalletId) after a successful revert, in addition to ' +
       'the loadAll() ShareService.revert() already triggers internally', () => {
@@ -376,39 +403,6 @@ describe('SharePage', () => {
 
       expect(shareService.loadByWalletId).toHaveBeenCalledWith('wallet-2');
       expect(shareService.loadByWalletId).not.toHaveBeenCalledWith('wallet-1');
-    });
-  });
-
-  describe('sourceOptions (EXPENSE dropdown exclusion)', () => {
-    beforeEach(() => selectWallet('wallet-1'));
-
-    it('lists an expense that has no active share', () => {
-      expenseService.expenses$.next([buildExpense({ id: 'expense-1' })]);
-      shareService.shares$.next([]);
-      fixture.detectChanges();
-
-      expect(sourceOptions().map((o) => o.id)).toContain('expense-1');
-    });
-
-    it('excludes an expense that already has an ACTIVE share', () => {
-      expenseService.expenses$.next([
-        buildExpense({ id: 'expense-1' }),
-        buildExpense({ id: 'expense-2', name: 'Fuel' }),
-      ]);
-      shareService.shares$.next([buildShare({ sourceId: 'expense-1', status: 'ACTIVE' })]);
-      fixture.detectChanges();
-
-      const ids = sourceOptions().map((o) => o.id);
-      expect(ids).not.toContain('expense-1');
-      expect(ids).toContain('expense-2');
-    });
-
-    it('re-lists an expense once its share is REVERTED', () => {
-      expenseService.expenses$.next([buildExpense({ id: 'expense-1' })]);
-      shareService.shares$.next([buildShare({ sourceId: 'expense-1', status: 'REVERTED' })]);
-      fixture.detectChanges();
-
-      expect(sourceOptions().map((o) => o.id)).toContain('expense-1');
     });
   });
 

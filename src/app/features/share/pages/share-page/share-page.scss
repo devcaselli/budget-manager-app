@@ -3,30 +3,45 @@
   gap: 1.5rem;
 }
 
+// ── Page head ─────────────────────────────────────────────────────────────────
+// Same pattern as payer-page.scss's .payer-head-right/.payer-new-btn.
+
+.share-head-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.share-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-acc);
+  background: var(--ew-acc);
+  color: #1c1814;
+  font-family: var(--ew-sans);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+// Single column now that the create-share form lives in a modal (Task 4) instead of a
+// second panel here — was a 2-column grid (form | ledger) before the extraction.
 .share-layout {
   display: grid;
   gap: 1.5rem;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
 }
 
-.share-form,
 .share-list {
   display: grid;
   gap: 1rem;
 }
 
-.share-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.share-grid--quota {
-  grid-template-columns: 0.9fr 0.55fr;
-}
-
-.share-quota-head,
-.share-summary,
 .share-card__top,
 .share-card__body {
   display: flex;
@@ -35,12 +50,6 @@
   justify-content: space-between;
 }
 
-.share-quotas {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.share-quota,
 .share-card {
   display: grid;
   gap: 0.9rem;
@@ -58,46 +67,10 @@
   gap: 0.6rem;
 }
 
-.share-remove {
-  justify-self: flex-start;
-  border: 0;
-  background: transparent;
-  color: rgba(248, 113, 113, 0.95);
-  cursor: pointer;
-  padding: 0;
-  font: inherit;
-}
-
-.share-summary {
-  padding: 0.95rem 1rem;
-  border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.32);
-}
-
-.share-summary > div,
 .share-card__meta,
 .share-card__body > div {
   display: grid;
   gap: 0.18rem;
-}
-
-.share-summary__warn strong {
-  color: #fca5a5;
-}
-
-.share-validation {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0.95rem 1rem;
-  border: 1px solid rgba(251, 191, 36, 0.28);
-  border-radius: 1rem;
-  background: rgba(120, 53, 15, 0.16);
-}
-
-.share-validation__list {
-  margin: 0;
-  padding-left: 1rem;
-  color: rgba(254, 240, 138, 0.95);
 }
 
 .share-card__type {
@@ -114,8 +87,7 @@
   font-size: 1rem;
 }
 
-.share-card p,
-.share-quota-head p {
+.share-card p {
   margin: 0.25rem 0 0;
   color: rgba(148, 163, 184, 0.92);
 }
@@ -151,19 +123,9 @@
   opacity: 0.62;
 }
 
-@media (max-width: 1100px) {
-  .share-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 720px) {
-  .share-grid,
-  .share-grid--quota,
   .share-card__top,
-  .share-card__body,
-  .share-summary {
-    grid-template-columns: 1fr;
+  .share-card__body {
     flex-direction: column;
     align-items: stretch;
   }

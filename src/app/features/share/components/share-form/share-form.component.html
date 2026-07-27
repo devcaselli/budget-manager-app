@@ -1,0 +1,238 @@
+<form class="share-form" [formGroup]="form" (ngSubmit)="createShare()">
+  @if (errorMessage()) {
+    <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
+  }
+
+  <div class="share-grid">
+    <div class="ew-field">
+      <label for="sp-source-type">Source type</label>
+      <select id="sp-source-type" class="ew-select" formControlName="sourceType">
+        <option value="EXPENSE">Expense</option>
+        <option value="SUBSCRIPTION">Subscription</option>
+        <option value="INSTALLMENT">Installment</option>
+      </select>
+    </div>
+
+    <div class="ew-field">
+      <label for="sp-source-id">Source</label>
+      <select id="sp-source-id" class="ew-select" formControlName="sourceId">
+        @for (option of sourceOptions(); track option.id) {
+          <option [value]="option.id">
+            {{ option.label }} · {{ option.meta }}
+          </option>
+        } @empty {
+          <option value="">No source available</option>
+        }
+      </select>
+    </div>
+  </div>
+
+  <div class="share-total-box">
+    <div>
+      <small>Total amount</small>
+      <strong>{{ totalAmountValue() | brlCurrency }}</strong>
+    </div>
+    <div class="mode-toggle" role="tablist" aria-label="Split mode">
+      <button
+        type="button"
+        role="tab"
+        [class.on]="splitModeValue() === 'FIXED'"
+        (click)="setSplitMode('FIXED')"
+      >R$ Fixed</button>
+      <button
+        type="button"
+        role="tab"
+        [class.on]="splitModeValue() === 'PERCENT'"
+        (click)="setSplitMode('PERCENT')"
+      >% Percent</button>
+    </div>
+  </div>
+
+  @if (splitModeValue() === 'FIXED') {
+    <div class="share-grid">
+      <div class="ew-field">
+        <label for="sp-owner-share">Owner share</label>
+        <input
+          id="sp-owner-share"
+          class="ew-input"
+          type="number"
+          min="0"
+          step="0.01"
+          formControlName="ownerShare"
+        />
+      </div>
+    </div>
+  } @else {
+    <div class="share-grid">
+      <div class="ew-field">
+        <label for="sp-owner-percent">Owner %</label>
+        <input
+          id="sp-owner-percent"
+          class="ew-input"
+          type="number"
+          [value]="ownerPercentDisplay()"
+          readonly
+        />
+      </div>
+    </div>
+  }
+
+  <div class="share-quota-head">
+    <div>
+      <h4>Payer quotas</h4>
+      <p>{{ existingPayers().length }} existing payer(s) available for this source</p>
+      @if (!transientQuotaAllowed()) {
+        <p>Transient payer is only available for expense shares.</p>
+      }
+    </div>
+    <button class="ew-btn ew-btn--ghost" type="button" (click)="addQuota()">
+      + Add quota
+    </button>
+  </div>
+
+  <div class="share-quotas" formArrayName="quotas">
+    @for (quota of quotaControls(); track $index; let index = $index) {
+      <div class="share-quota" [formGroupName]="index">
+        <div class="share-grid share-grid--quota">
+          <div class="ew-field">
+            <label [for]="'sp-mode-' + index">Quota mode</label>
+            <select
+              [id]="'sp-mode-' + index"
+              class="ew-select"
+              formControlName="mode"
+            >
+              @for (mode of quotaModeOptions; track mode.value) {
+                <option [value]="mode.value" [disabled]="quotaModeDisabled(mode.value)">
+                  {{ mode.label }}
+                </option>
+              }
+            </select>
+          </div>
+
+          @if (splitModeValue() === 'FIXED') {
+            <div class="ew-field">
+              <label [for]="'sp-amount-' + index">Amount</label>
+              <input
+                [id]="'sp-amount-' + index"
+                class="ew-input"
+                type="number"
+                min="0.01"
+                step="0.01"
+                formControlName="amount"
+              />
+            </div>
+          } @else {
+            <div class="ew-field">
+              <label [for]="'sp-percent-' + index">Percent (%)</label>
+              <input
+                [id]="'sp-percent-' + index"
+                class="ew-input"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="e.g. 30"
+                formControlName="percent"
+              />
+            </div>
+          }
+        </div>
+
+        @if (!isTransientQuota(index)) {
+          <div class="ew-field">
+            <label [for]="'sp-payer-' + index">Payer</label>
+            <select
+              [id]="'sp-payer-' + index"
+              class="ew-select"
+              formControlName="payerId"
+            >
+              <option value="">Select payer...</option>
+              @for (payer of existingPayers(); track payer.id) {
+                <option [value]="payer.id">
+                  {{ payer.name }} · {{ payer.type.toLowerCase() }}
+                </option>
+              }
+            </select>
+          </div>
+        } @else {
+          <div class="share-grid share-grid--quota">
+            <div class="ew-field">
+              <label [for]="'sp-transient-name-' + index">Transient payer</label>
+              <input
+                [id]="'sp-transient-name-' + index"
+                class="ew-input"
+                formControlName="transientName"
+                placeholder="e.g. Maria Silva"
+              />
+            </div>
+
+            <div class="ew-field">
+              <label [for]="'sp-transient-date-' + index">Payment date</label>
+              <input
+                [id]="'sp-transient-date-' + index"
+                class="ew-input"
+                type="date"
+                formControlName="transientPaymentDate"
+              />
+            </div>
+          </div>
+        }
+
+        <button
+          class="share-remove"
+          type="button"
+          aria-label="Remove quota"
+          (click)="removeQuota(index)"
+        >
+          Remove quota
+        </button>
+      </div>
+    }
+  </div>
+
+  @if (splitModeValue() === 'FIXED') {
+    <div class="share-summary">
+      <div>
+        <small>Owner share</small>
+        <strong>{{ ownerShareValue() | brlCurrency }}</strong>
+      </div>
+      <div>
+        <small>Payer quotas</small>
+        <strong>{{ quotasTotal() | brlCurrency }}</strong>
+      </div>
+      <div [class.share-summary__warn]="unassignedAmount() !== 0">
+        <small>Delta</small>
+        <strong>{{ unassignedAmount() | brlCurrency }}</strong>
+      </div>
+    </div>
+  } @else {
+    <div class="share-summary">
+      <div>
+        <small>Owner %</small>
+        <strong>{{ ownerPercentDisplay() }}%</strong>
+      </div>
+      <div>
+        <small>Quotas %</small>
+        <strong>{{ quotasPercentTotal() }}%</strong>
+      </div>
+      <div [class.share-summary__warn]="quotasPercentTotal() > 100.001">
+        <small>Assigned</small>
+        <strong>{{ (totalAmountValue() * quotasPercentTotal() / 100) | brlCurrency }}</strong>
+      </div>
+    </div>
+  }
+
+  @if (submitBlockers().length > 0) {
+    <div class="share-validation" role="status" aria-live="polite">
+      <strong>What is still missing</strong>
+      <ul class="share-validation__list">
+        @for (blocker of submitBlockers(); track blocker) {
+          <li>{{ blocker }}</li>
+        }
+      </ul>
+    </div>
+  }
+
+  <button class="ew-btn-submit" type="submit" [disabled]="!canSubmit() || isSaving()">
+    {{ isSaving() ? 'Saving share...' : 'Create share' }}
+  </button>
+</form>
