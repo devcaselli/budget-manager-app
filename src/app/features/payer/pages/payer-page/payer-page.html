@@ -77,8 +77,8 @@
           @if (cardShare.kind === 'all') {
             <span class="pc-share-badge"><span class="pc-share-dot"></span>all from active shares</span>
           } @else if (cardShare.kind === 'partial') {
-            <span class="pc-share-badge ew-blur">
-              <span class="pc-share-dot"></span>{{ cardShare.amount | brlCurrency }} from active shares
+            <span class="pc-share-badge">
+              <span class="pc-share-dot"></span><span class="ew-blur">{{ cardShare.amount | brlCurrency }}</span> from active shares
             </span>
           }
         </button>
@@ -132,8 +132,8 @@
               @if (rowShare.kind === 'all') {
                 <span class="pc-share-badge"><span class="pc-share-dot"></span>all from active shares</span>
               } @else if (rowShare.kind === 'partial') {
-                <span class="pc-share-badge ew-blur">
-                  <span class="pc-share-dot"></span>{{ rowShare.amount | brlCurrency }} from active shares
+                <span class="pc-share-badge">
+                  <span class="pc-share-dot"></span><span class="ew-blur">{{ rowShare.amount | brlCurrency }}</span> from active shares
                 </span>
               }
             </div>
