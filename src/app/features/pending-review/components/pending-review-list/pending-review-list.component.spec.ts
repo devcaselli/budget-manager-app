@@ -234,6 +234,36 @@ describe('PendingReviewListComponent', () => {
     ).toBe('User is typing…');
   });
 
+  // Regression: a duplicate-Installment bug traced back to nothing stopping a second click
+  // from firing a second POST /pending-reviews/confirm before the first one landed (see
+  // Tech Debt: pending_review_confirm_race_duplicates_installment). The button used to only
+  // disable on an empty list — this guards the fix (disable while a confirm is in flight).
+  it('disables Confirm and relabels it while a confirm is in flight, even with items present', () => {
+    setItems([buildItem({ id: 'a' })]);
+    const button = fixture.nativeElement.querySelector('.ew-btn--primary') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain('Confirm selected');
+
+    fixture.componentRef.setInput('confirming', true);
+    fixture.detectChanges();
+
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toContain('Confirming…');
+  });
+
+  it('re-enables Confirm once the in-flight request finishes', () => {
+    setItems([buildItem({ id: 'a' })]);
+    fixture.componentRef.setInput('confirming', true);
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('confirming', false);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.ew-btn--primary') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain('Confirm selected');
+  });
+
   it('prunes local state (form controls, selection) for ids no longer in items()', () => {
     setItems([buildItem({ id: 'a' }), buildItem({ id: 'b' })]);
     api().nameControlFor(buildItem({ id: 'a' }));

@@ -184,6 +184,37 @@ describe('PendingReviewService', () => {
 
       expect(errors.at(-1)).toBe('Could not confirm the selected imports.');
     });
+
+    // Regression: the UI's Confirm button reads confirming$ to disable itself while a
+    // request is in flight — mitigates the trigger of a known backend race (double-click /
+    // slow-network retry firing two POST /pending-reviews/confirm for the same ids; see
+    // Tech Debt: pending_review_confirm_race_duplicates_installment). If this flag stopped
+    // toggling, the button would silently stop protecting against that.
+    it('sets confirming$ true while the POST is in flight, false again once it settles', () => {
+      const states: boolean[] = [];
+      service.confirming$.subscribe((value) => states.push(value));
+
+      service.confirm([pendingReview.id]).subscribe();
+      expect(states.at(-1)).toBe(true);
+
+      httpMock
+        .expectOne(`${PENDING_REVIEWS_URL}/confirm`)
+        .flush({ confirmed: [{ pendingExpenseReviewId: pendingReview.id, expenseId: 'expense-1' }], failed: [] });
+
+      expect(states.at(-1)).toBe(false);
+    });
+
+    it('resets confirming$ back to false even when the request fails', () => {
+      const states: boolean[] = [];
+      service.confirming$.subscribe((value) => states.push(value));
+
+      service.confirm([pendingReview.id]).subscribe({ error: () => undefined });
+      expect(states.at(-1)).toBe(true);
+
+      httpMock.expectOne(`${PENDING_REVIEWS_URL}/confirm`).flush(null, { status: 500, statusText: 'Error' });
+
+      expect(states.at(-1)).toBe(false);
+    });
   });
 
   describe('applySyncResult', () => {

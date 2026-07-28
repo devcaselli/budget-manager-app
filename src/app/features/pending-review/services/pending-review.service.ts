@@ -14,10 +14,21 @@ export class PendingReviewService {
 
   private readonly pendingReviewsSubject = new BehaviorSubject<readonly PendingReview[]>([]);
   private readonly loadingSubject = new BehaviorSubject(false);
+  private readonly confirmingSubject = new BehaviorSubject(false);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
 
   readonly pendingReviews$ = this.pendingReviewsSubject.asObservable();
   readonly loading$ = this.loadingSubject.asObservable();
+  /** True while a `confirm()` POST is in flight. Exists so the UI can disable the Confirm
+   *  button for the duration — without it, nothing stops a second click (slow network,
+   *  impatient user) from firing a second POST /pending-reviews/confirm for the same ids
+   *  before the first one lands. The backend dedupes ids *within* one request's array, but
+   *  two separate concurrent requests race past its status check independently (TOCTOU —
+   *  see Tech Debt: pending_review_confirm_race_duplicates_installment), each materializing
+   *  its own Expense/Installment. This flag only closes the most common trigger (this
+   *  button, this tab); it cannot fix the race itself, which needs a backend-side atomic
+   *  status transition or unique index — out of frontend's reach. */
+  readonly confirming$ = this.confirmingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
 
   /** GET /pending-reviews — single fetch point, reused by the dedicated route and the modal. */
@@ -108,6 +119,7 @@ export class PendingReviewService {
     const subject = new ReplaySubject<ConfirmPendingReviewsResult>(1);
 
     this.errorSubject.next(null);
+    this.confirmingSubject.next(true);
 
     this.http
       .post<ConfirmPendingReviewsResult>(`${this.pendingReviewsUrl}/confirm`, { ids })
@@ -116,6 +128,7 @@ export class PendingReviewService {
           next: (result) => this.removeConfirmedLocal(result),
           error: () => this.errorSubject.next('Could not confirm the selected imports.'),
         }),
+        finalize(() => this.confirmingSubject.next(false)),
       )
       .subscribe({
         next: (result) => {

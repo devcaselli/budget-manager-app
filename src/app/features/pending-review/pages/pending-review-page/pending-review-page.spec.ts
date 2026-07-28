@@ -14,6 +14,7 @@ import { PendingReviewPage } from './pending-review-page';
 class FakePendingReviewService {
   readonly pendingReviews$ = new BehaviorSubject<readonly PendingReview[]>([]);
   readonly loading$ = new BehaviorSubject(false);
+  readonly confirming$ = new BehaviorSubject(false);
   readonly error$ = new BehaviorSubject<string | null>(null);
 
   loadAll = vi.fn();

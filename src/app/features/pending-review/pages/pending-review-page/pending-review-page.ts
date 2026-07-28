@@ -24,6 +24,10 @@ export class PendingReviewPage {
 
   protected readonly items = toSignal(this.pendingReviewService.pendingReviews$, { initialValue: [] });
   protected readonly isLoading = toSignal(this.pendingReviewService.loading$, { initialValue: false });
+  /** True while a confirm() POST is in flight — passed down so the Confirm button can
+   *  disable itself for the duration (see PendingReviewService.confirming$'s doc for why:
+   *  mitigates the most common trigger of a known backend race, doesn't fix it). */
+  protected readonly isConfirming = toSignal(this.pendingReviewService.confirming$, { initialValue: false });
   protected readonly errorMessage = toSignal(this.pendingReviewService.error$, { initialValue: null });
 
   /** Populated from the last `confirm()` result's `failed` items — keyed by

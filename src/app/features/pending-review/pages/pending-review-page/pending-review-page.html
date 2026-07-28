@@ -23,6 +23,7 @@
     <app-pending-review-list
       [items]="items()"
       [errorsById]="confirmErrorsById()"
+      [confirming]="isConfirming()"
       (rename)="onRename($event)"
       (toggleInstallment)="onToggleInstallment()"
       (setInstallmentNumber)="onSetInstallmentNumber($event)"

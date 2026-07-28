@@ -7,10 +7,10 @@
     <button
       type="button"
       class="ew-btn ew-btn--primary"
-      [disabled]="items().length === 0"
+      [disabled]="items().length === 0 || confirming()"
       (click)="onConfirmSelected()"
     >
-      Confirm selected
+      {{ confirming() ? 'Confirming…' : 'Confirm selected' }}
     </button>
   </div>
 

@@ -41,6 +41,11 @@ export class PendingReviewListComponent {
   /** Per-item error message from the last batch confirm, verbatim from the backend's
    * `FailedItem.errorMessage` (already human-readable — not rewritten/translated here). */
   readonly errorsById = input<ReadonlyMap<string, string>>(new Map());
+  /** True while a confirm() POST is in flight — disables the Confirm button for the
+   *  duration so a second click can't fire a second POST /pending-reviews/confirm for the
+   *  same ids before the first lands (see PendingReviewService.confirming$'s doc: this
+   *  mitigates the most common trigger of a known backend race, not the race itself). */
+  readonly confirming = input(false);
 
   readonly rename = output<{ id: string; value: string }>();
   readonly toggleInstallment = output<{ id: string; enabled: boolean }>();
