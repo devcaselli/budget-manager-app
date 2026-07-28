@@ -147,9 +147,27 @@ export class InstallmentPage {
     return this.installments().map((inst) => this.toListItem(inst, cardMap, tagMap));
   });
 
+  // Same mapping as `listItems`, but over `allInstallments()` — the wallet's full,
+  // unpaginated set (`GET .../wallet/{id}/all`, already fetched alongside the paged
+  // response for the totals above). Only `listItems` (page-scoped) existed here before,
+  // so searching only ever matched whatever 7 items the current page happened to hold —
+  // an installment outside that page could never be found by name/tag, no matter how
+  // exact the query was. Kept as its own computed (not merged into `listItems`) so the
+  // common no-search path stays cheap: it only runs the extra `.map()` while a query is
+  // active (see `filteredListItems` below).
+  private readonly allListItems = computed<readonly InstallmentListItem[]>(() => {
+    const cardMap = this.buildCreditCardMap();
+    const tagMap = this.tagMap();
+    return this.allInstallments().map((inst) => this.toListItem(inst, cardMap, tagMap));
+  });
+
   protected readonly filteredListItems = computed<readonly InstallmentListItem[]>(() => {
     const query = this.searchTerm();
-    return this.listItems().filter((item) =>
+    // No query: show the current server-side page as-is (existing pagination behavior,
+    // unchanged). Query active: search the wallet's FULL set, not just the loaded page —
+    // otherwise an installment sitting on page 2+ can never match, regardless of query.
+    const source = query.trim() ? this.allListItems() : this.listItems();
+    return source.filter((item) =>
       matchesNameOrTag({ name: item.description, tagChips: item.tagChips }, query),
     );
   });

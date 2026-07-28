@@ -211,7 +211,11 @@
     </div>
 
     <!-- ── Pagination ── -->
-    @if (pagination().totalPages > 1) {
+    <!-- Hidden while a search is active: filteredListItems() then comes from the full
+         wallet set (allInstallments), not the current server-side page, so the
+         page1-of-N footer/prev-next controls would refer to a page that no longer
+         matches what's on screen. -->
+    @if (!searchTerm().trim() && pagination().totalPages > 1) {
       <div class="installment-pagination">
         <button
           class="installment-page-btn"

@@ -134,10 +134,16 @@ describe('InstallmentPage — search by name or tag', () => {
   });
 
   it('filters by case-insensitive name match', async () => {
-    installmentService.installments$.next([
+    const items = [
       buildInstallment({ id: 'a', description: 'Notebook' }),
       buildInstallment({ id: 'b', description: 'Phone' }),
-    ]);
+    ];
+    // Real InstallmentService loads installments$ (page) and allInstallments$ (full set)
+    // together in one request (see its constructor's forkJoin) — populating both here
+    // mirrors that, since an active search reads from allInstallments$ (see the "outside
+    // the loaded page" regression test below for why).
+    installmentService.installments$.next(items);
+    installmentService.allInstallments$.next(items);
     fixture.detectChanges();
 
     await setSearch('note');
@@ -147,10 +153,12 @@ describe('InstallmentPage — search by name or tag', () => {
 
   it('filters by assigned tag name, not just item name', async () => {
     tagService.tags$.next([{ id: 'tag-1', name: 'Electronics', parentId: null }]);
-    installmentService.installments$.next([
+    const items = [
       buildInstallment({ id: 'a', description: 'Notebook', tagIds: ['tag-1'] }),
       buildInstallment({ id: 'b', description: 'Phone', tagIds: [] }),
-    ]);
+    ];
+    installmentService.installments$.next(items);
+    installmentService.allInstallments$.next(items);
     fixture.detectChanges();
 
     await setSearch('electronics');
@@ -159,7 +167,9 @@ describe('InstallmentPage — search by name or tag', () => {
   });
 
   it('returns no items when nothing matches name or tag', async () => {
-    installmentService.installments$.next([buildInstallment({ id: 'a', description: 'Notebook' })]);
+    const items = [buildInstallment({ id: 'a', description: 'Notebook' })];
+    installmentService.installments$.next(items);
+    installmentService.allInstallments$.next(items);
     fixture.detectChanges();
 
     await setSearch('nonexistent');
@@ -168,10 +178,12 @@ describe('InstallmentPage — search by name or tag', () => {
   });
 
   it('actually narrows the rendered rows, not just the computed', async () => {
-    installmentService.installments$.next([
+    const items = [
       buildInstallment({ id: 'a', description: 'Notebook' }),
       buildInstallment({ id: 'b', description: 'Phone' }),
-    ]);
+    ];
+    installmentService.installments$.next(items);
+    installmentService.allInstallments$.next(items);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('.installment-alloc').length).toBe(2);
@@ -184,10 +196,12 @@ describe('InstallmentPage — search by name or tag', () => {
   });
 
   it('debounces rapid typing into a single filter pass', async () => {
-    installmentService.installments$.next([
+    const items = [
       buildInstallment({ id: 'a', description: 'Notebook' }),
       buildInstallment({ id: 'b', description: 'Phone' }),
-    ]);
+    ];
+    installmentService.installments$.next(items);
+    installmentService.allInstallments$.next(items);
     fixture.detectChanges();
 
     const control = searchControl();
@@ -200,6 +214,45 @@ describe('InstallmentPage — search by name or tag', () => {
 
     await vi.advanceTimersByTimeAsync(150);
     fixture.detectChanges();
+    expect(filteredListItems().map((i) => i.id)).toEqual(['a']);
+  });
+
+  // Regression: search used to filter only `installments$` (the current server-side
+  // page, 7 items by default), so an installment sitting on any other page could never
+  // match, no matter how exact the query — the bug this suite is guarding against.
+  it('finds an installment that only exists in the full wallet set, outside the loaded page', async () => {
+    // Current page (what installments$ holds) has no match at all.
+    installmentService.installments$.next([
+      buildInstallment({ id: 'a', description: 'Phone' }),
+    ]);
+    // allInstallments$ is the wallet's full, unpaginated set — the match lives only here.
+    installmentService.allInstallments$.next([
+      buildInstallment({ id: 'a', description: 'Phone' }),
+      buildInstallment({ id: 'z', description: 'Notebook' }),
+    ]);
+    fixture.detectChanges();
+
+    await setSearch('note');
+
+    expect(filteredListItems().map((i) => i.id)).toEqual(['z']);
+  });
+
+  it('falls back to the current page when the search term is cleared', async () => {
+    installmentService.installments$.next([
+      buildInstallment({ id: 'a', description: 'Phone' }),
+    ]);
+    installmentService.allInstallments$.next([
+      buildInstallment({ id: 'a', description: 'Phone' }),
+      buildInstallment({ id: 'z', description: 'Notebook' }),
+    ]);
+    fixture.detectChanges();
+
+    await setSearch('note');
+    expect(filteredListItems().map((i) => i.id)).toEqual(['z']);
+
+    await setSearch('');
+    // Empty query: back to page-scoped results (unchanged pagination behavior) — only
+    // 'a' (Phone) is on the loaded page, 'z' lives elsewhere in the wallet.
     expect(filteredListItems().map((i) => i.id)).toEqual(['a']);
   });
 });
