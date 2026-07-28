@@ -103,6 +103,17 @@
           <mat-icon aria-hidden="true">history</mat-icon>
           Finished
         </button>
+
+        <button
+          class="installment-sort-btn"
+          type="button"
+          title="Export installments as CSV"
+          [disabled]="!hasSelectedWallet()"
+          (click)="onExportClick()"
+        >
+          <mat-icon aria-hidden="true">download</mat-icon>
+          Export CSV
+        </button>
       </div>
     </div>
 

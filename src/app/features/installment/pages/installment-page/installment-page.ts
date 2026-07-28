@@ -315,6 +315,28 @@ export class InstallmentPage {
     );
   }
 
+  protected onExportClick(): void {
+    const wallet = this.selectedWallet();
+    if (!wallet) return;
+
+    this.installmentService
+      .exportByWalletId(wallet.id, this.filter())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (blob) => this.triggerDownload(blob),
+        error: () => undefined,
+      });
+  }
+
+  private triggerDownload(blob: Blob): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'installments.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   protected onNotesClick(item: InstallmentListItem): void {
     const data: InstallmentNotesDialogData = {
       description: item.description,

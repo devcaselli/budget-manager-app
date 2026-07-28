@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { MatDialog } from '@angular/material/dialog';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 
 import { InstallmentFilter, InstallmentService } from '@features/installment/services/installment.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
@@ -35,6 +35,7 @@ class FakeInstallmentService {
   });
   loadByWalletId = vi.fn();
   setFilter = vi.fn();
+  exportByWalletId = vi.fn(() => of(new Blob(['csv'], { type: 'text/csv' })));
 }
 
 class FakeTagService {
@@ -254,5 +255,92 @@ describe('InstallmentPage — search by name or tag', () => {
     // Empty query: back to page-scoped results (unchanged pagination behavior) — only
     // 'a' (Phone) is on the loaded page, 'z' lives elsewhere in the wallet.
     expect(filteredListItems().map((i) => i.id)).toEqual(['a']);
+  });
+});
+
+describe('InstallmentPage — export CSV', () => {
+  let fixture: ComponentFixture<InstallmentPage>;
+  let component: InstallmentPage;
+  let installmentService: FakeInstallmentService;
+  let walletService: FakeWalletService;
+
+  const wallet: Wallet = {
+    id: 'wallet-1',
+    description: 'Main',
+    budget: 1000,
+    remaining: 500,
+    startDate: '2026-01-01',
+    closedDate: null,
+    closed: false,
+    effectiveMonth: '2026-01',
+    state: 'PRODUCTION',
+  };
+
+  beforeEach(() => {
+    installmentService = new FakeInstallmentService();
+    walletService = new FakeWalletService();
+
+    TestBed.configureTestingModule({
+      imports: [InstallmentPage],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: InstallmentService, useValue: installmentService },
+        { provide: TagService, useClass: FakeTagService },
+        { provide: WalletService, useValue: walletService },
+        { provide: MatDialog, useValue: { open: vi.fn() } },
+      ],
+    });
+
+    fixture = TestBed.createComponent(InstallmentPage);
+    component = fixture.componentInstance;
+  });
+
+  function exportButton(): HTMLButtonElement | null {
+    return fixture.nativeElement.querySelector('.installment-filters button:last-child');
+  }
+
+  it('disables the Export CSV button when no wallet is selected', () => {
+    fixture.detectChanges();
+
+    expect(exportButton()?.disabled).toBe(true);
+  });
+
+  it('enables the Export CSV button once a wallet is selected', () => {
+    walletService.selectedWallet$.next(wallet);
+    fixture.detectChanges();
+
+    expect(exportButton()?.disabled).toBe(false);
+  });
+
+  it('calls exportByWalletId with the selected wallet id and current filter on click', () => {
+    walletService.selectedWallet$.next(wallet);
+    installmentService.filter$.next({ creditCardId: 'cc-1', sort: 'ENDING_LATE', page: 0, size: 7 });
+    fixture.detectChanges();
+
+    (component as unknown as { onExportClick: () => void }).onExportClick();
+
+    expect(installmentService.exportByWalletId).toHaveBeenCalledWith('wallet-1', {
+      creditCardId: 'cc-1',
+      sort: 'ENDING_LATE',
+      page: 0,
+      size: 7,
+    });
+  });
+
+  it('does nothing when no wallet is selected', () => {
+    fixture.detectChanges();
+
+    (component as unknown as { onExportClick: () => void }).onExportClick();
+
+    expect(installmentService.exportByWalletId).not.toHaveBeenCalled();
+  });
+
+  it('does not throw when the export request errors', () => {
+    walletService.selectedWallet$.next(wallet);
+    installmentService.exportByWalletId = vi.fn(() => throwError(() => new Error('network error')));
+    fixture.detectChanges();
+
+    expect(() => (component as unknown as { onExportClick: () => void }).onExportClick()).not.toThrow();
   });
 });

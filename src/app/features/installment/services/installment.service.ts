@@ -226,6 +226,21 @@ export class InstallmentService {
     return this.patch(id, { tagIds }, 'Installment saved, but tags could not be applied. Try again from its row.');
   }
 
+  exportByWalletId(
+    walletId: string,
+    filter: Pick<InstallmentFilter, 'creditCardId' | 'sort'>,
+  ): Observable<Blob> {
+    let params = new HttpParams().set('sort', filter.sort);
+    if (filter.creditCardId) {
+      params = params.set('creditCardId', filter.creditCardId);
+    }
+
+    return this.http.get(`${this.installmentsUrl}/wallet/${walletId}/export`, {
+      params,
+      responseType: 'blob',
+    });
+  }
+
   delete(id: string): Observable<void> {
     const subject = new ReplaySubject<void>(1);
 
