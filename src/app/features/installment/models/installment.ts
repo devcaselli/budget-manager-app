@@ -16,6 +16,8 @@ export interface Installment {
   readonly effectiveOriginalValue: number;
   readonly effectiveInstallmentValue: number;
   readonly tagIds?: readonly string[];
+  /** Links back to the Expense this installment charge originated from, when present. */
+  readonly sourceExpenseId?: string | null;
 }
 
 export interface CreditCard {
