@@ -1,0 +1,61 @@
+<div class="ovw__root">
+  <div class="ovw__head" mat-dialog-title>
+    <div class="ovw__head-left">
+      @if (canGoBack()) {
+        <button
+          class="ew-btn ew-btn--ghost ovw__back"
+          type="button"
+          aria-label="Voltar"
+          (click)="goBack()"
+        >
+          <mat-icon aria-hidden="true">arrow_back</mat-icon>
+          Voltar
+        </button>
+      }
+      <h2 class="ovw__title">Detalhes</h2>
+    </div>
+    <button class="ovw__close" type="button" mat-dialog-close aria-label="Fechar" (click)="close()">×</button>
+  </div>
+
+  <mat-dialog-content class="ovw__body">
+    @switch (detailState().status) {
+      @case ('loading') {
+        <div class="ew-empty">Carregando...</div>
+      }
+      @case ('error') {
+        <div class="ew-alert">
+          <span>Não foi possível carregar os detalhes.</span>
+          <button class="ew-btn ew-btn--ghost" type="button" (click)="retry()">Tentar novamente</button>
+        </div>
+      }
+      @case ('ready') {
+        @if (readyDetail(); as detail) {
+          @switch (detail.kind) {
+            @case ('EXPENSE') {
+              <div class="ovw__stub">
+                <h3>{{ detail.name }}</h3>
+                <p>Expense — conteúdo completo chega na F-12.</p>
+              </div>
+            }
+            @case ('INSTALLMENT') {
+              <div class="ovw__stub">
+                <h3>{{ detail.description }}</h3>
+                <p>Installment — conteúdo completo chega na F-12.</p>
+              </div>
+            }
+            @case ('SUBSCRIPTION') {
+              <div class="ovw__stub">
+                <h3>{{ detail.description }}</h3>
+                <p>Subscription — conteúdo completo chega na F-12.</p>
+              </div>
+            }
+          }
+        }
+      }
+    }
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="ovw__actions" align="end">
+    <button class="ew-btn ew-btn--ghost" type="button" (click)="close()">Fechar</button>
+  </mat-dialog-actions>
+</div>
