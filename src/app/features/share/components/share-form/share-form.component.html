@@ -91,7 +91,7 @@
   </div>
 
   <div class="share-quotas" formArrayName="quotas">
-    @for (quota of quotaControls(); track $index; let index = $index) {
+    @for (quota of quotaControls(); track quota; let index = $index) {
       <div class="share-quota" [formGroupName]="index">
         <div class="share-grid share-grid--quota">
           <div class="ew-field">

@@ -57,6 +57,18 @@ class FakeInstallmentService {
   loadByWalletId = vi.fn();
 }
 
+function buildInstallment(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 'installment-1',
+    description: 'Laptop',
+    currency: 'BRL',
+    installmentNumber: 3,
+    effectiveOriginalValue: 3000,
+    effectiveInstallmentValue: 1000,
+    ...overrides,
+  };
+}
+
 class FakeSubscriptionService {
   readonly subscriptions$ = new BehaviorSubject<readonly unknown[]>([]);
   loadSubscriptions = vi.fn();
@@ -68,6 +80,7 @@ class FakeWalletService {
     return of([
       buildPayer({ id: 'payer-1', name: 'Maria', type: 'STANDING' }),
       buildPayer({ id: 'payer-2', name: 'Carlos', type: 'STANDING' }),
+      buildPayer({ id: 'payer-3', name: 'Ana', type: 'STANDING' }),
     ]);
   }
 }
@@ -349,6 +362,148 @@ describe('ShareFormComponent', () => {
       (component as unknown as { createShare: () => void }).createShare();
 
       expect(emitted?.id).toBe('share-new');
+    });
+  });
+
+  describe('dropdown selection (Source / Payer)', () => {
+    it('source select: choosing an option via the DOM keeps sourceId in sync', () => {
+      expenseService.expenses$.next([
+        buildExpense({ id: 'expense-1', name: 'Groceries', cost: 100 }),
+        buildExpense({ id: 'expense-2', name: 'Fuel', cost: 200 }),
+      ]);
+      fixture.detectChanges();
+
+      const select: HTMLSelectElement = fixture.nativeElement.querySelector('#sp-source-id');
+      select.value = 'expense-2';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      const sourceIdValue = (component as unknown as { form: { controls: { sourceId: { value: string } } } }).form.controls.sourceId.value;
+      expect(sourceIdValue).toBe('expense-2');
+    });
+
+    it('payer select: choosing an option via the DOM keeps payerId in sync', () => {
+      expenseService.expenses$.next([buildExpense({ id: 'expense-1', cost: 100 })]);
+      fixture.detectChanges();
+
+      const select: HTMLSelectElement = fixture.nativeElement.querySelector('#sp-payer-0');
+      select.value = 'payer-2';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      const payerId = quotaAt(0).controls['payerId'] as unknown as { value: string };
+      expect(payerId.value).toBe('payer-2');
+    });
+
+    it('sourceOptions recompute (new array identity, same content) does not silently reassign sourceId', () => {
+      expenseService.expenses$.next([
+        buildExpense({ id: 'expense-1', name: 'Groceries', cost: 100 }),
+        buildExpense({ id: 'expense-2', name: 'Fuel', cost: 200 }),
+      ]);
+      fixture.detectChanges();
+
+      const select: HTMLSelectElement = fixture.nativeElement.querySelector('#sp-source-id');
+      select.value = 'expense-2';
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      // Re-emit an equivalent-but-new array reference, simulating an unrelated reload
+      // (e.g. shareService.loadAll() firing again) while the user already picked expense-2.
+      expenseService.expenses$.next([
+        buildExpense({ id: 'expense-1', name: 'Groceries', cost: 100 }),
+        buildExpense({ id: 'expense-2', name: 'Fuel', cost: 200 }),
+      ]);
+      fixture.detectChanges();
+
+      const sourceIdValue = (component as unknown as { form: { controls: { sourceId: { value: string } } } }).form.controls.sourceId.value;
+      expect(sourceIdValue).toBe('expense-2');
+    });
+
+    it('switching sourceType from EXPENSE to INSTALLMENT resolves sourceId to a real installment id', () => {
+      expenseService.expenses$.next([
+        buildExpense({ id: 'expense-1', name: 'Groceries', cost: 100 }),
+        buildExpense({ id: 'expense-2', name: 'Fuel', cost: 200 }),
+      ]);
+      fixture.detectChanges();
+
+      const sourceSelect: HTMLSelectElement = fixture.nativeElement.querySelector('#sp-source-id');
+      sourceSelect.value = 'expense-2';
+      sourceSelect.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      const typeSelect: HTMLSelectElement = fixture.nativeElement.querySelector('#sp-source-type');
+      typeSelect.value = 'INSTALLMENT';
+      typeSelect.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      const installmentService = TestBed.inject(InstallmentService) as unknown as FakeInstallmentService;
+      installmentService.allInstallments$.next([
+        buildInstallment({ id: 'installment-1' }),
+        buildInstallment({ id: 'installment-2', description: 'Phone' }),
+      ]);
+      fixture.detectChanges();
+
+      const sourceIdValue = (component as unknown as { form: { controls: { sourceId: { value: string } } } }).form.controls.sourceId.value;
+      expect(['installment-1', 'installment-2']).toContain(sourceIdValue);
+      expect(sourceIdValue).not.toBe('expense-2');
+    });
+
+    it('removing quota 0 does not corrupt quota 1 payer selection', () => {
+      expenseService.expenses$.next([buildExpense({ id: 'expense-1', cost: 100 })]);
+      fixture.detectChanges();
+
+      quotaAt(0).controls['payerId']!.setValue('payer-1');
+      component['addQuota']();
+      fixture.detectChanges();
+      quotaAt(1).controls['payerId']!.setValue('payer-2');
+      fixture.detectChanges();
+
+      component['removeQuota'](0);
+      fixture.detectChanges();
+
+      const remaining = quotaAt(0).controls['payerId'] as unknown as { value: string };
+      expect(remaining.value).toBe('payer-2');
+    });
+
+    it('regression: removing a MIDDLE quota does not leave a stale payer selected in the reused DOM <select>', () => {
+      // Root cause (bug fixed in this commit): `@for (quota of quotaControls(); track
+      // $index; ...)` tracked quota rows by array position. `[formGroupName]="index"` is
+      // also position-based, so when a middle FormGroup was removed, Angular treated the
+      // <select> DOM node at that position as unchanged and reused it — including its
+      // browser-owned visible selection — for the FormGroup that shifted into that slot.
+      // The FormControl (submitted value) correctly held the shifted payer, but the DOM
+      // <select> kept showing the payer that used to occupy that position: the user would
+      // see one payer highlighted while a different one was actually submitted. Fixed by
+      // tracking the FormGroup instance itself (`track quota`) instead of `$index`.
+      expenseService.expenses$.next([buildExpense({ id: 'expense-1', cost: 100 })]);
+      fixture.detectChanges();
+
+      quotaAt(0).controls['payerId']!.setValue('payer-1');
+      component['addQuota']();
+      fixture.detectChanges();
+      quotaAt(1).controls['payerId']!.setValue('payer-2');
+      component['addQuota']();
+      fixture.detectChanges();
+      quotaAt(2).controls['payerId']!.setValue('payer-3');
+      fixture.detectChanges();
+
+      // Remove the middle quota (index 1, payer-2). Quota 2 (payer-3) shifts to index 1.
+      component['removeQuota'](1);
+      fixture.detectChanges();
+
+      const selects: NodeListOf<HTMLSelectElement> = fixture.nativeElement.querySelectorAll(
+        '[id^="sp-payer-"]',
+      );
+      const domValues = Array.from(selects).map((s) => s.value);
+
+      const control0 = quotaAt(0).controls['payerId'] as unknown as { value: string };
+      const control1 = quotaAt(1).controls['payerId'] as unknown as { value: string };
+
+      expect(control0.value).toBe('payer-1');
+      expect(control1.value).toBe('payer-3');
+      // The DOM must agree with the FormControl — this is what actually gets submitted.
+      expect(domValues[0]).toBe('payer-1');
+      expect(domValues[1]).toBe('payer-3');
     });
   });
 });
