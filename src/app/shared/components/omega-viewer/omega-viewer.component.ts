@@ -4,6 +4,8 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatIconModule } from '@angular/material/icon';
 import { catchError, map, of, switchMap } from 'rxjs';
 
+import { BrDatePipe } from '@shared/pipes/br-date.pipe';
+
 import { OmegaViewerDetail } from './models/omega-viewer-detail';
 import { OmegaViewerRef } from './models/omega-viewer-ref';
 import { OmegaViewerResult } from './models/omega-viewer-result';
@@ -33,7 +35,7 @@ type DetailState =
 @Component({
   selector: 'app-omega-viewer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatDialogModule, MatIconModule],
+  imports: [MatDialogModule, MatIconModule, BrDatePipe],
   providers: [OmegaViewerService],
   templateUrl: './omega-viewer.component.html',
   styleUrl: './omega-viewer.component.scss',

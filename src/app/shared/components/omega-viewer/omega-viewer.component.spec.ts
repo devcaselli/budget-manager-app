@@ -2,14 +2,17 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { of } from 'rxjs';
 
 import { Expense } from '@features/expense/models/expense';
 import { Installment } from '@features/installment/models/installment';
 import { Subscription } from '@features/subscription/models/subscription';
 
+import { OmegaViewerExpenseDetail } from './models/omega-viewer-detail';
 import { OmegaViewerRef } from './models/omega-viewer-ref';
 import { OmegaViewerResult } from './models/omega-viewer-result';
 import { OmegaViewerComponent } from './omega-viewer.component';
+import { OmegaViewerService } from './omega-viewer.service';
 
 function buildExpense(overrides: Partial<Expense> = {}): Expense {
   return {
@@ -188,5 +191,105 @@ describe('OmegaViewerComponent', () => {
     component['close']();
 
     expect(dialogRef.close).toHaveBeenCalledWith({ mutated: false });
+  });
+});
+
+describe('OmegaViewerComponent — audit metadata + deleted strip (F-13)', () => {
+  let fixture: ComponentFixture<OmegaViewerComponent>;
+
+  function buildExpenseDetail(
+    overrides: Partial<OmegaViewerExpenseDetail> = {},
+  ): OmegaViewerExpenseDetail {
+    return {
+      kind: 'EXPENSE',
+      ref: { kind: 'EXPENSE', id: 'expense-1' },
+      name: 'Groceries',
+      cost: 100,
+      remaining: 40,
+      purchaseDate: '2026-07-01',
+      creditCardId: 'card-1',
+      details: null,
+      tagIds: [],
+      payerName: null,
+      payments: [],
+      installmentsRemaining: null,
+      links: [],
+      audit: { createdAt: '2026-01-01', updatedAt: '2026-02-15', deletedAt: null },
+      ...overrides,
+    };
+  }
+
+  async function setup(detail: OmegaViewerExpenseDetail): Promise<void> {
+    TestBed.configureTestingModule({
+      imports: [OmegaViewerComponent],
+      providers: [
+        { provide: MatDialogRef, useValue: { close: vi.fn() } },
+        { provide: MAT_DIALOG_DATA, useValue: { kind: 'EXPENSE', id: 'expense-1' } },
+      ],
+    });
+    // OmegaViewerComponent declares `providers: [OmegaViewerService]` at the component level
+    // (component-scoped, not providedIn: 'root' — see the component's own doc comment), which
+    // shadows a module-level TestBed override. TestBed.overrideComponent replaces that
+    // component-level provider directly so the stub actually reaches the component's injector.
+    TestBed.overrideComponent(OmegaViewerComponent, {
+      set: { providers: [{ provide: OmegaViewerService, useValue: { load: () => of(detail) } }] },
+    });
+
+    fixture = TestBed.createComponent(OmegaViewerComponent);
+    fixture.detectChanges();
+    // toSignal's underlying switchMap/toObservable chain settles the synchronous of(detail)
+    // emission on a microtask (RxJS interop scheduler) — whenStable() flushes it before the
+    // DOM assertions read the rendered output.
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  it('renders the audit metadata line, formatted via BrDatePipe, when audit is present', async () => {
+    await setup(buildExpenseDetail({ audit: { createdAt: '2026-01-01', updatedAt: '2026-02-15', deletedAt: null } }));
+
+    const text = (fixture.nativeElement as HTMLElement).querySelector('.ovw__audit')?.textContent ?? '';
+
+    expect(text).toContain('Criado em');
+    expect(text).toContain('Atualizado em');
+    // BrDatePipe formats as pt-BR dd/mm/yyyy — exercise the real pipe, not a stub.
+    expect(text).toContain('01/01/2026');
+    expect(text).toContain('15/02/2026');
+  });
+
+  it('hides the audit metadata line entirely when audit is null', async () => {
+    await setup(buildExpenseDetail({ audit: null }));
+
+    const el = (fixture.nativeElement as HTMLElement).querySelector('.ovw__audit');
+
+    expect(el).toBeNull();
+  });
+
+  it('shows the deleted strip when deletedAt is non-null', async () => {
+    await setup(
+      buildExpenseDetail({
+        audit: { createdAt: '2026-01-01', updatedAt: '2026-02-15', deletedAt: '2026-03-01' },
+      }),
+    );
+
+    const alert = (fixture.nativeElement as HTMLElement).querySelector('.ew-alert[role="alert"]');
+
+    expect(alert).not.toBeNull();
+  });
+
+  it('hides the deleted strip when deletedAt is null', async () => {
+    await setup(buildExpenseDetail({ audit: { createdAt: '2026-01-01', updatedAt: '2026-02-15', deletedAt: null } }));
+
+    const alert = (fixture.nativeElement as HTMLElement).querySelector('.ew-alert[role="alert"]');
+
+    expect(alert).toBeNull();
+  });
+
+  it('hides both the metadata line and the deleted strip when audit is null, even if the item is conceptually deleted', async () => {
+    await setup(buildExpenseDetail({ audit: null }));
+
+    const root = fixture.nativeElement as HTMLElement;
+
+    expect(root.querySelector('.ovw__audit')).toBeNull();
+    expect(root.querySelector('.ew-alert[role="alert"]')).toBeNull();
   });
 });

@@ -30,6 +30,12 @@
       }
       @case ('ready') {
         @if (readyDetail(); as detail) {
+          @if (detail.audit?.deletedAt) {
+            <div class="ew-alert" role="alert">
+              <span>Item excluído.</span>
+            </div>
+          }
+
           @switch (detail.kind) {
             @case ('EXPENSE') {
               <div class="ovw__stub">
@@ -49,6 +55,12 @@
                 <p>Subscription — conteúdo completo chega na F-12.</p>
               </div>
             }
+          }
+
+          @if (detail.audit; as audit) {
+            <p class="ovw__audit">
+              Criado em {{ audit.createdAt | brDate }} · Atualizado em {{ audit.updatedAt | brDate }}
+            </p>
           }
         }
       }

@@ -71,6 +71,16 @@
   }
 }
 
+.ovw__audit {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--ew-line);
+  color: var(--ew-ink-3);
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
 .ew-alert {
   display: flex;
   align-items: center;
