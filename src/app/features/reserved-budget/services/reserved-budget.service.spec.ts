@@ -61,8 +61,8 @@ describe('ReservedBudgetService', () => {
       (candidate) =>
         candidate.url === '/api/reserved-budgets' &&
         candidate.params.get('activeAt') === '2026-06' &&
-        candidate.params.get('page') === null &&
-        candidate.params.get('size') === null,
+        candidate.params.get('page') === '0' &&
+        candidate.params.get('size') === '100',
     );
     expect(request.request.method).toBe('GET');
     request.flush(response);
@@ -88,6 +88,34 @@ describe('ReservedBudgetService', () => {
     request.flush(pagedResponse([reservedBudget]));
 
     expect(emitted.at(-1)).toEqual([reservedBudget]);
+  });
+
+  it('should walk every page of active reserved budgets and concatenate them into reservedBudgets$', () => {
+    const emitted: (readonly ReservedBudget[])[] = [];
+    const page0ReservedBudget: ReservedBudget = { ...reservedBudget, id: 'reserved-budget-page-0' };
+    const page1ReservedBudget: ReservedBudget = { ...reservedBudget, id: 'reserved-budget-page-1' };
+
+    service.reservedBudgets$.subscribe((value) => emitted.push(value));
+    service.loadReservedBudgets();
+
+    httpMock
+      .expectOne(
+        (candidate) =>
+          candidate.url === '/api/reserved-budgets' &&
+          candidate.params.get('activeAt') === currentMonth() &&
+          candidate.params.get('page') === '0',
+      )
+      .flush(multiPageResponse([page0ReservedBudget], 0, 2));
+    httpMock
+      .expectOne(
+        (candidate) =>
+          candidate.url === '/api/reserved-budgets' &&
+          candidate.params.get('activeAt') === currentMonth() &&
+          candidate.params.get('page') === '1',
+      )
+      .flush(multiPageResponse([page1ReservedBudget], 1, 2));
+
+    expect(emitted.at(-1)).toEqual([page0ReservedBudget, page1ReservedBudget]);
   });
 
   it('should list reserved budgets for the given activeAt month (wallet effectiveMonth)', () => {
@@ -333,6 +361,14 @@ function pagedResponse(content: readonly ReservedBudget[]): PagedReservedBudgetR
     totalElements: content.length,
     totalPages: 1,
   };
+}
+
+function multiPageResponse(
+  content: readonly ReservedBudget[],
+  page: number,
+  totalPages: number,
+): PagedReservedBudgetResponse {
+  return { content, page, size: 100, totalElements: totalPages * 100, totalPages };
 }
 
 function currentMonth(): string {

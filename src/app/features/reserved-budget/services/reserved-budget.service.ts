@@ -13,6 +13,7 @@ import {
 } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { fetchAllPages } from '@core/state/fetch-all-pages';
 import { LoadingCounter } from '@core/state/loading-counter';
 
 import {
@@ -58,9 +59,11 @@ export class ReservedBudgetService {
           this.loadingCounter.start();
         }),
         // Use the active-at listing so consumed/remaining come populated for the target month.
+        // Wallets can have more reserved budgets than a single page (the backend defaults to
+        // 20 per page when size isn't sent) — walk every page and concatenate.
         switchMap((activeAt) =>
-          this.findActiveAt(activeAt).pipe(
-            tap((response) => this.reservedBudgetsSubject.next(response.content)),
+          fetchAllPages((page) => this.findActiveAt(activeAt, page, 100)).pipe(
+            tap((reservedBudgets) => this.reservedBudgetsSubject.next(reservedBudgets)),
             catchError(() => {
               this.errorSubject.next('Não foi possível carregar os reserved budgets.');
               return EMPTY;
@@ -80,8 +83,11 @@ export class ReservedBudgetService {
     return this.http.get<PagedReservedBudgetResponse>(this.reservedBudgetsUrl, { params });
   }
 
-  findActiveAt(month: string): Observable<PagedReservedBudgetResponse> {
-    const params = new HttpParams().set('activeAt', month);
+  findActiveAt(month: string, page = 0, size = 100): Observable<PagedReservedBudgetResponse> {
+    const params = new HttpParams()
+      .set('activeAt', month)
+      .set('page', page)
+      .set('size', size);
 
     return this.http.get<PagedReservedBudgetResponse>(this.reservedBudgetsUrl, { params });
   }
