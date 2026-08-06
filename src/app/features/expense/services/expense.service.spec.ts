@@ -70,6 +70,24 @@ describe('ExpenseService', () => {
     request.flush(pagedResponse([expense]));
   });
 
+  it('should walk every page of a multi-page wallet and concatenate them into expenses$', () => {
+    const emittedExpenses: (readonly Expense[])[] = [];
+    const page0Expense: Expense = { ...expense, id: 'expense-page-0' };
+    const page1Expense: Expense = { ...expense, id: 'expense-page-1' };
+
+    service.expenses$.subscribe((value) => emittedExpenses.push(value));
+    service.loadByWalletId('wallet-1');
+
+    httpMock
+      .expectOne('/api/expenses/wallet/wallet-1?page=0&size=100')
+      .flush(multiPageResponse([page0Expense], 0, 2));
+    httpMock
+      .expectOne('/api/expenses/wallet/wallet-1?page=1&size=100')
+      .flush(multiPageResponse([page1Expense], 1, 2));
+
+    expect(emittedExpenses.at(-1)).toEqual([page0Expense, page1Expense]);
+  });
+
   it('should only let the latest loadByWalletId trigger populate expenses$ (switchMap guard)', () => {
     const emittedExpenses: (readonly Expense[])[] = [];
     service.expenses$.subscribe((value) => emittedExpenses.push(value));
@@ -204,4 +222,12 @@ function pagedResponse(content: readonly Expense[]): PagedExpenseResponse {
     totalElements: content.length,
     totalPages: content.length > 0 ? 1 : 0,
   };
+}
+
+function multiPageResponse(
+  content: readonly Expense[],
+  page: number,
+  totalPages: number,
+): PagedExpenseResponse {
+  return { content, page, size: 100, totalElements: totalPages * 100, totalPages };
 }
