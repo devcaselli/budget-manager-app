@@ -1,4 +1,10 @@
 <form class="vef__form" [formGroup]="form" (ngSubmit)="submit()">
+  @if (saveError(); as message) {
+    <div class="ew-alert" role="alert">
+      <span>{{ message }}</span>
+    </div>
+  }
+
   <div class="ew-field">
     <label for="vef-name">Descrição</label>
     <input id="vef-name" class="ew-input" formControlName="name" placeholder="e.g. Mercado" />
@@ -13,12 +19,12 @@
       id="vef-cost"
       class="ew-input"
       type="number"
-      min="0.01"
+      [attr.min]="minCost()"
       step="0.01"
       formControlName="cost"
     />
     @if (form.controls.cost.touched && form.controls.cost.invalid) {
-      <p class="vef__error">Informe um valor maior que zero.</p>
+      <p class="vef__error">{{ minCostMessage() }}</p>
     }
   </div>
 

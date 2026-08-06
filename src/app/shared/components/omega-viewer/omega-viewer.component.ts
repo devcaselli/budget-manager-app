@@ -9,10 +9,11 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { catchError, filter, map, of, switchMap } from 'rxjs';
 
 import { CreditCardService } from '@features/credit-card/services/credit-card.service';
 import { PatchExpenseRequest } from '@features/expense/models/expense';
@@ -118,6 +119,12 @@ export class OmegaViewerComponent {
    * navigate/close guard and `MatDialogRef.disableClose`. */
   private readonly formDirty = signal(false);
   protected readonly saving = signal(false);
+  /** User-facing message for the most recent failed save attempt, `null` when there is none
+   * to show. Rendered inside `ViewerEditFormComponent` (still-open modal) rather than
+   * relying on `ExpenseService.error$` — that stream surfaces in `ExpensePage`, which sits
+   * *behind* the open Viewer dialog and is therefore invisible while the user needs it most
+   * (code review C2). Cleared at the start of every save attempt and on leaving EDIT. */
+  protected readonly saveError = signal<string | null>(null);
   /**
    * Result of the most recent successful save for the item currently on screen — layered on
    * top of `detailState`'s HTTP-derived value in `readyDetail` below so the viewer reflects
@@ -234,11 +241,42 @@ export class OmegaViewerComponent {
     // populated it.
     this.creditCardService.loadAll();
 
-    // Keeps `MatDialogRef.disableClose` in lockstep with the edit form's dirty state (F-07
-    // acceptance: clicking outside or pressing ESC must not silently discard unsaved edits).
+    // `disableClose` is fixed to `mode() === 'EDIT'` — NOT conditioned on `formDirty()`. Two
+    // reasons:
+    //   1. Race-window safety (code review C1a): `formDirty` only flips once
+    //      `ViewerEditFormComponent` emits `dirtyChange`, which happens inside a
+    //      `valueChanges` subscribe — there's a tick between the user's first keystroke and
+    //      that emission landing here. Gating `disableClose` on `formDirty` left that tick
+    //      open for ESC/backdrop to slip through unguarded. Gating on `mode()` alone closes
+    //      the window entirely: the instant EDIT starts, native ESC/backdrop are blocked,
+    //      full stop.
+    //   2. `disableClose` blocking natively (no dialog, no feedback) is also wrong on its own
+    //      (code review C1b) — see the `keydownEvents`/`backdropClick` subscriptions below,
+    //      which route both through `close()` (the same `guardDirty()`-backed path the "×"
+    //      button already used) instead of leaving the user stuck with a modal that appears
+    //      to ignore the Escape key.
     effect(() => {
-      this.dialogRef.disableClose = this.mode() === 'EDIT' && this.formDirty();
+      this.dialogRef.disableClose = this.mode() === 'EDIT';
     });
+
+    // Routes ESC and backdrop-click through `close()` — the exact same `guardDirty()` path as
+    // the "×" button — instead of letting Material's native `disableClose` merely swallow
+    // them. With `disableClose` now fixed to `mode() === 'EDIT'` (see effect above), these
+    // subscriptions are the only way ESC/backdrop can ever fire while in EDIT, and outside
+    // EDIT `disableClose` is `false` so Material's own handling never reaches here anyway —
+    // no double-close risk.
+    this.dialogRef
+      .keydownEvents()
+      .pipe(
+        filter((event) => event.key === 'Escape'),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.close());
+
+    this.dialogRef
+      .backdropClick()
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.close());
     // Fires on every `readyDetail()` change (new item finished loading), including the very
     // first one — focuses the title heading and announces the change via aria-live, so
     // keyboard/screen-reader users never lose their place across a page-flip.
@@ -327,7 +365,12 @@ export class OmegaViewerComponent {
    * treats every absent field as "don't touch", so this never re-sends untouched values.
    * On success: exits edit mode, layers the patch response onto `readyDetail` via
    * `savedOverride` (no refetch), and flags `mutated` so `ExpensePage` reloads its list on
-   * close. `remaining` is never computed here — whatever the backend returns is what renders. */
+   * close. `remaining` is never computed here — whatever the backend returns is what renders.
+   * On failure (code review C2): surfaces a visible `saveError` inside the still-open modal
+   * instead of silently dropping the error — the previous handler discarded it entirely,
+   * which is especially dangerous here because `ExpenseCostBelowPaidAmountException`
+   * (reducing `cost` below the amount already paid) is a routine, expected business
+   * rejection in this domain, not an edge case. */
   protected saveEdit(patch: PatchExpenseRequest): void {
     const detail = this.readyDetail();
     if (!detail || detail.kind !== 'EXPENSE') {
@@ -335,6 +378,7 @@ export class OmegaViewerComponent {
     }
 
     this.saving.set(true);
+    this.saveError.set(null);
     this.expenseService.patch(detail.ref.id, patch).subscribe({
       next: (updated) => {
         this.saving.set(false);
@@ -350,17 +394,44 @@ export class OmegaViewerComponent {
             purchaseDate: updated.purchaseDate,
             creditCardId: updated.creditCardId ?? null,
             details: updated.details ?? null,
+            // `ExpenseResponseDto` does not serialize `createdAt`/`updatedAt` (confirmed
+            // against the backend DTO), so there is no real post-patch timestamp available
+            // here to display. The backend re-stamps `updatedAt` on every save regardless —
+            // showing the stale pre-patch value would silently lie about it (code review
+            // M2). Hiding the audit footer until the next navigation/refetch is honest;
+            // showing an outdated timestamp is not.
+            audit: null,
           },
         });
         this.leaveEditMode();
       },
-      error: () => this.saving.set(false),
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.saveError.set(this.describeSaveError(error));
+      },
     });
+  }
+
+  /** Best-effort mapping from the patch failure to a message the user can act on. The 422
+   * `ExpenseCostBelowPaidAmountException` case is the one guaranteed to recur in practice
+   * (reducing `cost` below what's already been paid) — `ViewerEditFormComponent`'s own
+   * dynamic `min` validator (M1) should catch most of these client-side before the request
+   * ever goes out, but the backend remains the source of truth, so this stays as the
+   * fallback safety net for whatever slips past it or fails for any other reason. */
+  private describeSaveError(error: unknown): string {
+    if (error instanceof HttpErrorResponse && error.status === 422) {
+      const title = (error.error as { title?: string } | null)?.title;
+      if (title === 'Expense cost below paid amount') {
+        return 'O valor não pode ser menor que o quanto já foi pago nesta despesa.';
+      }
+    }
+    return 'Não foi possível salvar as alterações. Tente novamente.';
   }
 
   private leaveEditMode(): void {
     this.mode.set('VIEW');
     this.formDirty.set(false);
+    this.saveError.set(null);
   }
 
   /** Shared by `navigateTo`/`goBack`/`close`/`cancelEdit` — if the edit form is dirty, opens

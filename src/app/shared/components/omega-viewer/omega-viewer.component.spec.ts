@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 
 import {
   OmegaViewerDetail,
@@ -91,10 +91,22 @@ describe('OmegaViewerComponent', () => {
   let fixture: ComponentFixture<OmegaViewerComponent>;
   let component: OmegaViewerComponent;
   let httpMock: HttpTestingController;
-  let dialogRef: { close: ReturnType<typeof vi.fn<(result?: OmegaViewerResult) => void>> };
+  let dialogRef: {
+    close: ReturnType<typeof vi.fn<(result?: OmegaViewerResult) => void>>;
+    keydownEvents: ReturnType<typeof vi.fn>;
+    backdropClick: ReturnType<typeof vi.fn>;
+  };
 
   function setup(initialRef: OmegaViewerRef): void {
-    dialogRef = { close: vi.fn<(result?: OmegaViewerResult) => void>() };
+    // C1: the shell now subscribes to `keydownEvents()`/`backdropClick()` in its constructor
+    // (routes ESC/backdrop through `close()`, same as the "×" button) — every `MatDialogRef`
+    // stub needs both, or construction throws on `.pipe()` of `undefined`. Empty streams here
+    // are enough for tests in this block that don't exercise C1 directly.
+    dialogRef = {
+      close: vi.fn<(result?: OmegaViewerResult) => void>(),
+      keydownEvents: vi.fn().mockReturnValue(of()),
+      backdropClick: vi.fn().mockReturnValue(of()),
+    };
 
     TestBed.configureTestingModule({
       imports: [OmegaViewerComponent],
@@ -254,7 +266,16 @@ describe('OmegaViewerComponent — audit metadata + deleted strip (F-13)', () =>
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: MatDialogRef, useValue: { close: vi.fn() } },
+        {
+          provide: MatDialogRef,
+          // C1: constructor now subscribes to keydownEvents()/backdropClick() — every stub
+          // needs both, or construction throws on `.pipe()` of `undefined`.
+          useValue: {
+            close: vi.fn(),
+            keydownEvents: vi.fn().mockReturnValue(of()),
+            backdropClick: vi.fn().mockReturnValue(of()),
+          },
+        },
         { provide: MAT_DIALOG_DATA, useValue: { kind: 'EXPENSE', id: 'expense-1' } },
       ],
     });
@@ -402,7 +423,16 @@ describe('OmegaViewerComponent — link navigation, focus, aria-live, reduced-mo
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: MatDialogRef, useValue: { close: vi.fn() } },
+        {
+          provide: MatDialogRef,
+          // C1: constructor now subscribes to keydownEvents()/backdropClick() — every stub
+          // needs both, or construction throws on `.pipe()` of `undefined`.
+          useValue: {
+            close: vi.fn(),
+            keydownEvents: vi.fn().mockReturnValue(of()),
+            backdropClick: vi.fn().mockReturnValue(of()),
+          },
+        },
         { provide: MAT_DIALOG_DATA, useValue: { kind: 'EXPENSE', id: 'expense-1' } },
       ],
     });
@@ -551,7 +581,15 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
   let component: OmegaViewerComponent;
   let httpMock: HttpTestingController;
   let dialog: { open: ReturnType<typeof vi.fn> };
-  let dialogRef: { close: ReturnType<typeof vi.fn> };
+  let dialogRef: {
+    close: ReturnType<typeof vi.fn>;
+    keydownEvents: ReturnType<typeof vi.fn>;
+    backdropClick: ReturnType<typeof vi.fn>;
+  };
+  /** Subjects backing this block's `dialogRef.keydownEvents()`/`backdropClick()` — tests that
+   * exercise C1 push synthetic events through these instead of re-creating the fixture. */
+  let keydownEvents$: Subject<{ key: string }>;
+  let backdropClick$: Subject<void>;
 
   function buildExpenseDetail(
     overrides: Partial<OmegaViewerExpenseDetail> = {},
@@ -602,7 +640,13 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
    * — most tests in this block want navigation to actually go through; the guard-blocks
    * tests below override this per-call to resolve `false` instead. */
   async function setup(): Promise<void> {
-    dialogRef = { close: vi.fn() };
+    keydownEvents$ = new Subject<{ key: string }>();
+    backdropClick$ = new Subject<void>();
+    dialogRef = {
+      close: vi.fn(),
+      keydownEvents: vi.fn().mockReturnValue(keydownEvents$),
+      backdropClick: vi.fn().mockReturnValue(backdropClick$),
+    };
     dialog = {
       open: vi.fn().mockReturnValue({ afterClosed: () => of(true) }),
     };
@@ -783,22 +827,22 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
     expect(dialogRef.close).toHaveBeenCalledWith({ mutated: false });
   });
 
-  it('sets MatDialogRef.disableClose while EDIT + dirty, clears it otherwise', async () => {
+  // C1 fix: `disableClose` is now fixed to `mode() === 'EDIT'` — NOT conditioned on
+  // `formDirty()` anymore. This closes the race window (C1a) where a real user's
+  // `dirtyChange` emission lands a tick after their first keystroke: `disableClose` now goes
+  // true the instant EDIT starts, before the form can ever be dirty.
+  it('sets MatDialogRef.disableClose as soon as EDIT starts, regardless of dirty state', async () => {
     await setup();
 
-    expect(component['dialogRef' as never]).toBeDefined();
-    expect(dialogRef['disableClose' as never]).toBeFalsy();
+    expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBeFalsy();
 
-    // Two separate flush cycles — `enterEditMode()` and `onFormDirtyChange(true)` each need
-    // their own `detectChanges()`/`whenStable()` pair for the shell's `disableClose` effect
-    // to observe the fully-settled state; batching both signal writes before the first flush
-    // is unreliable in this Angular version's effect-scheduling (an app-code concern this
-    // test isolates, not a production bug — a real user's `dirtyChange` emission always
-    // arrives as its own separate change-detection turn, never coalesced with `enterEditMode`).
     component['enterEditMode']();
     fixture.detectChanges();
     await fixture.whenStable();
+    // True immediately on entering EDIT — not gated on `formDirty()`.
+    expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(true);
 
+    // Staying dirty or clean while in EDIT makes no difference to disableClose anymore.
     component['onFormDirtyChange'](true);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -807,7 +851,125 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
     component['onFormDirtyChange'](false);
     fixture.detectChanges();
     await fixture.whenStable();
+    expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(true);
+  });
+
+  it('clears MatDialogRef.disableClose once EDIT is left (e.g. cancel confirmed)', async () => {
+    await setup();
+
+    component['enterEditMode']();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(true);
+
+    component['cancelEdit'](); // not dirty -> guard runs the action immediately
+    fixture.detectChanges();
+    await fixture.whenStable();
     expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(false);
+  });
+
+  // C1 — ESC and backdrop must route through the same `guardDirty()`-backed `close()` path
+  // as the "×" button, instead of `disableClose` merely swallowing the key/click with no
+  // feedback (code review C1b) or leaving a race window before `formDirty` catches up (C1a).
+  describe('C1 — ESC/backdrop route through close()/guardDirty()', () => {
+    it('Escape while EDIT+dirty opens the discard-confirm dialog instead of doing nothing', async () => {
+      await setup();
+
+      component['enterEditMode']();
+      component['onFormDirtyChange'](true);
+      dialog.open.mockReturnValue({ afterClosed: () => of(false) }); // user cancels discard
+
+      keydownEvents$.next({ key: 'Escape' });
+      fixture.detectChanges();
+
+      expect(dialog.open).toHaveBeenCalled();
+      expect(dialogRef.close).not.toHaveBeenCalled();
+      // Still in EDIT — nothing was silently discarded, and the modal did not just ignore ESC.
+      expect(component['mode']()).toBe('EDIT');
+    });
+
+    it('Escape while EDIT+dirty closes the dialog once the user confirms discard', async () => {
+      await setup();
+
+      component['enterEditMode']();
+      component['onFormDirtyChange'](true);
+      dialog.open.mockReturnValue({ afterClosed: () => of(true) }); // user confirms discard
+
+      keydownEvents$.next({ key: 'Escape' });
+      fixture.detectChanges();
+
+      expect(dialogRef.close).toHaveBeenCalledWith({ mutated: false });
+    });
+
+    it('other keys besides Escape are ignored by the keydownEvents subscription', async () => {
+      await setup();
+
+      component['enterEditMode']();
+      component['onFormDirtyChange'](true);
+
+      keydownEvents$.next({ key: 'Enter' });
+      fixture.detectChanges();
+
+      expect(dialog.open).not.toHaveBeenCalled();
+      expect(dialogRef.close).not.toHaveBeenCalled();
+    });
+
+    it('backdrop click while EDIT+dirty routes through guardDirty(), not a silent no-op', async () => {
+      await setup();
+
+      component['enterEditMode']();
+      component['onFormDirtyChange'](true);
+      dialog.open.mockReturnValue({ afterClosed: () => of(true) });
+
+      backdropClick$.next();
+      fixture.detectChanges();
+
+      expect(dialog.open).toHaveBeenCalled();
+      expect(dialogRef.close).toHaveBeenCalledWith({ mutated: false });
+    });
+
+    it('Escape while not dirty (or not in EDIT) closes immediately without the confirm dialog', async () => {
+      await setup();
+
+      keydownEvents$.next({ key: 'Escape' });
+      fixture.detectChanges();
+
+      expect(dialog.open).not.toHaveBeenCalled();
+      expect(dialogRef.close).toHaveBeenCalledWith({ mutated: false });
+    });
+
+    // Bonus fix confirmed by the review: previously, saving (mutated=true) then leaving EDIT
+    // and closing via ESC/backdrop (outside EDIT, disableClose was false) let Material close
+    // with `undefined`, and the launcher's `?? { mutated: false }` fallback swallowed a real
+    // `mutated: true`. Now ESC always goes through `close()`, which always reads the current
+    // `mutated()` signal — so a save that already happened is never lost this way.
+    it('Escape after a successful save (now VIEW mode) still reports mutated:true, not the launcher fallback', async () => {
+      await setup();
+
+      component['enterEditMode']();
+      component['saveEdit']({ cost: 250 });
+      httpMock.expectOne('/api/expenses/expense-1').flush({
+        id: 'expense-1',
+        name: 'Groceries',
+        cost: 250,
+        remaining: 190,
+        purchaseDate: '2026-07-01',
+        walletId: 'wallet-1',
+        creditCardId: 'card-1',
+        installment: false,
+        details: null,
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(component['mode']()).toBe('VIEW'); // save exits EDIT
+
+      keydownEvents$.next({ key: 'Escape' });
+      fixture.detectChanges();
+
+      expect(dialogRef.close).toHaveBeenCalledWith({ mutated: true });
+    });
   });
 
   it('saveEdit patches via ExpenseService, updates the displayed detail, exits EDIT, and flags mutated', async () => {
@@ -844,9 +1006,90 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
     expect(detail?.kind).toBe('EXPENSE');
     expect((detail as OmegaViewerExpenseDetail).cost).toBe(250);
     expect((detail as OmegaViewerExpenseDetail).remaining).toBe(190);
+    // M2: `ExpenseResponseDto` never serializes `createdAt`/`updatedAt`, so there is no real
+    // post-patch timestamp to show. `audit` is reset to `null` (hiding the footer) instead of
+    // displaying the stale pre-patch value as if it were current.
+    expect((detail as OmegaViewerExpenseDetail).audit).toBeNull();
 
     component['close']();
     expect(dialogRef.close).toHaveBeenCalledWith({ mutated: true });
+  });
+
+  // M2: the pre-patch detail in this block seeds `audit: null` already (see
+  // `buildExpenseDetail`), so this test uses a non-null seed to prove the override actively
+  // resets it rather than merely preserving an already-null value.
+  it('saveEdit resets audit to null even when the pre-patch detail had a real audit value', async () => {
+    keydownEvents$ = new Subject<{ key: string }>();
+    backdropClick$ = new Subject<void>();
+    dialogRef = {
+      close: vi.fn(),
+      keydownEvents: vi.fn().mockReturnValue(keydownEvents$),
+      backdropClick: vi.fn().mockReturnValue(backdropClick$),
+    };
+    dialog = { open: vi.fn().mockReturnValue({ afterClosed: () => of(true) }) };
+
+    TestBed.configureTestingModule({
+      imports: [OmegaViewerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: MAT_DIALOG_DATA, useValue: { kind: 'EXPENSE', id: 'expense-1' } },
+        { provide: MatDialog, useValue: dialog },
+      ],
+    });
+    TestBed.overrideComponent(OmegaViewerComponent, {
+      set: {
+        providers: [
+          { provide: MatDialog, useValue: dialog },
+          {
+            provide: OmegaViewerService,
+            useValue: {
+              load: (): ReturnType<OmegaViewerService['load']> =>
+                of(
+                  buildExpenseDetail({
+                    audit: { createdAt: '2026-01-01', updatedAt: '2026-01-01', deletedAt: null },
+                  }),
+                ),
+            },
+          },
+        ],
+      },
+    });
+
+    fixture = TestBed.createComponent(OmegaViewerComponent);
+    component = fixture.componentInstance;
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    httpMock
+      .expectOne('/api/credit-cards?page=0&size=100')
+      .flush({ content: [], page: 0, size: 100, totalElements: 0, totalPages: 0 });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((component['readyDetail']() as OmegaViewerExpenseDetail).audit?.updatedAt).toBe(
+      '2026-01-01',
+    );
+
+    component['enterEditMode']();
+    component['saveEdit']({ cost: 250 });
+    httpMock.expectOne('/api/expenses/expense-1').flush({
+      id: 'expense-1',
+      name: 'Groceries',
+      cost: 250,
+      remaining: 190,
+      purchaseDate: '2026-07-01',
+      walletId: 'wallet-1',
+      creditCardId: 'card-1',
+      installment: false,
+      details: null,
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // The stale pre-patch `updatedAt` must NOT survive into the post-save detail.
+    expect((component['readyDetail']() as OmegaViewerExpenseDetail).audit).toBeNull();
   });
 
   it('saveEdit does not flag mutated or touch the dialog on a failed patch', async () => {
@@ -862,6 +1105,112 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
 
     component['close']();
     expect(dialogRef.close).toHaveBeenCalledWith({ mutated: false });
+  });
+
+  // C2 — a failed save must surface a visible message inside the still-open modal instead of
+  // being dropped silently. Previously `error: () => this.saving.set(false)` discarded the
+  // error entirely; nothing on screen told the user the save didn't happen.
+  describe('C2 — save failure surfaces saveError instead of failing silently', () => {
+    it('sets a generic saveError message on a generic (non-422) failure', async () => {
+      await setup();
+
+      component['enterEditMode']();
+      expect(component['saveError']()).toBeNull();
+
+      component['saveEdit']({ cost: 250 });
+      httpMock
+        .expectOne('/api/expenses/expense-1')
+        .flush('boom', { status: 500, statusText: 'Error' });
+      fixture.detectChanges();
+
+      expect(component['saveError']()).toBe('Não foi possível salvar as alterações. Tente novamente.');
+      expect(component['saving']()).toBe(false);
+      // Still in EDIT with the user's typed values intact — correct retry behavior, unchanged.
+      expect(component['mode']()).toBe('EDIT');
+    });
+
+    it('sets a specific message for the 422 ExpenseCostBelowPaidAmountException case', async () => {
+      await setup();
+
+      component['enterEditMode']();
+      component['saveEdit']({ cost: 5 });
+      httpMock.expectOne('/api/expenses/expense-1').flush(
+        { title: 'Expense cost below paid amount', detail: 'new cost is below the amount already paid' },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+      fixture.detectChanges();
+
+      expect(component['saveError']()).toBe(
+        'O valor não pode ser menor que o quanto já foi pago nesta despesa.',
+      );
+    });
+
+    it('renders the saveError inside the (still open) edit form with role="alert"', async () => {
+      await setup();
+
+      component['enterEditMode']();
+      fixture.detectChanges();
+
+      component['saveEdit']({ cost: 250 });
+      httpMock
+        .expectOne('/api/expenses/expense-1')
+        .flush('boom', { status: 500, statusText: 'Error' });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      const alert = root.querySelector('app-viewer-edit-form .ew-alert[role="alert"]');
+      expect(alert).not.toBeNull();
+      expect(alert?.textContent).toContain('Não foi possível salvar');
+    });
+
+    it('clears saveError at the start of the next save attempt', async () => {
+      await setup();
+
+      component['enterEditMode']();
+      component['saveEdit']({ cost: 250 });
+      httpMock
+        .expectOne('/api/expenses/expense-1')
+        .flush('boom', { status: 500, statusText: 'Error' });
+      fixture.detectChanges();
+      expect(component['saveError']()).not.toBeNull();
+
+      component['saveEdit']({ cost: 260 });
+      expect(component['saveError']()).toBeNull();
+
+      httpMock.expectOne('/api/expenses/expense-1').flush({
+        id: 'expense-1',
+        name: 'Groceries',
+        cost: 260,
+        remaining: 200,
+        purchaseDate: '2026-07-01',
+        walletId: 'wallet-1',
+        creditCardId: 'card-1',
+        installment: false,
+        details: null,
+      });
+      fixture.detectChanges();
+
+      expect(component['saveError']()).toBeNull();
+    });
+
+    it('clears saveError on cancelEdit (leaving EDIT)', async () => {
+      await setup();
+
+      component['enterEditMode']();
+      component['saveEdit']({ cost: 250 });
+      httpMock
+        .expectOne('/api/expenses/expense-1')
+        .flush('boom', { status: 500, statusText: 'Error' });
+      fixture.detectChanges();
+      expect(component['saveError']()).not.toBeNull();
+
+      component['cancelEdit'](); // not dirty here -> guard runs immediately
+      fixture.detectChanges();
+
+      expect(component['saveError']()).toBeNull();
+    });
   });
 
   it('enterEditMode is a no-op when the current item is not an Expense', async () => {

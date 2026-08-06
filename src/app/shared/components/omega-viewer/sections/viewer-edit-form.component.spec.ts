@@ -209,4 +209,94 @@ describe('ViewerEditFormComponent', () => {
 
     expect(component['form'].getRawValue().cost).toBe(150);
   });
+
+  // M1 — `min(0.01)` alone lets through a `cost` reduction that the backend will reject
+  // (`ExpenseCostBelowPaidAmountException` when the new cost falls below the amount already
+  // paid, i.e. `cost - remaining`). The dynamic `minCost` validator replicates that business
+  // rule client-side, using only `cost`/`remaining` already present on the input detail —
+  // never computing or displaying a new `remaining` value.
+  describe('M1 — dynamic min-cost validator (cost >= amount already paid)', () => {
+    it('minCost is 0.01 (the DTO floor) when nothing has been paid yet', async () => {
+      // cost 100, remaining 100 -> paidAmount 0 -> floor applies
+      await setup(buildExpenseDetail({ cost: 100, remaining: 100 }));
+
+      expect(component['minCost']()).toBe(0.01);
+    });
+
+    it('minCost is the amount already paid when it exceeds the DTO floor', async () => {
+      // cost 300, remaining 100 -> paidAmount 200
+      await setup(buildExpenseDetail({ cost: 300, remaining: 100 }));
+
+      expect(component['minCost']()).toBe(200);
+    });
+
+    it('rejects a cost below the amount already paid', async () => {
+      await setup(buildExpenseDetail({ cost: 300, remaining: 100 })); // paidAmount = 200
+
+      component['form'].controls.cost.setValue(150);
+      component['form'].controls.cost.updateValueAndValidity();
+
+      expect(component['form'].controls.cost.valid).toBe(false);
+      expect(component['form'].controls.cost.errors?.['min']).toBeDefined();
+    });
+
+    it('accepts a cost at or above the amount already paid', async () => {
+      await setup(buildExpenseDetail({ cost: 300, remaining: 100 })); // paidAmount = 200
+
+      component['form'].controls.cost.setValue(200);
+      component['form'].controls.cost.updateValueAndValidity();
+
+      expect(component['form'].controls.cost.valid).toBe(true);
+    });
+
+    it('re-derives minCost when a new expense (with different paidAmount) is seeded', async () => {
+      await setup(buildExpenseDetail({ cost: 300, remaining: 100 })); // paidAmount = 200
+      expect(component['minCost']()).toBe(200);
+
+      fixture.componentRef.setInput(
+        'expense',
+        buildExpenseDetail({ cost: 500, remaining: 450 }), // paidAmount = 50
+      );
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(component['minCost']()).toBe(50);
+    });
+
+    it('minCostMessage names the real minimum, formatted as BRL, once something is already paid', async () => {
+      await setup(buildExpenseDetail({ cost: 300, remaining: 100 })); // paidAmount = 200
+
+      expect(component['minCostMessage']()).toContain('200');
+    });
+
+    it('minCostMessage falls back to the generic message when nothing has been paid', async () => {
+      await setup(buildExpenseDetail({ cost: 100, remaining: 100 })); // paidAmount = 0
+
+      expect(component['minCostMessage']()).toBe('Informe um valor maior que zero.');
+    });
+  });
+
+  // C2 — the shell-owned save-failure message is rendered here, inside the still-open form,
+  // with `role="alert"` so it's actually visible to the user (not hidden behind the modal
+  // like `ExpenseService.error$`/`ExpensePage`'s own alert would be).
+  describe('C2 — saveError input rendering', () => {
+    it('renders nothing when saveError is null', async () => {
+      await setup(buildExpenseDetail());
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('.ew-alert[role="alert"]')).toBeNull();
+    });
+
+    it('renders the saveError message with role="alert" when set', async () => {
+      await setup(buildExpenseDetail());
+      fixture.componentRef.setInput('saveError', 'Não foi possível salvar as alterações. Tente novamente.');
+      fixture.detectChanges();
+
+      const root = fixture.nativeElement as HTMLElement;
+      const alert = root.querySelector('.ew-alert[role="alert"]');
+      expect(alert).not.toBeNull();
+      expect(alert?.textContent).toContain('Não foi possível salvar as alterações. Tente novamente.');
+    });
+  });
 });
