@@ -10,11 +10,13 @@ import {
   viewChild,
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { catchError, map, of, switchMap } from 'rxjs';
 
 import { CreditCardService } from '@features/credit-card/services/credit-card.service';
+import { PatchExpenseRequest } from '@features/expense/models/expense';
+import { ExpenseService } from '@features/expense/services/expense.service';
 import { TagService } from '@features/tag/services/tag.service';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 
@@ -24,7 +26,13 @@ import { OmegaViewerRef } from './models/omega-viewer-ref';
 import { OmegaViewerResult } from './models/omega-viewer-result';
 import { mapDetailToFieldRows, mapRemainingBadge } from './omega-viewer-field-mapper';
 import { OmegaViewerService } from './omega-viewer.service';
+import { ViewerDiscardConfirmDialogComponent } from './sections/viewer-discard-confirm-dialog.component';
+import { ViewerEditFormComponent } from './sections/viewer-edit-form.component';
 import { ViewerFieldListComponent } from './sections/viewer-field-list.component';
+
+/** The Omega Viewer's edit mode (F-07) — scoped to whatever item is currently on screen.
+ * Always resets to `'VIEW'` on any navigation (push or pop), never preserved across items. */
+export type OmegaViewerMode = 'VIEW' | 'EDIT';
 
 /** Discriminates the 3 outcomes `detailState` can be in at any point in time. */
 type DetailState =
@@ -50,7 +58,8 @@ function titleOf(detail: OmegaViewerDetail): string {
  * (history stack, detail resolution, loading/error/retry). F-11 adds the link-navigation UI
  * (slide+fade page-flip, `prefers-reduced-motion` support, keyboard focus management,
  * `aria-live` announcements). F-12 adds the field-list body via `ViewerFieldListComponent`.
- * No edit mode (F-07) or payments section (F-09) yet — those plug into this shell later.
+ * F-07 adds Expense edit mode (see below). No payments section (F-09) yet — that plugs into
+ * this shell later.
  *
  * `OmegaViewerService` is provided here at component scope (`providers: [OmegaViewerService]`)
  * — it is modal view-state, not an app-lifetime singleton, so it must NOT be
@@ -59,11 +68,23 @@ function titleOf(detail: OmegaViewerDetail): string {
  * Back always refetches — no caching across the stack (confirmed decision, see the Omega
  * Viewer README's decisions table). This keeps `history` a plain array of refs, never of
  * resolved details.
+ *
+ * F-07 adds Expense edit mode: a `mode` signal scoped to the current stack entry (always
+ * reset to `'VIEW'` on any navigation, push or pop — see `navigateTo`/`goBack`), a dirty
+ * guard shared by navigation and close (see `guardDirty`), and `disableClose` toggled on the
+ * `MatDialogRef` while the edit form is dirty. Installment/Subscription edit forms are not
+ * built yet — `mode` can only ever go to `'EDIT'` when the current item is an Expense.
  */
 @Component({
   selector: 'app-omega-viewer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatDialogModule, MatIconModule, BrDatePipe, ViewerFieldListComponent],
+  imports: [
+    MatDialogModule,
+    MatIconModule,
+    BrDatePipe,
+    ViewerFieldListComponent,
+    ViewerEditFormComponent,
+  ],
   providers: [OmegaViewerService],
   templateUrl: './omega-viewer.component.html',
   styleUrl: './omega-viewer.component.scss',
@@ -75,6 +96,8 @@ export class OmegaViewerComponent {
   private readonly initialRef = inject<OmegaViewerRef>(MAT_DIALOG_DATA);
   private readonly tagService = inject(TagService);
   private readonly creditCardService = inject(CreditCardService);
+  private readonly expenseService = inject(ExpenseService);
+  private readonly matDialog = inject(MatDialog);
 
   /** Title heading of the currently-displayed item — F-11 keyboard focus lands here on
    * every page-flip so focus is never lost mid-navigation. `tabindex="-1"` on the host
@@ -87,6 +110,23 @@ export class OmegaViewerComponent {
    * revert, in later tasks) — surfaces as `OmegaViewerResult.mutated` on close regardless
    * of which item was on screen when the mutation occurred. */
   private readonly mutated = signal(false);
+
+  /** F-07 edit mode, scoped to whatever `current()` is. Reset to `'VIEW'` inside every
+   * `navigateTo`/`goBack` mutation of `history` — never carried across items. */
+  protected readonly mode = signal<OmegaViewerMode>('VIEW');
+  /** Mirrors `ViewerEditFormComponent`'s `dirtyChange` output — drives both the
+   * navigate/close guard and `MatDialogRef.disableClose`. */
+  private readonly formDirty = signal(false);
+  protected readonly saving = signal(false);
+  /**
+   * Result of the most recent successful save for the item currently on screen — layered on
+   * top of `detailState`'s HTTP-derived value in `readyDetail` below so the viewer reflects
+   * the patch response immediately without refetching. Keyed by ref so a stale override can
+   * never leak onto a different item after navigation; cleared on every `navigateTo`/`goBack`.
+   */
+  private readonly savedOverride = signal<{ ref: OmegaViewerRef; detail: OmegaViewerDetail } | null>(
+    null,
+  );
 
   /** Text of the most recent `aria-live` announcement — screen readers hear this whenever a
    * page-flip lands on a new item (F-11). Empty on first paint (nothing to announce yet, and
@@ -127,10 +167,22 @@ export class OmegaViewerComponent {
   );
 
   /** Non-null only while `detailState().status === 'ready'` — split out so the template
-   * can bind to a properly-typed `OmegaViewerDetail` without an `$any()` cast. */
+   * can bind to a properly-typed `OmegaViewerDetail` without an `$any()` cast. F-07: layers
+   * `savedOverride` on top when it matches the current ref, so a successful patch updates
+   * what's on screen without a refetch — the frontend never computes/guesses `remaining`
+   * itself here, it only ever displays whatever the backend's patch response contained. */
   protected readonly readyDetail = computed<OmegaViewerDetail | null>(() => {
     const state = this.detailState();
-    return state.status === 'ready' ? state.detail : null;
+    const base = state.status === 'ready' ? state.detail : null;
+    if (!base) {
+      return null;
+    }
+
+    const override = this.savedOverride();
+    if (override && override.ref.kind === base.ref.kind && override.ref.id === base.ref.id) {
+      return override.detail;
+    }
+    return base;
   });
 
   /** F-12: label/value rows for the field list, precomputed here so
@@ -159,7 +211,9 @@ export class OmegaViewerComponent {
    * is a read-only lookup map, not a fetch trigger, matching the plan's "import services
    * freely" rule (services only, never feature components/pages). */
   private readonly tags = toSignal(this.tagService.tags$, { initialValue: [] });
-  private readonly creditCards = toSignal(this.creditCardService.cards$, { initialValue: [] });
+  /** `protected` (not `private`) — F-07's edit form needs the raw list for its credit-card
+   * `<select>` options, not just the name-lookup map derived below. */
+  protected readonly creditCards = toSignal(this.creditCardService.cards$, { initialValue: [] });
 
   private readonly tagNameById = computed(
     () => new Map(this.tags().map((tag) => [tag.id, tag.name])),
@@ -171,6 +225,20 @@ export class OmegaViewerComponent {
   private lastAnnouncedRef: OmegaViewerRef | null = null;
 
   constructor() {
+    // Credit cards are an app-lifetime `providedIn: 'root'` cache (see the doc comment on
+    // `creditCards` above) populated by whichever page loaded before the viewer opened — the
+    // Expense edit form (F-07) needs the full list for its `<select>`, and the Expense page
+    // itself never triggers `loadAll()` (only Credit Card/Subscription pages do today), so
+    // this call is a defensive, idempotent refresh: `CreditCardService.loadAll()` just
+    // re-emits onto the same `BehaviorSubject`, safe to call even if another page already
+    // populated it.
+    this.creditCardService.loadAll();
+
+    // Keeps `MatDialogRef.disableClose` in lockstep with the edit form's dirty state (F-07
+    // acceptance: clicking outside or pressing ESC must not silently discard unsaved edits).
+    effect(() => {
+      this.dialogRef.disableClose = this.mode() === 'EDIT' && this.formDirty();
+    });
     // Fires on every `readyDetail()` change (new item finished loading), including the very
     // first one — focuses the title heading and announces the change via aria-live, so
     // keyboard/screen-reader users never lose their place across a page-flip.
@@ -208,20 +276,109 @@ export class OmegaViewerComponent {
   }
 
   protected navigateTo(ref: OmegaViewerRef): void {
-    this.history.update((stack) => [...stack, ref]);
+    this.guardDirty(() => {
+      this.history.update((stack) => [...stack, ref]);
+      this.savedOverride.set(null);
+      this.leaveEditMode();
+    });
   }
 
   protected goBack(): void {
-    this.history.update((stack) => (stack.length > 1 ? stack.slice(0, -1) : stack));
+    this.guardDirty(() => {
+      this.history.update((stack) => (stack.length > 1 ? stack.slice(0, -1) : stack));
+      this.savedOverride.set(null);
+      this.leaveEditMode();
+    });
   }
 
   protected retry(): void {
     // Re-push the same ref so `current` emits a new reference and the switchMap re-fires,
     // even though the value is structurally identical to what's already at the top.
     this.history.update((stack) => [...stack.slice(0, -1), { ...stack[stack.length - 1] }]);
+    this.savedOverride.set(null);
   }
 
   protected close(): void {
-    this.dialogRef.close({ mutated: this.mutated() });
+    this.guardDirty(() => this.dialogRef.close({ mutated: this.mutated() }));
+  }
+
+  /** Entry point for the "Editar" action in the template — only reachable while the current
+   * item is an Expense (Installment/Subscription edit forms aren't built yet). */
+  protected enterEditMode(): void {
+    if (this.readyDetail()?.kind !== 'EXPENSE') {
+      return;
+    }
+    this.mode.set('EDIT');
+  }
+
+  /** Wired to `ViewerEditFormComponent`'s `cancelEdit` output — same dirty guard as
+   * navigation, since abandoning the form without saving is exactly the scenario the guard
+   * exists for. */
+  protected cancelEdit(): void {
+    this.guardDirty(() => this.leaveEditMode());
+  }
+
+  protected onFormDirtyChange(dirty: boolean): void {
+    this.formDirty.set(dirty);
+  }
+
+  /** Wired to `ViewerEditFormComponent`'s `save` output. `patch` only carries the fields the
+   * form actually changed (built by the form itself) — the backend's `PatchExpenseUseCase`
+   * treats every absent field as "don't touch", so this never re-sends untouched values.
+   * On success: exits edit mode, layers the patch response onto `readyDetail` via
+   * `savedOverride` (no refetch), and flags `mutated` so `ExpensePage` reloads its list on
+   * close. `remaining` is never computed here — whatever the backend returns is what renders. */
+  protected saveEdit(patch: PatchExpenseRequest): void {
+    const detail = this.readyDetail();
+    if (!detail || detail.kind !== 'EXPENSE') {
+      return;
+    }
+
+    this.saving.set(true);
+    this.expenseService.patch(detail.ref.id, patch).subscribe({
+      next: (updated) => {
+        this.saving.set(false);
+        this.mutated.set(true);
+        this.formDirty.set(false);
+        this.savedOverride.set({
+          ref: detail.ref,
+          detail: {
+            ...detail,
+            name: updated.name,
+            cost: updated.cost,
+            remaining: updated.remaining,
+            purchaseDate: updated.purchaseDate,
+            creditCardId: updated.creditCardId ?? null,
+            details: updated.details ?? null,
+          },
+        });
+        this.leaveEditMode();
+      },
+      error: () => this.saving.set(false),
+    });
+  }
+
+  private leaveEditMode(): void {
+    this.mode.set('VIEW');
+    this.formDirty.set(false);
+  }
+
+  /** Shared by `navigateTo`/`goBack`/`close`/`cancelEdit` — if the edit form is dirty, opens
+   * `ViewerDiscardConfirmDialogComponent` and only runs `action` when the user confirms
+   * discarding; otherwise runs `action` immediately. */
+  private guardDirty(action: () => void): void {
+    if (this.mode() !== 'EDIT' || !this.formDirty()) {
+      action();
+      return;
+    }
+
+    this.matDialog
+      .open<ViewerDiscardConfirmDialogComponent, void, boolean>(ViewerDiscardConfirmDialogComponent)
+      .afterClosed()
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          action();
+        }
+      });
   }
 }

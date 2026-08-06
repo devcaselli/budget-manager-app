@@ -60,7 +60,7 @@
 }
 
 .ovw__item-title {
-  margin: 0 0 20px;
+  margin: 0;
   font-family: var(--ew-serif);
   font-size: 22px;
   font-weight: 500;
@@ -74,6 +74,19 @@
     outline: 2px solid var(--ew-acc);
     outline-offset: 4px;
   }
+}
+
+// ── Edit mode entry point (F-07) ─────────────────────────────────────────────
+.ovw__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ovw__edit-btn {
+  flex: 0 0 auto;
 }
 
 // ── Related items navigation (F-11) ─────────────────────────────────────────

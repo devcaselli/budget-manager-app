@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { of } from 'rxjs';
 
 import {
@@ -110,6 +110,17 @@ describe('OmegaViewerComponent', () => {
     component = fixture.componentInstance;
     httpMock = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
+
+    // F-07: the shell defensively refreshes the credit-card cache on construction (needed by
+    // the Expense edit form's <select>) — flush it here so it doesn't leak as a pending
+    // request into every test in this block, none of which are about credit cards.
+    httpMock.expectOne('/api/credit-cards?page=0&size=100').flush({
+      content: [],
+      page: 0,
+      size: 100,
+      totalElements: 0,
+      totalPages: 0,
+    });
   }
 
   afterEach(() => {
@@ -241,6 +252,8 @@ describe('OmegaViewerComponent — audit metadata + deleted strip (F-13)', () =>
     TestBed.configureTestingModule({
       imports: [OmegaViewerComponent],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: MatDialogRef, useValue: { close: vi.fn() } },
         { provide: MAT_DIALOG_DATA, useValue: { kind: 'EXPENSE', id: 'expense-1' } },
       ],
@@ -255,6 +268,13 @@ describe('OmegaViewerComponent — audit metadata + deleted strip (F-13)', () =>
 
     fixture = TestBed.createComponent(OmegaViewerComponent);
     fixture.detectChanges();
+
+    // F-07: flush the shell's defensive credit-card cache refresh (see the equivalent comment
+    // in the describe block above) — irrelevant to what this block asserts.
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/credit-cards?page=0&size=100')
+      .flush({ content: [], page: 0, size: 100, totalElements: 0, totalPages: 0 });
+
     // toSignal's underlying switchMap/toObservable chain settles the synchronous of(detail)
     // emission on a microtask (RxJS interop scheduler) — whenStable() flushes it before the
     // DOM assertions read the rendered output.
@@ -380,6 +400,8 @@ describe('OmegaViewerComponent — link navigation, focus, aria-live, reduced-mo
     TestBed.configureTestingModule({
       imports: [OmegaViewerComponent],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: MatDialogRef, useValue: { close: vi.fn() } },
         { provide: MAT_DIALOG_DATA, useValue: { kind: 'EXPENSE', id: 'expense-1' } },
       ],
@@ -403,6 +425,14 @@ describe('OmegaViewerComponent — link navigation, focus, aria-live, reduced-mo
 
     fixture = TestBed.createComponent(OmegaViewerComponent);
     fixture.detectChanges();
+
+    // F-07: flush the shell's defensive credit-card cache refresh (see the equivalent comment
+    // in the first describe block above) — irrelevant to link-navigation/focus/aria-live/
+    // reduced-motion assertions in this block.
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/credit-cards?page=0&size=100')
+      .flush({ content: [], page: 0, size: 100, totalElements: 0, totalPages: 0 });
+
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -513,5 +543,337 @@ describe('OmegaViewerComponent — link navigation, focus, aria-live, reduced-mo
         'ovw__flip--anim',
       ),
     ).toBe(false);
+  });
+});
+
+describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
+  let fixture: ComponentFixture<OmegaViewerComponent>;
+  let component: OmegaViewerComponent;
+  let httpMock: HttpTestingController;
+  let dialog: { open: ReturnType<typeof vi.fn> };
+  let dialogRef: { close: ReturnType<typeof vi.fn> };
+
+  function buildExpenseDetail(
+    overrides: Partial<OmegaViewerExpenseDetail> = {},
+  ): OmegaViewerExpenseDetail {
+    return {
+      kind: 'EXPENSE',
+      ref: { kind: 'EXPENSE', id: 'expense-1' },
+      name: 'Groceries',
+      cost: 100,
+      remaining: 40,
+      purchaseDate: '2026-07-01',
+      creditCardId: 'card-1',
+      details: null,
+      tagIds: [],
+      payerName: null,
+      payments: [],
+      installmentsRemaining: null,
+      links: [{ ref: { kind: 'INSTALLMENT', id: 'installment-1' }, label: 'Laptop' }],
+      audit: null,
+      ...overrides,
+    };
+  }
+
+  function buildInstallmentDetail(
+    overrides: Partial<OmegaViewerInstallmentDetail> = {},
+  ): OmegaViewerInstallmentDetail {
+    return {
+      kind: 'INSTALLMENT',
+      ref: { kind: 'INSTALLMENT', id: 'installment-1' },
+      description: 'Laptop',
+      originalValue: 3000,
+      installmentValue: 250,
+      installmentNumber: 12,
+      purchaseDate: '2026-01-01',
+      lastInstallmentDate: '2026-12-01',
+      creditCardId: 'card-1',
+      details: null,
+      tagIds: [],
+      payerName: null,
+      progress: { paidInstallments: 7, remainingInstallments: 5, totalInstallments: 12 },
+      links: [{ ref: { kind: 'EXPENSE', id: 'expense-1' }, label: 'Groceries' }],
+      audit: null,
+      ...overrides,
+    };
+  }
+
+  /** `dialog.open` defaults to resolving `afterClosed()` with `true` (user confirms discard)
+   * — most tests in this block want navigation to actually go through; the guard-blocks
+   * tests below override this per-call to resolve `false` instead. */
+  async function setup(): Promise<void> {
+    dialogRef = { close: vi.fn() };
+    dialog = {
+      open: vi.fn().mockReturnValue({ afterClosed: () => of(true) }),
+    };
+
+    TestBed.configureTestingModule({
+      imports: [OmegaViewerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: MAT_DIALOG_DATA, useValue: { kind: 'EXPENSE', id: 'expense-1' } },
+        { provide: MatDialog, useValue: dialog },
+      ],
+    });
+    // `OmegaViewerComponent` imports `MatDialogModule` into its own standalone `imports`
+    // array (needed for the `mat-dialog-title`/`mat-dialog-content` template directives) —
+    // that NgModule import re-registers `MatDialog` at the component's own injector level,
+    // which wins over the TestBed-level `useValue` override above. Overriding it here too,
+    // exactly like `OmegaViewerService` below, makes the stub actually reach the component.
+    TestBed.overrideComponent(OmegaViewerComponent, {
+      set: {
+        providers: [
+          { provide: MatDialog, useValue: dialog },
+          {
+            provide: OmegaViewerService,
+            useValue: {
+              load: (ref: OmegaViewerRef): ReturnType<OmegaViewerService['load']> => {
+                const detail: OmegaViewerDetail =
+                  ref.kind === 'EXPENSE' ? buildExpenseDetail() : buildInstallmentDetail();
+                return of(detail);
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    fixture = TestBed.createComponent(OmegaViewerComponent);
+    component = fixture.componentInstance;
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne('/api/credit-cards?page=0&size=100')
+      .flush({ content: [], page: 0, size: 100, totalElements: 0, totalPages: 0 });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  it('starts in VIEW mode', async () => {
+    await setup();
+    expect(component['mode']()).toBe('VIEW');
+  });
+
+  it('"Editar" button enters EDIT mode and renders the edit form', async () => {
+    await setup();
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.ovw__edit-btn')?.click();
+    fixture.detectChanges();
+
+    expect(component['mode']()).toBe('EDIT');
+    expect(root.querySelector('app-viewer-edit-form')).not.toBeNull();
+    expect(root.querySelector('app-viewer-field-list')).toBeNull();
+  });
+
+  it('resets to VIEW on navigateTo (push)', async () => {
+    await setup();
+
+    component['enterEditMode']();
+    expect(component['mode']()).toBe('EDIT');
+
+    component['navigateTo']({ kind: 'INSTALLMENT', id: 'installment-1' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component['mode']()).toBe('VIEW');
+  });
+
+  it('resets to VIEW on goBack (pop)', async () => {
+    await setup();
+
+    component['navigateTo']({ kind: 'INSTALLMENT', id: 'installment-1' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    component['enterEditMode'](); // no-op: current item is INSTALLMENT, not EXPENSE — mode stays VIEW
+    expect(component['mode']()).toBe('VIEW');
+
+    component['goBack']();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component['mode']()).toBe('VIEW');
+  });
+
+  it('was EDIT on item A, navigates to B, comes back to A — mode must be VIEW again, not preserved', async () => {
+    await setup();
+
+    // A (Expense) starts in EDIT.
+    component['enterEditMode']();
+    expect(component['mode']()).toBe('EDIT');
+
+    // Navigate to B (Installment) — dirty guard doesn't fire (form was never made dirty here).
+    component['navigateTo']({ kind: 'INSTALLMENT', id: 'installment-1' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(component['mode']()).toBe('VIEW');
+
+    // Back to A.
+    component['goBack']();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // Must be VIEW, not the EDIT it was left in before navigating away.
+    expect(component['mode']()).toBe('VIEW');
+  });
+
+  it('dirty form blocks navigateTo until the discard dialog is confirmed', async () => {
+    await setup();
+
+    component['enterEditMode']();
+    component['onFormDirtyChange'](true);
+
+    dialog.open.mockReturnValue({ afterClosed: () => of(false) }); // user cancels discard
+
+    component['navigateTo']({ kind: 'INSTALLMENT', id: 'installment-1' });
+    fixture.detectChanges();
+
+    expect(dialog.open).toHaveBeenCalled();
+    // Still on the original item, still in EDIT — nothing was discarded.
+    expect(component['current']()).toEqual({ kind: 'EXPENSE', id: 'expense-1' });
+    expect(component['mode']()).toBe('EDIT');
+  });
+
+  it('dirty form allows navigateTo once the discard dialog is confirmed', async () => {
+    await setup();
+
+    component['enterEditMode']();
+    component['onFormDirtyChange'](true);
+
+    dialog.open.mockReturnValue({ afterClosed: () => of(true) }); // user confirms discard
+
+    component['navigateTo']({ kind: 'INSTALLMENT', id: 'installment-1' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component['current']()).toEqual({ kind: 'INSTALLMENT', id: 'installment-1' });
+    expect(component['mode']()).toBe('VIEW');
+  });
+
+  it('dirty form blocks close() until the discard dialog is confirmed', async () => {
+    await setup();
+
+    component['enterEditMode']();
+    component['onFormDirtyChange'](true);
+    dialog.open.mockReturnValue({ afterClosed: () => of(false) });
+
+    component['close']();
+
+    expect(dialog.open).toHaveBeenCalled();
+    expect(dialogRef.close).not.toHaveBeenCalled();
+  });
+
+  it('close() proceeds immediately when the form is not dirty', async () => {
+    await setup();
+
+    component['close']();
+
+    expect(dialog.open).not.toHaveBeenCalled();
+    expect(dialogRef.close).toHaveBeenCalledWith({ mutated: false });
+  });
+
+  it('sets MatDialogRef.disableClose while EDIT + dirty, clears it otherwise', async () => {
+    await setup();
+
+    expect(component['dialogRef' as never]).toBeDefined();
+    expect(dialogRef['disableClose' as never]).toBeFalsy();
+
+    // Two separate flush cycles — `enterEditMode()` and `onFormDirtyChange(true)` each need
+    // their own `detectChanges()`/`whenStable()` pair for the shell's `disableClose` effect
+    // to observe the fully-settled state; batching both signal writes before the first flush
+    // is unreliable in this Angular version's effect-scheduling (an app-code concern this
+    // test isolates, not a production bug — a real user's `dirtyChange` emission always
+    // arrives as its own separate change-detection turn, never coalesced with `enterEditMode`).
+    component['enterEditMode']();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    component['onFormDirtyChange'](true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(true);
+
+    component['onFormDirtyChange'](false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(false);
+  });
+
+  it('saveEdit patches via ExpenseService, updates the displayed detail, exits EDIT, and flags mutated', async () => {
+    await setup();
+
+    component['enterEditMode']();
+    fixture.detectChanges();
+
+    component['saveEdit']({ cost: 250 });
+
+    const patchRequest = httpMock.expectOne('/api/expenses/expense-1');
+    expect(patchRequest.request.method).toBe('PATCH');
+    expect(patchRequest.request.body).toEqual({ cost: 250 });
+
+    patchRequest.flush({
+      id: 'expense-1',
+      name: 'Groceries',
+      cost: 250,
+      // Backend-computed remaining — the frontend must display this verbatim, never derive
+      // its own value from the patch payload.
+      remaining: 190,
+      purchaseDate: '2026-07-01',
+      walletId: 'wallet-1',
+      creditCardId: 'card-1',
+      installment: false,
+      details: null,
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component['mode']()).toBe('VIEW');
+    const detail = component['readyDetail']();
+    expect(detail?.kind).toBe('EXPENSE');
+    expect((detail as OmegaViewerExpenseDetail).cost).toBe(250);
+    expect((detail as OmegaViewerExpenseDetail).remaining).toBe(190);
+
+    component['close']();
+    expect(dialogRef.close).toHaveBeenCalledWith({ mutated: true });
+  });
+
+  it('saveEdit does not flag mutated or touch the dialog on a failed patch', async () => {
+    await setup();
+
+    component['enterEditMode']();
+    component['saveEdit']({ cost: 250 });
+
+    httpMock
+      .expectOne('/api/expenses/expense-1')
+      .flush('boom', { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+
+    component['close']();
+    expect(dialogRef.close).toHaveBeenCalledWith({ mutated: false });
+  });
+
+  it('enterEditMode is a no-op when the current item is not an Expense', async () => {
+    await setup();
+
+    component['navigateTo']({ kind: 'INSTALLMENT', id: 'installment-1' });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    component['enterEditMode']();
+
+    expect(component['mode']()).toBe('VIEW');
   });
 });

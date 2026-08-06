@@ -14,7 +14,7 @@
       }
       <h2 class="ovw__title">Detalhes</h2>
     </div>
-    <button class="ovw__close" type="button" mat-dialog-close aria-label="Fechar" (click)="close()">×</button>
+    <button class="ovw__close" type="button" aria-label="Fechar" (click)="close()">×</button>
   </div>
 
   <!-- Screen-reader-only live region — announces every page-flip navigation so users who
@@ -41,40 +41,64 @@
               </div>
             }
 
-            @switch (detail.kind) {
-              @case ('EXPENSE') {
-                <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.name }}</h3>
-              }
-              @case ('INSTALLMENT') {
-                <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
-              }
-              @case ('SUBSCRIPTION') {
-                <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
-              }
-            }
-
-            <app-viewer-field-list [rows]="fieldRows()" [remainingBadge]="remainingBadge()" />
-
-            @if (detail.links.length > 0) {
-              <div class="ovw__links">
-                <h4 class="ovw__links-title">Itens relacionados</h4>
-                @for (link of detail.links; track link.ref.kind + link.ref.id) {
-                  <button
-                    class="ew-btn ew-btn--ghost ovw__link-row"
-                    type="button"
-                    (click)="navigateTo(link.ref)"
-                  >
-                    <span>{{ link.label }}</span>
-                    <mat-icon aria-hidden="true">chevron_right</mat-icon>
-                  </button>
+            <div class="ovw__title-row">
+              @switch (detail.kind) {
+                @case ('EXPENSE') {
+                  <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.name }}</h3>
                 }
-              </div>
-            }
+                @case ('INSTALLMENT') {
+                  <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
+                }
+                @case ('SUBSCRIPTION') {
+                  <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
+                }
+              }
 
-            @if (detail.audit; as audit) {
-              <p class="ovw__audit">
-                Criado em {{ audit.createdAt | brDate }} · Atualizado em {{ audit.updatedAt | brDate }}
-              </p>
+              @if (detail.kind === 'EXPENSE' && mode() === 'VIEW' && !detail.audit?.deletedAt) {
+                <button
+                  class="ew-btn ew-btn--ghost ovw__edit-btn"
+                  type="button"
+                  (click)="enterEditMode()"
+                >
+                  <mat-icon aria-hidden="true">edit</mat-icon>
+                  Editar
+                </button>
+              }
+            </div>
+
+            @if (detail.kind === 'EXPENSE' && mode() === 'EDIT') {
+              <app-viewer-edit-form
+                [expense]="detail"
+                [creditCards]="creditCards()"
+                [saving]="saving()"
+                (save)="saveEdit($event)"
+                (cancelEdit)="cancelEdit()"
+                (dirtyChange)="onFormDirtyChange($event)"
+              />
+            } @else {
+              <app-viewer-field-list [rows]="fieldRows()" [remainingBadge]="remainingBadge()" />
+
+              @if (detail.links.length > 0) {
+                <div class="ovw__links">
+                  <h4 class="ovw__links-title">Itens relacionados</h4>
+                  @for (link of detail.links; track link.ref.kind + link.ref.id) {
+                    <button
+                      class="ew-btn ew-btn--ghost ovw__link-row"
+                      type="button"
+                      (click)="navigateTo(link.ref)"
+                    >
+                      <span>{{ link.label }}</span>
+                      <mat-icon aria-hidden="true">chevron_right</mat-icon>
+                    </button>
+                  }
+                </div>
+              }
+
+              @if (detail.audit; as audit) {
+                <p class="ovw__audit">
+                  Criado em {{ audit.createdAt | brDate }} · Atualizado em {{ audit.updatedAt | brDate }}
+                </p>
+              }
             }
           </div>
         }
@@ -82,7 +106,9 @@
     }
   </mat-dialog-content>
 
-  <mat-dialog-actions class="ovw__actions" align="end">
-    <button class="ew-btn ew-btn--ghost" type="button" (click)="close()">Fechar</button>
-  </mat-dialog-actions>
+  @if (mode() === 'VIEW') {
+    <mat-dialog-actions class="ovw__actions" align="end">
+      <button class="ew-btn ew-btn--ghost" type="button" (click)="close()">Fechar</button>
+    </mat-dialog-actions>
+  }
 </div>
