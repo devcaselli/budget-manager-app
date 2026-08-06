@@ -105,12 +105,14 @@ function mapInstallmentRows(
     row('creditCard', 'Cartão', creditCardValue(detail.creditCardId, ctx.creditCardNameById)),
     row('purchaseDate', 'Início', formatDate(detail.purchaseDate)),
     row('lastInstallmentDate', 'Término', formatDate(detail.lastInstallmentDate)),
-    // The listing page's "current/total" progress (installment-page.ts `elapsedCharges`)
-    // is derived from `sourceEffectiveMonth` + the current month, neither of which exists on
-    // `OmegaViewerInstallmentDetail` today — showing a fabricated ratio would be actively
-    // wrong (always N/N), so this row honestly reports only the total charge count until the
-    // backend viewer endpoint carries what elapsed-progress needs.
-    row('installmentNumber', 'Total de parcelas', `${detail.installmentNumber}`),
+    // Real progress from the backend's InstallmentProgressCalculator (via the Viewer
+    // endpoint's `InstallmentProgressDto`) — "paid/total", no longer the honest-but-limited
+    // total-only placeholder this row used to show before the real endpoint existed.
+    row(
+      'installmentNumber',
+      'Parcelas',
+      `${detail.progress.paidInstallments}/${detail.progress.totalInstallments}`,
+    ),
     row('originalValue', 'Valor original', formatBrl(detail.originalValue), true),
     row('installmentValue', 'Valor da parcela', formatBrl(detail.installmentValue), true),
     row('payer', 'Pagador', detail.payerName ?? UNSET),

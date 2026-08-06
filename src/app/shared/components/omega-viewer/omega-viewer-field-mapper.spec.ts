@@ -1,4 +1,4 @@
-import { OmegaViewerExpenseDetail } from './models/omega-viewer-detail';
+import { OmegaViewerExpenseDetail, OmegaViewerInstallmentDetail } from './models/omega-viewer-detail';
 import { mapDetailToFieldRows, mapRemainingBadge, OmegaViewerFieldMapperContext } from './omega-viewer-field-mapper';
 
 const emptyCtx: OmegaViewerFieldMapperContext = {
@@ -20,6 +20,29 @@ function buildExpenseDetail(overrides: Partial<OmegaViewerExpenseDetail> = {}): 
     payerName: null,
     payments: [],
     installmentsRemaining: null,
+    links: [],
+    audit: null,
+    ...overrides,
+  };
+}
+
+function buildInstallmentDetail(
+  overrides: Partial<OmegaViewerInstallmentDetail> = {},
+): OmegaViewerInstallmentDetail {
+  return {
+    kind: 'INSTALLMENT',
+    ref: { kind: 'INSTALLMENT', id: 'installment-1' },
+    description: 'Laptop',
+    originalValue: 3000,
+    installmentValue: 250,
+    installmentNumber: 12,
+    purchaseDate: '2026-01-01',
+    lastInstallmentDate: '2026-12-01',
+    creditCardId: 'card-1',
+    details: null,
+    tagIds: [],
+    payerName: null,
+    progress: { paidInstallments: 7, remainingInstallments: 5, totalInstallments: 12 },
     links: [],
     audit: null,
     ...overrides,
@@ -56,6 +79,30 @@ describe('mapDetailToFieldRows — EXPENSE', () => {
   it('derives status PAID when remaining <= 0, OPEN otherwise', () => {
     expect(mapDetailToFieldRows(buildExpenseDetail({ remaining: 0 }), emptyCtx).find((r) => r.key === 'status')?.value).toBe('PAID');
     expect(mapDetailToFieldRows(buildExpenseDetail({ remaining: 10 }), emptyCtx).find((r) => r.key === 'status')?.value).toBe('OPEN');
+  });
+});
+
+describe('mapDetailToFieldRows — INSTALLMENT', () => {
+  it('renders real paid/total progress from InstallmentProgressDto, not the old total-only placeholder', () => {
+    const rows = mapDetailToFieldRows(
+      buildInstallmentDetail({
+        progress: { paidInstallments: 3, remainingInstallments: 9, totalInstallments: 12 },
+      }),
+      emptyCtx,
+    );
+
+    expect(rows.find((r) => r.key === 'installmentNumber')?.value).toBe('3/12');
+  });
+
+  it('renders 0/N when the installment has no paid charges yet', () => {
+    const rows = mapDetailToFieldRows(
+      buildInstallmentDetail({
+        progress: { paidInstallments: 0, remainingInstallments: 12, totalInstallments: 12 },
+      }),
+      emptyCtx,
+    );
+
+    expect(rows.find((r) => r.key === 'installmentNumber')?.value).toBe('0/12');
   });
 });
 

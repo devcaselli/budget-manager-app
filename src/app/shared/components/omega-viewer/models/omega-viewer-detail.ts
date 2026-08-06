@@ -11,14 +11,36 @@ export interface OmegaViewerAudit {
   readonly deletedAt: string | null;
 }
 
-/** A single payment/bullet row, used by the Expense payments section (F-09). */
+/**
+ * A single payment/bullet row, used by the Expense and Installment payments sections
+ * (F-09/F-10, not built yet). Mirrors the backend's `PaymentTraceLineDto` — there is no
+ * singular resolved payer name at this level (see `payerName` below), only the raw
+ * `payerIds` of whoever the payment/share was split across; resolving those ids to
+ * display names is F-09/F-10's job, not the mapping layer's.
+ */
 export interface OmegaViewerPayment {
   readonly id: string;
   readonly amount: number;
   readonly paymentDate: string;
-  readonly kind: 'NORMAL' | 'SHARED';
+  readonly bulletId: string;
+  readonly bulletDescription: string;
   readonly reversal: boolean;
-  readonly reversedPaymentId: string | null;
+  readonly reversed: boolean;
+  readonly payerIds: readonly string[];
+}
+
+/**
+ * Real parcel-progress counts from the backend's `InstallmentProgressCalculator`
+ * (`InstallmentProgressDto`). `paidInstallments`/`remainingInstallments` are counts, not a
+ * boolean — `remainingInstallments === 0` (fully paid) and this whole field being present
+ * are two different, both-valid states; there is no "not applicable" state for an
+ * Installment's own progress (unlike Expense's `installmentsRemaining`, which can be `null`
+ * because an Expense might not be installment-linked at all).
+ */
+export interface OmegaViewerInstallmentProgress {
+  readonly paidInstallments: number;
+  readonly remainingInstallments: number;
+  readonly totalInstallments: number;
 }
 
 interface OmegaViewerDetailBase {
@@ -36,7 +58,14 @@ export interface OmegaViewerExpenseDetail extends OmegaViewerDetailBase {
   readonly creditCardId: string | null;
   readonly details: string | null;
   readonly tagIds: readonly string[];
-  /** Requires the backend's Payment→Share resolution chain — not derivable client-side. */
+  /**
+   * Always `null`. The real Viewer backend (`ExpenseViewerResponseDto`) does not expose a
+   * single resolved payer name — only `payerIds` per line inside `paymentTrace`
+   * (`OmegaViewerPayment.payerIds`), since a shared payment can have more than one payer.
+   * Resolving those ids to display names is F-09's job (payments section UI), not this
+   * mapping layer's — kept here, still typed, so F-09 doesn't need a model change to wire
+   * a real value in later if a single-name affordance turns out to still make sense.
+   */
   readonly payerName: string | null;
   readonly payments: readonly OmegaViewerPayment[];
   readonly installmentsRemaining: number | null;
@@ -54,6 +83,7 @@ export interface OmegaViewerInstallmentDetail extends OmegaViewerDetailBase {
   readonly details: string | null;
   readonly tagIds: readonly string[];
   readonly payerName: string | null;
+  readonly progress: OmegaViewerInstallmentProgress;
 }
 
 export interface OmegaViewerSubscriptionDetail extends OmegaViewerDetailBase {

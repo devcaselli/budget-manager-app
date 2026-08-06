@@ -1,36 +1,39 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { catchError, map, Observable, of, switchMap } from 'rxjs';
+import { map, Observable } from 'rxjs';
 
 import { environment } from '@environments/environment';
-import { Expense } from '@features/expense/models/expense';
-import { Installment } from '@features/installment/models/installment';
-import { Subscription } from '@features/subscription/models/subscription';
 
 import {
   OmegaViewerDetail,
   OmegaViewerExpenseDetail,
   OmegaViewerInstallmentDetail,
+  OmegaViewerInstallmentProgress,
+  OmegaViewerPayment,
   OmegaViewerSubscriptionDetail,
 } from './models/omega-viewer-detail';
+import {
+  ExpenseViewerResponseDto,
+  InstallmentProgressResponseDto,
+  InstallmentViewerResponseDto,
+  PaymentTraceLineResponseDto,
+  SubscriptionViewerResponseDto,
+  ViewerRefResponseDto,
+} from './models/omega-viewer-dto';
 import { OmegaViewerLink, OmegaViewerRef } from './models/omega-viewer-ref';
 
 /**
- * Read facade for the Omega Viewer shell. `load()` is the only public surface —
- * everything below it (this whole file) is a client-side fallback that composes the
- * detail from `ExpenseService`/`InstallmentService`/`SubscriptionService`'s per-id REST
- * shape via direct `HttpClient` calls, because the real backend viewer read endpoints
- * (GET /viewer/expenses/{id} etc., backend tasks C4/C5/C6) don't exist yet.
+ * Read facade for the Omega Viewer shell. `load()` is the only public surface.
  *
- * `payerName` is always `null` here — resolving it needs the backend's
- * Payment->Share->quota chain, which has no client-side equivalent (no aggregate carries
- * a payerId directly; see the Omega Viewer README, "Achados que mudam o escopo" #4).
+ * Calls the real backend Viewer endpoints (`ViewerController`, backend tasks C4/C5/C6):
+ * `GET /viewer/expenses/{id}`, `GET /viewer/installments/{id}`,
+ * `GET /viewer/subscriptions/{id}`. All three are owner-scoped via the JWT — no ownerId is
+ * sent, same as every other endpoint in the project. DTO shapes live in `models/omega-viewer-dto.ts`
+ * and mirror the backend's `rest/viewer/dtos/*ResponseDto.java` records exactly.
  *
- * DTO->domain mapping and `links` derivation (Expense.installmentId <-> link,
- * Installment.sourceExpenseId <-> link) live entirely in the `mapXxx` private methods
- * below. The raw backend shape never reaches the component. When the real endpoint ships,
- * only this file changes — swap the bodies of the three `loadXxx` methods for a single
- * `http.get<ViewerResponseDto>` call and keep `load()`'s signature untouched.
+ * `refs` (cross-references) already arrive with a resolved `label` from the backend, so no
+ * extra fetch is needed to derive link text — unlike the earlier client-side fallback, which
+ * had to fetch the linked Installment separately just to read its `description`.
  *
  * Component-scoped provider (see `OmegaViewerComponent`'s `providers: []`) — this is
  * modal view-state, not an app-lifetime singleton, so it is NOT `providedIn: 'root'`.
@@ -38,9 +41,7 @@ import { OmegaViewerLink, OmegaViewerRef } from './models/omega-viewer-ref';
 @Injectable()
 export class OmegaViewerService {
   private readonly http = inject(HttpClient);
-  private readonly expensesUrl = `${environment.apiUrl}/expenses`;
-  private readonly installmentsUrl = `${environment.apiUrl}/installments`;
-  private readonly subscriptionsUrl = `${environment.apiUrl}/subscriptions`;
+  private readonly viewerUrl = `${environment.apiUrl}/viewer`;
 
   load(ref: OmegaViewerRef): Observable<OmegaViewerDetail> {
     switch (ref.kind) {
@@ -54,126 +55,152 @@ export class OmegaViewerService {
   }
 
   private loadExpense(id: string): Observable<OmegaViewerExpenseDetail> {
-    return this.http.get<Expense>(`${this.expensesUrl}/${id}`).pipe(
-      switchMap((expense) =>
-        this.fetchInstallmentById(expense.installmentId ?? null).pipe(
-          map((linkedInstallment) => this.mapExpense(expense, linkedInstallment)),
-        ),
-      ),
-    );
+    return this.http
+      .get<ExpenseViewerResponseDto>(`${this.viewerUrl}/expenses/${id}`)
+      .pipe(map((dto) => this.mapExpense(dto)));
   }
 
   private loadInstallment(id: string): Observable<OmegaViewerInstallmentDetail> {
     return this.http
-      .get<Installment>(`${this.installmentsUrl}/${id}`)
-      .pipe(map((installment) => this.mapInstallment(installment)));
+      .get<InstallmentViewerResponseDto>(`${this.viewerUrl}/installments/${id}`)
+      .pipe(map((dto) => this.mapInstallment(dto)));
   }
 
   private loadSubscription(id: string): Observable<OmegaViewerSubscriptionDetail> {
     return this.http
-      .get<Subscription>(`${this.subscriptionsUrl}/${id}`)
-      .pipe(map((subscription) => this.mapSubscription(subscription)));
+      .get<SubscriptionViewerResponseDto>(`${this.viewerUrl}/subscriptions/${id}`)
+      .pipe(map((dto) => this.mapSubscription(dto)));
   }
 
-  /**
-   * Best-effort lookup of a linked Installment by id, used only to derive
-   * `links`/`installmentsRemaining` on the Expense detail. Swallows a missing/failed
-   * fetch to `null` rather than failing the whole viewer load over a cross-reference —
-   * the Expense itself is still fully viewable without its linked Installment.
-   */
-  private fetchInstallmentById(installmentId: string | null): Observable<Installment | null> {
-    if (!installmentId) {
-      return of(null);
-    }
-    return this.http
-      .get<Installment>(`${this.installmentsUrl}/${installmentId}`)
-      .pipe(catchError(() => of(null)));
-  }
-
-  private mapExpense(expense: Expense, linkedInstallment: Installment | null): OmegaViewerExpenseDetail {
-    const links: OmegaViewerLink[] = [];
-    if (expense.installmentId) {
-      links.push({
-        ref: { kind: 'INSTALLMENT', id: expense.installmentId },
-        label: linkedInstallment?.description ?? 'Parcela vinculada',
-      });
-    }
-
+  private mapExpense(dto: ExpenseViewerResponseDto): OmegaViewerExpenseDetail {
     return {
       kind: 'EXPENSE',
-      ref: { kind: 'EXPENSE', id: expense.id },
-      name: expense.name,
-      cost: expense.cost,
-      remaining: expense.remaining,
-      purchaseDate: expense.purchaseDate,
-      creditCardId: expense.creditCardId ?? null,
-      details: null,
-      tagIds: expense.tagIds ?? [],
+      ref: { kind: 'EXPENSE', id: dto.id },
+      name: dto.name,
+      cost: dto.cost,
+      remaining: dto.remaining,
+      purchaseDate: dto.purchaseDate,
+      creditCardId: dto.creditCardId,
+      details: dto.details,
+      tagIds: dto.tags.map((tag) => tag.id),
+      // No single resolved payer name in the real DTO — see the field's own doc comment.
       payerName: null,
-      payments: [],
-      // 0 (fully paid) and null (not an installment) must never collapse together.
-      installmentsRemaining:
-        linkedInstallment !== null ? this.installmentsRemainingOf(linkedInstallment) : null,
-      links,
-      audit: null,
+      payments: dto.paymentTrace.map(mapPaymentTraceLine),
+      // `ExpenseViewerResponseDto` carries no installment-progress field at all — C4
+      // (`FindExpenseViewerUseCase`) only exposes a navigation `ref` to the parent
+      // Installment (type INSTALLMENT), it does not resolve that Installment's
+      // `InstallmentProgressDto`. Following the ref with a second HTTP call just to derive
+      // this badge would reintroduce the exact per-item fetch the real endpoint was built
+      // to eliminate (see the class doc), so this stays `null` (no badge) until/unless the
+      // backend adds progress to the Expense DTO itself. The 0-vs-null distinction still
+      // applies where the backend actually provides progress — see `mapInstallment` below.
+      installmentsRemaining: null,
+      links: mapRefs(dto.refs),
+      // ExpenseViewerResponseDto carries no deletedAt field yet (the Omega Viewer plan calls
+      // for Expense to eventually get one; C4 as shipped doesn't) — `null` here is accurate,
+      // not a placeholder, same treatment as Subscription below (which never gets one, by
+      // design: hard-delete/endMonth model has nothing to stamp).
+      audit: {
+        createdAt: toDateOnly(dto.createdAt),
+        updatedAt: toDateOnly(dto.updatedAt),
+        deletedAt: null,
+      },
     };
   }
 
-  private mapInstallment(installment: Installment): OmegaViewerInstallmentDetail {
-    const links: OmegaViewerLink[] = [];
-    if (installment.sourceExpenseId) {
-      links.push({
-        ref: { kind: 'EXPENSE', id: installment.sourceExpenseId },
-        label: installment.description,
-      });
-    }
-
+  private mapInstallment(dto: InstallmentViewerResponseDto): OmegaViewerInstallmentDetail {
     return {
       kind: 'INSTALLMENT',
-      ref: { kind: 'INSTALLMENT', id: installment.id },
-      description: installment.description,
-      originalValue: installment.originalValue,
-      installmentValue: installment.installmentValue,
-      installmentNumber: installment.installmentNumber,
-      purchaseDate: installment.purchaseDate,
-      lastInstallmentDate: installment.lastInstallmentDate,
-      creditCardId: installment.creditCardId,
-      details: installment.details ?? null,
-      tagIds: installment.tagIds ?? [],
+      ref: { kind: 'INSTALLMENT', id: dto.id },
+      description: dto.description,
+      originalValue: dto.originalValue,
+      installmentValue: dto.installmentValue,
+      installmentNumber: dto.installmentNumber,
+      purchaseDate: dto.purchaseDate,
+      lastInstallmentDate: dto.lastInstallmentDate,
+      creditCardId: dto.creditCardId,
+      details: dto.details,
+      tagIds: [],
       payerName: null,
-      links,
-      audit: null,
+      progress: mapProgress(dto.progress),
+      links: mapRefs(dto.refs),
+      audit: {
+        createdAt: toDateOnly(dto.createdAt),
+        updatedAt: toDateOnly(dto.updatedAt),
+        deletedAt: toDateOnly(dto.deletedAt),
+      },
     };
   }
 
-  private mapSubscription(subscription: Subscription): OmegaViewerSubscriptionDetail {
+  private mapSubscription(dto: SubscriptionViewerResponseDto): OmegaViewerSubscriptionDetail {
     return {
       kind: 'SUBSCRIPTION',
-      ref: { kind: 'SUBSCRIPTION', id: subscription.id },
-      description: subscription.description,
-      currency: subscription.currency,
-      state: subscription.state === 'PREVIEW' ? 'PREVIEW' : 'PRODUCTION',
-      startMonth: subscription.startMonth,
-      endMonth: subscription.endMonth,
-      creditCardId: subscription.creditCardId,
-      details: null,
-      tagIds: subscription.tagIds ?? [],
+      ref: { kind: 'SUBSCRIPTION', id: dto.id },
+      description: dto.description,
+      currency: dto.currency,
+      state: dto.state === 'PREVIEW' ? 'PREVIEW' : 'PRODUCTION',
+      startMonth: dto.startMonth,
+      endMonth: dto.endMonth,
+      creditCardId: dto.creditCardId,
+      details: dto.details,
+      tagIds: [],
       payerName: null,
-      // Subscription has no Payment/Expense link — confirmed expected, README decisions table.
+      // Subscription has no Payment/Expense link and no tags in the real DTO — confirmed
+      // intentional (Omega Viewer README, decisions table: "Subscription não tem link com
+      // Payment/Expense, confirmado esperado").
       links: [],
-      audit: null,
+      audit: {
+        createdAt: toDateOnly(dto.createdAt),
+        updatedAt: toDateOnly(dto.updatedAt),
+        deletedAt: null,
+      },
     };
   }
+}
 
-  /**
-   * `installmentsRemaining` derivation: the backend's `InstallmentProgressCalculator`
-   * (task C3) doesn't exist client-side, so this fallback returns `installmentNumber`
-   * (total charge count) as a conservative placeholder rather than a computed
-   * "charges paid so far", which would need payment history this service doesn't fetch.
-   * Documented here deliberately: swapping to the real endpoint replaces this whole
-   * method, not just a tweak.
-   */
-  private installmentsRemainingOf(installment: Installment): number {
-    return installment.installmentNumber;
-  }
+/**
+ * `OmegaViewerAudit.createdAt`/`updatedAt`/`deletedAt` render through `BrDatePipe`, which
+ * expects a bare `YYYY-MM-DD` (`LocalDate`-shaped) string and appends its own `T00:00:00Z`
+ * — the same convention this project already uses at every other `LocalDate`-from-`Date`
+ * call site (`new Date().toISOString().slice(0, 10)`, e.g. `expense-page.ts`). The real
+ * Viewer DTOs type these fields as `Instant` (full ISO datetime, e.g.
+ * `2026-07-01T10:00:00Z`), so passing them straight through breaks the pipe. Truncating to
+ * the date portion here (once, at the mapping boundary) keeps `BrDatePipe` itself untouched
+ * — it is shared by 4 other unrelated templates that already pass it real `LocalDate`
+ * strings, so widening its own parsing wasn't the right fix.
+ */
+function toDateOnly(instant: string | null): string | null {
+  return instant ? instant.slice(0, 10) : null;
+}
+
+/**
+ * `refs` already carries a backend-resolved `label` — no extra per-ref fetch needed, unlike
+ * the earlier client-side fallback's `fetchInstallmentById`.
+ */
+function mapRefs(refs: readonly ViewerRefResponseDto[]): OmegaViewerLink[] {
+  return refs.map((ref) => ({
+    ref: { kind: ref.type, id: ref.id },
+    label: ref.label,
+  }));
+}
+
+function mapProgress(progress: InstallmentProgressResponseDto): OmegaViewerInstallmentProgress {
+  return {
+    paidInstallments: progress.paidInstallments,
+    remainingInstallments: progress.remainingInstallments,
+    totalInstallments: progress.totalInstallments,
+  };
+}
+
+function mapPaymentTraceLine(line: PaymentTraceLineResponseDto): OmegaViewerPayment {
+  return {
+    id: line.id,
+    amount: line.amount,
+    paymentDate: line.paymentDate,
+    bulletId: line.bulletId,
+    bulletDescription: line.bulletDescription,
+    reversal: line.reversal,
+    reversed: line.reversed,
+    payerIds: line.payerIds,
+  };
 }

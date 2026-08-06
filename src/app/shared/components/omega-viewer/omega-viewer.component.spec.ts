@@ -4,39 +4,45 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { of } from 'rxjs';
 
-import { Expense } from '@features/expense/models/expense';
-import { Installment } from '@features/installment/models/installment';
-import { Subscription } from '@features/subscription/models/subscription';
-
 import {
   OmegaViewerDetail,
   OmegaViewerExpenseDetail,
   OmegaViewerInstallmentDetail,
 } from './models/omega-viewer-detail';
+import {
+  ExpenseViewerResponseDto,
+  InstallmentViewerResponseDto,
+  SubscriptionViewerResponseDto,
+} from './models/omega-viewer-dto';
 import { OmegaViewerRef } from './models/omega-viewer-ref';
 import { OmegaViewerResult } from './models/omega-viewer-result';
 import { OmegaViewerComponent } from './omega-viewer.component';
 import { OmegaViewerService } from './omega-viewer.service';
 
-function buildExpense(overrides: Partial<Expense> = {}): Expense {
+function buildExpenseDto(overrides: Partial<ExpenseViewerResponseDto> = {}): ExpenseViewerResponseDto {
   return {
     id: 'expense-1',
     name: 'Groceries',
     cost: 100,
-    purchaseDate: '2026-07-01',
     remaining: 40,
+    purchaseDate: '2026-07-01',
     walletId: 'wallet-1',
-    bulletId: 'bullet-1',
     creditCardId: 'card-1',
-    installment: false,
-    installmentNumber: null,
-    installmentId: null,
-    tagIds: [],
+    flag: 'NONE',
+    hidden: false,
+    details: null,
+    createdAt: '2026-07-01T10:00:00Z',
+    updatedAt: '2026-07-01T10:00:00Z',
+    tags: [],
+    paymentTrace: [],
+    refs: [],
     ...overrides,
   };
 }
 
-function buildInstallment(overrides: Partial<Installment> = {}): Installment {
+function buildInstallmentDto(
+  overrides: Partial<InstallmentViewerResponseDto> = {},
+): InstallmentViewerResponseDto {
   return {
     id: 'installment-1',
     description: 'Laptop',
@@ -48,30 +54,35 @@ function buildInstallment(overrides: Partial<Installment> = {}): Installment {
     purchaseDate: '2026-01-01',
     lastInstallmentDate: '2026-12-01',
     creditCardId: 'card-1',
-    sourceWalletId: 'wallet-1',
     sourceEffectiveMonth: '2026-01',
-    shared: false,
-    ownerRatio: null,
-    effectiveOriginalValue: 3000,
-    effectiveInstallmentValue: 250,
-    tagIds: [],
-    sourceExpenseId: null,
+    deleted: false,
+    deletedAt: null,
+    flag: 'NONE',
+    createdAt: '2026-01-01T10:00:00Z',
+    updatedAt: '2026-01-01T10:00:00Z',
+    progress: { paidInstallments: 7, remainingInstallments: 5, totalInstallments: 12 },
+    paymentTrace: [],
+    refs: [],
     ...overrides,
   };
 }
 
-function buildSubscription(overrides: Partial<Subscription> = {}): Subscription {
+function buildSubscriptionDto(
+  overrides: Partial<SubscriptionViewerResponseDto> = {},
+): SubscriptionViewerResponseDto {
   return {
     id: 'subscription-1',
     description: 'Netflix',
     currency: 'BRL',
-    state: 'PRODUCTION',
-    flag: 'NONE',
     startMonth: '2026-01',
     endMonth: null,
-    versions: [],
+    state: 'PRODUCTION',
     creditCardId: 'card-1',
-    tagIds: [],
+    flag: 'NONE',
+    details: null,
+    createdAt: '2026-01-01T10:00:00Z',
+    updatedAt: '2026-01-01T10:00:00Z',
+    versions: [],
     ...overrides,
   };
 }
@@ -108,7 +119,7 @@ describe('OmegaViewerComponent', () => {
   it('opens for EXPENSE and resolves the detail via OmegaViewerService', () => {
     setup({ kind: 'EXPENSE', id: 'expense-1' });
 
-    httpMock.expectOne('/api/expenses/expense-1').flush(buildExpense());
+    httpMock.expectOne('/api/viewer/expenses/expense-1').flush(buildExpenseDto());
 
     expect(component['readyDetail']()?.kind).toBe('EXPENSE');
   });
@@ -116,7 +127,7 @@ describe('OmegaViewerComponent', () => {
   it('opens for INSTALLMENT and resolves the detail via OmegaViewerService', () => {
     setup({ kind: 'INSTALLMENT', id: 'installment-1' });
 
-    httpMock.expectOne('/api/installments/installment-1').flush(buildInstallment());
+    httpMock.expectOne('/api/viewer/installments/installment-1').flush(buildInstallmentDto());
 
     expect(component['readyDetail']()?.kind).toBe('INSTALLMENT');
   });
@@ -124,7 +135,7 @@ describe('OmegaViewerComponent', () => {
   it('opens for SUBSCRIPTION and resolves the detail via OmegaViewerService', () => {
     setup({ kind: 'SUBSCRIPTION', id: 'subscription-1' });
 
-    httpMock.expectOne('/api/subscriptions/subscription-1').flush(buildSubscription());
+    httpMock.expectOne('/api/viewer/subscriptions/subscription-1').flush(buildSubscriptionDto());
 
     expect(component['readyDetail']()?.kind).toBe('SUBSCRIPTION');
   });
@@ -132,7 +143,9 @@ describe('OmegaViewerComponent', () => {
   it('shows the error state and retries on demand', () => {
     setup({ kind: 'EXPENSE', id: 'expense-1' });
 
-    httpMock.expectOne('/api/expenses/expense-1').flush('boom', { status: 500, statusText: 'Error' });
+    httpMock
+      .expectOne('/api/viewer/expenses/expense-1')
+      .flush('boom', { status: 500, statusText: 'Error' });
     fixture.detectChanges();
 
     expect(component['detailState']().status).toBe('error');
@@ -140,14 +153,14 @@ describe('OmegaViewerComponent', () => {
     component['retry']();
     fixture.detectChanges();
 
-    httpMock.expectOne('/api/expenses/expense-1').flush(buildExpense());
+    httpMock.expectOne('/api/viewer/expenses/expense-1').flush(buildExpenseDto());
     expect(component['readyDetail']()?.kind).toBe('EXPENSE');
   });
 
   it('cancels the in-flight request when navigating again before it resolves', () => {
     setup({ kind: 'EXPENSE', id: 'expense-1' });
 
-    const firstRequest = httpMock.expectOne('/api/expenses/expense-1');
+    const firstRequest = httpMock.expectOne('/api/viewer/expenses/expense-1');
 
     // Navigate away before the first request resolves — switchMap must unsubscribe it.
     component['navigateTo']({ kind: 'SUBSCRIPTION', id: 'subscription-1' });
@@ -158,22 +171,23 @@ describe('OmegaViewerComponent', () => {
     // response can never overwrite the newer navigation's result.
     expect(firstRequest.cancelled).toBe(true);
 
-    httpMock.expectOne('/api/subscriptions/subscription-1').flush(buildSubscription());
+    httpMock.expectOne('/api/viewer/subscriptions/subscription-1').flush(buildSubscriptionDto());
     expect(component['readyDetail']()?.kind).toBe('SUBSCRIPTION');
   });
 
   it('goBack pops the stack and always refetches (no caching)', () => {
     setup({ kind: 'EXPENSE', id: 'expense-1' });
 
-    httpMock.expectOne('/api/expenses/expense-1').flush(buildExpense({ installmentId: 'installment-1' }));
-    httpMock
-      .expectOne('/api/installments/installment-1')
-      .flush(buildInstallment({ id: 'installment-1', sourceExpenseId: 'expense-1' }));
+    httpMock.expectOne('/api/viewer/expenses/expense-1').flush(
+      buildExpenseDto({ refs: [{ type: 'INSTALLMENT', id: 'installment-1', label: 'Parcelamento' }] }),
+    );
 
     component['navigateTo']({ kind: 'INSTALLMENT', id: 'installment-1' });
     fixture.detectChanges();
 
-    httpMock.expectOne('/api/installments/installment-1').flush(buildInstallment({ id: 'installment-1' }));
+    httpMock
+      .expectOne('/api/viewer/installments/installment-1')
+      .flush(buildInstallmentDto({ id: 'installment-1' }));
     expect(component['canGoBack']()).toBe(true);
     expect(component['readyDetail']()?.kind).toBe('INSTALLMENT');
 
@@ -181,8 +195,8 @@ describe('OmegaViewerComponent', () => {
     fixture.detectChanges();
 
     // Back must issue a brand new request for the same ref — no cache hit.
-    const refetch = httpMock.expectOne('/api/expenses/expense-1');
-    refetch.flush(buildExpense());
+    const refetch = httpMock.expectOne('/api/viewer/expenses/expense-1');
+    refetch.flush(buildExpenseDto());
 
     expect(component['canGoBack']()).toBe(false);
     expect(component['readyDetail']()?.kind).toBe('EXPENSE');
@@ -190,7 +204,7 @@ describe('OmegaViewerComponent', () => {
 
   it('close() reports mutated:false when nothing changed', () => {
     setup({ kind: 'EXPENSE', id: 'expense-1' });
-    httpMock.expectOne('/api/expenses/expense-1').flush(buildExpense());
+    httpMock.expectOne('/api/viewer/expenses/expense-1').flush(buildExpenseDto());
 
     component['close']();
 
@@ -340,6 +354,7 @@ describe('OmegaViewerComponent — link navigation, focus, aria-live, reduced-mo
       details: null,
       tagIds: [],
       payerName: null,
+      progress: { paidInstallments: 7, remainingInstallments: 5, totalInstallments: 12 },
       links: [{ ref: { kind: 'EXPENSE', id: 'expense-1' }, label: 'Groceries' }],
       audit: null,
       ...overrides,
