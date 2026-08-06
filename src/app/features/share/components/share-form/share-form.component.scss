@@ -59,22 +59,27 @@
 }
 
 .share-summary__warn strong {
-  color: #fca5a5;
+  color: var(--ew-bad);
 }
 
+// Uses the app-wide `--ew-bad` warning token, same as `.ew-alert` (styles.scss) and
+// every other warn/danger indicator in the app, instead of hardcoded dark-theme-only
+// RGBA values — the previous colors (pale yellow text on a near-black brown background)
+// never adapted to `body.ew-light` and read as low-contrast there. No background fill,
+// matching `.ew-alert`'s border+text-only treatment — the design system has no
+// dedicated "danger-soft" background token to reuse instead of inventing one.
 .share-validation {
   display: grid;
   gap: 0.5rem;
   padding: 0.95rem 1rem;
-  border: 1px solid rgba(251, 191, 36, 0.28);
+  border: 1px solid var(--ew-bad);
   border-radius: 1rem;
-  background: rgba(120, 53, 15, 0.16);
 }
 
 .share-validation__list {
   margin: 0;
   padding-left: 1rem;
-  color: rgba(254, 240, 138, 0.95);
+  color: var(--ew-bad);
 }
 
 // ── Split-mode toggle (design's `.mode-toggle`, direction-c.html:901-902) ──

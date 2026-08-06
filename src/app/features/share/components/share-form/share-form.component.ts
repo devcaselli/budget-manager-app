@@ -346,8 +346,19 @@ export class ShareFormComponent {
       const amount = Number(source?.amount ?? 0);
       this.form.controls.totalAmount.setValue(amount, { emitEvent: false });
 
-      if (source && this.quotas.length === 1 && this.quotaAt(0).controls.amount.getRawValue() === 0) {
-        this.quotaAt(0).controls.amount.setValue(amount);
+      // Auto-fill the single quota's amount with the source's total as a convenience
+      // (one quota = the whole thing). Only while the user hasn't touched that field
+      // themselves — this effect's own `setValue` below never marks the control dirty
+      // (only real user input does, via the reactive-forms directive), so as long as
+      // nothing else in this component marks the control dirty/pristine incorrectly,
+      // re-running this effect after switching source keeps following the total instead
+      // of leaving a stale amount from a previously-selected source (e.g. picking
+      // "Microsoft" after "Netflix" used to leave Netflix's amount behind because the old
+      // guard only looked at whether the field was still exactly zero). `removeQuota()`
+      // explicitly restores this invariant when collapsing back to one quota — see there.
+      const soleQuotaAmount = this.quotas.length === 1 ? this.quotaAt(0).controls.amount : null;
+      if (source && soleQuotaAmount && !soleQuotaAmount.dirty) {
+        soleQuotaAmount.setValue(amount);
       }
     });
 
@@ -401,6 +412,18 @@ export class ShareFormComponent {
     }
 
     this.quotas.removeAt(index);
+
+    // Collapsing back down to a single quota re-enables the "auto-fill amount from the
+    // selected source" convenience (see the constructor effect keyed off `dirty`). That
+    // convenience must resume regardless of which quota survived: if the SURVIVING quota's
+    // amount was ever hand-edited by the user (e.g. quota 0 was dirtied, then quota 1 —
+    // not quota 0 — got removed), `removeAt` on the FormArray leaves the surviving
+    // control's `dirty` flag untouched, permanently blocking auto-fill even though there is
+    // now only one quota again. Clear it here so the single-quota-remaining behavior is
+    // uniform no matter which quota was removed.
+    if (this.quotas.length === 1) {
+      this.quotas.at(0).controls.amount.markAsPristine();
+    }
   }
 
   protected isTransientQuota(index: number): boolean {
