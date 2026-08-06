@@ -13,6 +13,7 @@ import {
 } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { fetchAllPages } from '@core/state/fetch-all-pages';
 import { LoadingCounter } from '@core/state/loading-counter';
 
 import { PagedPaymentResponse, PayExpenseRequest, Payment } from '../models/payment';
@@ -55,8 +56,12 @@ export class PaymentService {
             return EMPTY;
           }
 
-          return this.findByWalletId(walletId).pipe(
-            tap((response) => this.paymentsSubject.next(response.content)),
+          // Same truncation bug as ExpenseService: only page 0 was ever fetched, which
+          // silently corrupted PAID/OPEN status on the Expenses screen for any wallet
+          // with more than 100 payments (a payment past page 0 made its expense look
+          // unpaid even though it was). Walk every page and concatenate.
+          return fetchAllPages((page) => this.findByWalletId(walletId, page, 100)).pipe(
+            tap((payments) => this.paymentsSubject.next(payments)),
             catchError(() => {
               this.errorSubject.next('Não foi possível carregar os pagamentos.');
               return EMPTY;
