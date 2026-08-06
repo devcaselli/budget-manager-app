@@ -23,7 +23,9 @@ import {
   ExpenseSortOrder,
   filterAndSortExpenses,
 } from '@features/expense/expense-list.filters';
+import { Bullet } from '@features/bullet/models/bullet';
 import { BulletService } from '@features/bullet/services/bullet.service';
+import { Payment } from '@features/payment/models/payment';
 import { PaymentService } from '@features/payment/services/payment.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
@@ -189,25 +191,58 @@ export class ExpensePage {
     () => new Map(this.tags().map((tag) => [tag.id, tag.name])),
   );
 
+  // Same pre-built-Map pattern as tagMap, applied to payments/bullets/shares below: a
+  // wallet can now carry its full dataset (fetchAllPages walks every page, no longer
+  // just the first 100), so the O(n·m) .find()/.filter() scans that used to run
+  // per-expense would scale with dataset size squared. One Map per source, one pass
+  // over each source, then O(1) lookups inside the expenses .map() further down.
+  //
+  // Built with an explicit "first payment for this expenseId wins" rule, matching the
+  // .find() semantics it replaces — a plain `new Map(...)` would instead let the *last*
+  // matching entry silently overwrite earlier ones.
+  private readonly paymentByExpenseId = computed<ReadonlyMap<string, Payment>>(() => {
+    const map = new Map<string, Payment>();
+    for (const payment of this.payments()) {
+      if (payment.expenseId && !map.has(payment.expenseId)) {
+        map.set(payment.expenseId, payment);
+      }
+    }
+    return map;
+  });
+
+  private readonly bulletById = computed<ReadonlyMap<string, Bullet>>(
+    () => new Map(this.bullets().map((bullet) => [bullet.id, bullet])),
+  );
+
+  private readonly activeExpenseSharesBySourceId = computed<ReadonlyMap<string, Share[]>>(() => {
+    const map = new Map<string, Share[]>();
+    for (const share of this.shares()) {
+      if (share.sourceType !== 'EXPENSE' || share.status !== 'ACTIVE') continue;
+      const existing = map.get(share.sourceId);
+      if (existing) {
+        existing.push(share);
+      } else {
+        map.set(share.sourceId, [share]);
+      }
+    }
+    return map;
+  });
+
   protected readonly expenseItems = computed<readonly ExpenseListItem[]>(() => {
     const creditCardNameById = new Map(this.creditCards().map((card) => [card.id, card.name]));
     const tagMap = this.tagMap();
+    const paymentByExpenseId = this.paymentByExpenseId();
+    const bulletById = this.bulletById();
+    const activeSharesBySourceId = this.activeExpenseSharesBySourceId();
     return this.expenses().map((expense) => {
-      const payment = this.payments().find((p) => p.expenseId === expense.id);
-      const bullet = payment
-        ? this.bullets().find((candidate) => candidate.id === payment.bulletId)
-        : null;
+      const payment = paymentByExpenseId.get(expense.id);
+      const bullet = payment?.bulletId ? bulletById.get(payment.bulletId) : null;
       const cost = Number(expense.cost);
       const remaining = Number(expense.remaining);
       const paid = Math.max(cost - remaining, 0);
       const progress = cost > 0 ? Math.min((paid / cost) * 100, 100) : 0;
       const creditCardId = expense.creditCardId ?? null;
-      const activeShares = this.shares().filter(
-        (share) =>
-          share.sourceType === 'EXPENSE' &&
-          share.sourceId === expense.id &&
-          share.status === 'ACTIVE',
-      );
+      const activeShares = activeSharesBySourceId.get(expense.id) ?? [];
       const shareSummary = activeShares
         .flatMap((share) => share.quotas)
         .map((quota) => `${quota.payerName}: ${formatBrl(Number(quota.amount))}`)
