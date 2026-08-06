@@ -8,7 +8,11 @@ import { Expense } from '@features/expense/models/expense';
 import { Installment } from '@features/installment/models/installment';
 import { Subscription } from '@features/subscription/models/subscription';
 
-import { OmegaViewerExpenseDetail } from './models/omega-viewer-detail';
+import {
+  OmegaViewerDetail,
+  OmegaViewerExpenseDetail,
+  OmegaViewerInstallmentDetail,
+} from './models/omega-viewer-detail';
 import { OmegaViewerRef } from './models/omega-viewer-ref';
 import { OmegaViewerResult } from './models/omega-viewer-result';
 import { OmegaViewerComponent } from './omega-viewer.component';
@@ -291,5 +295,208 @@ describe('OmegaViewerComponent — audit metadata + deleted strip (F-13)', () =>
 
     expect(root.querySelector('.ovw__audit')).toBeNull();
     expect(root.querySelector('.ew-alert[role="alert"]')).toBeNull();
+  });
+});
+
+describe('OmegaViewerComponent — link navigation, focus, aria-live, reduced-motion (F-11)', () => {
+  let fixture: ComponentFixture<OmegaViewerComponent>;
+  let matchMediaSpy: ReturnType<typeof vi.fn>;
+
+  function buildExpenseDetail(
+    overrides: Partial<OmegaViewerExpenseDetail> = {},
+  ): OmegaViewerExpenseDetail {
+    return {
+      kind: 'EXPENSE',
+      ref: { kind: 'EXPENSE', id: 'expense-1' },
+      name: 'Groceries',
+      cost: 100,
+      remaining: 40,
+      purchaseDate: '2026-07-01',
+      creditCardId: 'card-1',
+      details: null,
+      tagIds: [],
+      payerName: null,
+      payments: [],
+      installmentsRemaining: null,
+      links: [{ ref: { kind: 'INSTALLMENT', id: 'installment-1' }, label: 'Laptop' }],
+      audit: null,
+      ...overrides,
+    };
+  }
+
+  function buildInstallmentDetail(
+    overrides: Partial<OmegaViewerInstallmentDetail> = {},
+  ): OmegaViewerInstallmentDetail {
+    return {
+      kind: 'INSTALLMENT',
+      ref: { kind: 'INSTALLMENT', id: 'installment-1' },
+      description: 'Laptop',
+      originalValue: 3000,
+      installmentValue: 250,
+      installmentNumber: 12,
+      purchaseDate: '2026-01-01',
+      lastInstallmentDate: '2026-12-01',
+      creditCardId: 'card-1',
+      details: null,
+      tagIds: [],
+      payerName: null,
+      links: [{ ref: { kind: 'EXPENSE', id: 'expense-1' }, label: 'Groceries' }],
+      audit: null,
+      ...overrides,
+    };
+  }
+
+  /** Stubs `OmegaViewerService.load` to resolve by ref.kind — lets a `navigateTo` click walk
+   * Expense -> Installment -> back without a real HTTP round trip, matching the F-13 spec
+   * block's `TestBed.overrideComponent` pattern for the component-scoped provider. */
+  async function setup(reducedMotion: boolean): Promise<void> {
+    matchMediaSpy = vi.fn().mockImplementation((query: string) => ({
+      matches: reducedMotion,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    vi.stubGlobal('matchMedia', matchMediaSpy);
+
+    TestBed.configureTestingModule({
+      imports: [OmegaViewerComponent],
+      providers: [
+        { provide: MatDialogRef, useValue: { close: vi.fn() } },
+        { provide: MAT_DIALOG_DATA, useValue: { kind: 'EXPENSE', id: 'expense-1' } },
+      ],
+    });
+    TestBed.overrideComponent(OmegaViewerComponent, {
+      set: {
+        providers: [
+          {
+            provide: OmegaViewerService,
+            useValue: {
+              load: (ref: OmegaViewerRef): ReturnType<OmegaViewerService['load']> => {
+                const detail: OmegaViewerDetail =
+                  ref.kind === 'EXPENSE' ? buildExpenseDetail() : buildInstallmentDetail();
+                return of(detail);
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    fixture = TestBed.createComponent(OmegaViewerComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders a .ew-btn--ghost row with chevron_right per link, wired to navigateTo', async () => {
+    await setup(false);
+
+    const root = fixture.nativeElement as HTMLElement;
+    const linkRow = root.querySelector('.ovw__link-row') as HTMLButtonElement;
+
+    expect(linkRow).not.toBeNull();
+    expect(linkRow.classList.contains('ew-btn--ghost')).toBe(true);
+    expect(linkRow.textContent).toContain('Laptop');
+    expect(linkRow.querySelector('mat-icon')?.textContent?.trim()).toBe('chevron_right');
+  });
+
+  it('navigates Expense -> Installment -> Back end-to-end via link rows and the back button', async () => {
+    await setup(false);
+
+    const root = fixture.nativeElement as HTMLElement;
+    (root.querySelector('.ovw__link-row') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.ovw__item-title')?.textContent).toBe(
+      'Laptop',
+    );
+
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.ovw__back')?.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.ovw__item-title')?.textContent).toBe(
+      'Groceries',
+    );
+  });
+
+  it('moves keyboard focus to the new item title on every page-flip — never lost', async () => {
+    await setup(false);
+
+    const root = fixture.nativeElement as HTMLElement;
+    (root.querySelector('.ovw__link-row') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const title = (fixture.nativeElement as HTMLElement).querySelector('.ovw__item-title');
+    expect(document.activeElement).toBe(title);
+  });
+
+  it('announces the navigation via the aria-live region', async () => {
+    await setup(false);
+
+    const root = fixture.nativeElement as HTMLElement;
+    (root.querySelector('.ovw__link-row') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const live = (fixture.nativeElement as HTMLElement).querySelector('[aria-live="polite"]');
+    expect(live?.textContent).toContain('Laptop');
+  });
+
+  it('does not announce anything on the initial load — only on subsequent navigations', async () => {
+    await setup(false);
+
+    const live = (fixture.nativeElement as HTMLElement).querySelector('[aria-live="polite"]');
+    expect(live?.textContent?.trim()).toBe('');
+  });
+
+  it('applies the slide+fade animation class when reduced motion is NOT requested', async () => {
+    await setup(false);
+
+    const root = fixture.nativeElement as HTMLElement;
+    (root.querySelector('.ovw__link-row') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    // Flush the queued microtask that re-arms the animation class.
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.ovw__flip')?.classList.contains(
+        'ovw__flip--anim',
+      ),
+    ).toBe(true);
+  });
+
+  it('never applies the animation class when prefers-reduced-motion is set', async () => {
+    await setup(true);
+
+    const root = fixture.nativeElement as HTMLElement;
+    (root.querySelector('.ovw__link-row') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(matchMediaSpy).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)');
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.ovw__flip')?.classList.contains(
+        'ovw__flip--anim',
+      ),
+    ).toBe(false);
   });
 });

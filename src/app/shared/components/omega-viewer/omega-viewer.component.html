@@ -17,51 +17,66 @@
     <button class="ovw__close" type="button" mat-dialog-close aria-label="Fechar" (click)="close()">×</button>
   </div>
 
+  <!-- Screen-reader-only live region — announces every page-flip navigation so users who
+       can't see the new content still know the context changed (F-11). -->
+  <div class="ew-sr-only" aria-live="polite" role="status">{{ liveAnnouncement() }}</div>
+
   <mat-dialog-content class="ovw__body">
     @switch (detailState().status) {
       @case ('loading') {
         <div class="ew-empty">Carregando...</div>
       }
       @case ('error') {
-        <div class="ew-alert">
+        <div class="ew-alert" role="alert">
           <span>Não foi possível carregar os detalhes.</span>
           <button class="ew-btn ew-btn--ghost" type="button" (click)="retry()">Tentar novamente</button>
         </div>
       }
       @case ('ready') {
         @if (readyDetail(); as detail) {
-          @if (detail.audit?.deletedAt) {
-            <div class="ew-alert" role="alert">
-              <span>Item excluído.</span>
-            </div>
-          }
+          <div class="ovw__flip" [class.ovw__flip--anim]="animateFlip()">
+            @if (detail.audit?.deletedAt) {
+              <div class="ew-alert" role="alert">
+                <span>Item excluído.</span>
+              </div>
+            }
 
-          @switch (detail.kind) {
-            @case ('EXPENSE') {
-              <div class="ovw__stub">
-                <h3>{{ detail.name }}</h3>
-                <p>Expense — conteúdo completo chega na F-12.</p>
-              </div>
+            @switch (detail.kind) {
+              @case ('EXPENSE') {
+                <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.name }}</h3>
+              }
+              @case ('INSTALLMENT') {
+                <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
+              }
+              @case ('SUBSCRIPTION') {
+                <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
+              }
             }
-            @case ('INSTALLMENT') {
-              <div class="ovw__stub">
-                <h3>{{ detail.description }}</h3>
-                <p>Installment — conteúdo completo chega na F-12.</p>
-              </div>
-            }
-            @case ('SUBSCRIPTION') {
-              <div class="ovw__stub">
-                <h3>{{ detail.description }}</h3>
-                <p>Subscription — conteúdo completo chega na F-12.</p>
-              </div>
-            }
-          }
 
-          @if (detail.audit; as audit) {
-            <p class="ovw__audit">
-              Criado em {{ audit.createdAt | brDate }} · Atualizado em {{ audit.updatedAt | brDate }}
-            </p>
-          }
+            <app-viewer-field-list [rows]="fieldRows()" [remainingBadge]="remainingBadge()" />
+
+            @if (detail.links.length > 0) {
+              <div class="ovw__links">
+                <h4 class="ovw__links-title">Itens relacionados</h4>
+                @for (link of detail.links; track link.ref.kind + link.ref.id) {
+                  <button
+                    class="ew-btn ew-btn--ghost ovw__link-row"
+                    type="button"
+                    (click)="navigateTo(link.ref)"
+                  >
+                    <span>{{ link.label }}</span>
+                    <mat-icon aria-hidden="true">chevron_right</mat-icon>
+                  </button>
+                }
+              </div>
+            }
+
+            @if (detail.audit; as audit) {
+              <p class="ovw__audit">
+                Criado em {{ audit.createdAt | brDate }} · Atualizado em {{ audit.updatedAt | brDate }}
+              </p>
+            }
+          </div>
         }
       }
     }
