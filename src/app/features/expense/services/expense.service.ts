@@ -13,6 +13,7 @@ import {
 } from 'rxjs';
 
 import { environment } from '@environments/environment';
+import { fetchAllPages } from '@core/state/fetch-all-pages';
 import { LoadingCounter } from '@core/state/loading-counter';
 
 import {
@@ -68,8 +69,10 @@ export class ExpenseService {
             return EMPTY;
           }
 
-          return this.findByWalletId(walletId, 0, 100, unhidden).pipe(
-            tap((response) => this.expensesSubject.next(response.content)),
+          // Wallets can exceed a single page (bug: a 111-expense wallet silently lost its
+          // last 11 when only page 0 was fetched) — walk every page and concatenate.
+          return fetchAllPages((page) => this.findByWalletId(walletId, page, 100, unhidden)).pipe(
+            tap((expenses) => this.expensesSubject.next(expenses)),
             catchError(() => {
               this.errorSubject.next('Não foi possível carregar as expenses.');
               return EMPTY;
