@@ -53,8 +53,11 @@ describe('fetchAllPages', () => {
     expect(caught).toBe(boom);
   });
 
-  it('errors instead of looping when totalPages is inconsistently/absurdly high', () => {
-    const fetchPage = vi.fn(() => of(page(['a'], 0, 999)));
+  it('errors instead of looping when totalPages is inconsistently/absurdly high but page keeps advancing', () => {
+    // page legitimately advances every response (0, 1, 2, ...) but totalPages (999) implies
+    // far more pages than the safety cap allows — the cap is on iterations actually
+    // fetched, so it trips once MAX_PAGES (50) requests have gone out.
+    const fetchPage = vi.fn((pageNumber: number) => of(page(['a'], pageNumber, 999)));
     let caught: unknown;
 
     fetchAllPages(fetchPage).subscribe({
@@ -63,10 +66,29 @@ describe('fetchAllPages', () => {
     });
 
     expect(caught).toBeInstanceOf(Error);
-    expect((caught as Error).message).toContain('999');
-    // Only the first page should ever be requested — the cap trips before a second
-    // request is attempted, so this never becomes an unbounded loop.
-    expect(fetchPage).toHaveBeenCalledTimes(1);
+    expect((caught as Error).message).toContain('50');
+    expect(fetchPage).toHaveBeenCalledTimes(50);
+  });
+
+  it('errors instead of looping forever when the backend never advances page (stuck at page 0)', () => {
+    // Broken/inconsistent backend: every response reports page 0 with a totalPages
+    // that never trips the old totalPages-based cap (3 is far below MAX_PAGES=50).
+    // nextPage = response.page + 1 = 1, and 1 < 3 is true on every single response,
+    // so the old cap (which only inspected the *declared* totalPages) never fired.
+    const fetchPage = vi.fn(() => of(page(['a'], 0, 3)));
+    let caught: unknown;
+
+    fetchAllPages(fetchPage).subscribe({
+      next: () => expect.fail('expected an error, got a value'),
+      error: (error: unknown) => (caught = error),
+    });
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain('50');
+    // The cap must be driven by the number of pages actually fetched, not by the
+    // server-declared totalPages — so it has to trip once MAX_PAGES requests have
+    // gone out, regardless of what page/totalPages the server keeps reporting.
+    expect(fetchPage).toHaveBeenCalledTimes(50);
   });
 });
 
