@@ -1,0 +1,130 @@
+:host {
+  display: block;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.vns__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.vns__title {
+  margin: 0;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.vns__edit-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.vns__text {
+  margin: 0;
+  color: var(--ew-ink);
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vns__empty {
+  margin: 0;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.vns__form {
+  display: grid;
+  gap: 12px;
+}
+
+.vns__textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.vns__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+// ── Shared primitives (view encapsulation needs its own rule per component — same local
+// pattern as viewer-edit-form.component.scss/viewer-field-list.component.scss) ────────────
+.ew-textarea {
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  color: var(--ew-ink);
+  background: var(--ew-bg-2, #fff);
+  border: 1px solid var(--ew-line-2);
+  border-radius: 8px;
+  padding: 9px 12px;
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 1px;
+  }
+}
+
+.ew-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-weight: 500;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &--primary {
+    background: var(--ew-acc);
+    color: #1c1814;
+    border-color: var(--ew-acc);
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background: var(--ew-acc-2);
+      border-color: var(--ew-acc-2);
+      color: #1c1814;
+    }
+  }
+
+  &--ghost {
+    border-color: transparent;
+  }
+}
+
+.ew-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}

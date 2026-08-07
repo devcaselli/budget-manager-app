@@ -23,6 +23,12 @@ export interface Subscription {
   readonly creditCardId: string | null;
   readonly creditCard?: SubscriptionCreditCard | null;
   readonly tagIds?: readonly string[];
+  /**
+   * Present on the backend's subscription response (Omega Viewer Tema 4/F-08 backend work,
+   * same as Expense's `details` — see `Expense.details`), unused by any frontend call site
+   * until the Omega Viewer's notes section needed it.
+   */
+  readonly details?: string | null;
 }
 
 export interface CreateSubscriptionRequest {
@@ -44,6 +50,13 @@ export interface UpdateSubscriptionRequest {
    * of the wallet the user is editing from. Omitted → backend anchors to the clock month.
    */
   readonly effectiveMonth?: string;
+  /**
+   * Notes field, mirrors Expense's `PatchExpenseRequest.details` — present on the backend's
+   * `PATCH /subscriptions/{id}` since the same Viewer-notes backend work that exposed it on
+   * Expense (Omega Viewer Tema 4/F-08), unused by any frontend call site until the Omega
+   * Viewer's notes section needed it.
+   */
+  readonly details?: string;
   /** Absent = don't touch current tags; [] clears all; non-empty replaces the whole set. */
   readonly tagIds?: readonly string[];
 }

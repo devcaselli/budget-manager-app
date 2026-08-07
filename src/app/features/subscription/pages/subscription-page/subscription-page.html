@@ -91,7 +91,15 @@
           @for (sub of filteredSubscriptionItems(); track sub.id) {
             <div class="ew-sub" [class.sub-inactive]="!sub.isActive">
               <div class="ew-sub-avatar">{{ sub.description.charAt(0).toUpperCase() }}</div>
-              <div class="ew-sub-info">
+              <div
+                class="ew-sub-info"
+                role="button"
+                tabindex="0"
+                (click)="openViewer(sub)"
+                (keydown.enter)="openViewer(sub)"
+                (keydown.space)="$event.preventDefault(); openViewer(sub)"
+                [attr.aria-label]="'View ' + sub.description"
+              >
                 <b>{{ sub.description }}</b>
                 <span>
                   {{ sub.isActive ? 'since' : 'cancelled' }}
@@ -127,6 +135,15 @@
                 }
               </div>
               <div class="sub-actions">
+                <button
+                  class="sub-action-btn"
+                  type="button"
+                  aria-label="View subscription"
+                  title="View subscription"
+                  (click)="openViewer(sub)"
+                >
+                  <mat-icon aria-hidden="true">visibility</mat-icon>
+                </button>
                 <button
                   class="sub-action-btn"
                   type="button"

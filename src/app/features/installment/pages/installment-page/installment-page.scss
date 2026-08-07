@@ -199,6 +199,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  cursor: pointer;
+  border-radius: 4px;
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
+  }
 }
 
 .installment-tag-chips {
