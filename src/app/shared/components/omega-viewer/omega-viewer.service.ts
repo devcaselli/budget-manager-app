@@ -203,5 +203,6 @@ function mapPaymentTraceLine(line: PaymentTraceLineResponseDto): OmegaViewerPaym
     reversal: line.reversal,
     reversed: line.reversed,
     payerIds: line.payerIds,
+    kind: line.kind,
   };
 }

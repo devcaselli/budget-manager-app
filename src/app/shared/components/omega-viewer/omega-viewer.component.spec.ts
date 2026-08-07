@@ -1664,6 +1664,7 @@ describe('OmegaViewerComponent — payments section revert (F-10)', () => {
       reversal: false,
       reversed: false,
       payerIds: ['payer-1'],
+      kind: 'NORMAL',
       ...overrides,
     };
   }

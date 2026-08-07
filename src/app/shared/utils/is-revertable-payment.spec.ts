@@ -11,13 +11,16 @@ function buildPayment(overrides: Partial<OmegaViewerPayment> = {}): OmegaViewerP
     reversal: false,
     reversed: false,
     payerIds: ['payer-1'],
+    kind: 'NORMAL',
     ...overrides,
   };
 }
 
 describe('isRevertablePayment', () => {
-  it('is revertable when neither a reversal nor already reversed', () => {
-    expect(isRevertablePayment(buildPayment({ reversal: false, reversed: false }))).toBe(true);
+  it('is revertable when NORMAL, neither a reversal nor already reversed', () => {
+    expect(
+      isRevertablePayment(buildPayment({ kind: 'NORMAL', reversal: false, reversed: false })),
+    ).toBe(true);
   });
 
   it('is NOT revertable when the payment itself is a reversal', () => {
@@ -32,9 +35,15 @@ describe('isRevertablePayment', () => {
     expect(isRevertablePayment(buildPayment({ reversal: true, reversed: true }))).toBe(false);
   });
 
-  it('does not depend on payerIds count (SHARED cannot be detected from this shape)', () => {
-    const single = buildPayment({ payerIds: ['payer-1'] });
-    const shared = buildPayment({ payerIds: ['payer-1', 'payer-2'] });
-    expect(isRevertablePayment(single)).toBe(isRevertablePayment(shared));
+  it('is NOT revertable when kind is SHARED, even if neither reversal nor reversed', () => {
+    expect(
+      isRevertablePayment(buildPayment({ kind: 'SHARED', reversal: false, reversed: false })),
+    ).toBe(false);
+  });
+
+  it('does not depend on payerIds count directly — SHARED is now detected via kind, not payerIds', () => {
+    const single = buildPayment({ kind: 'NORMAL', payerIds: ['payer-1'] });
+    const multi = buildPayment({ kind: 'NORMAL', payerIds: ['payer-1', 'payer-2'] });
+    expect(isRevertablePayment(single)).toBe(isRevertablePayment(multi));
   });
 });

@@ -190,6 +190,7 @@ describe('OmegaViewerService', () => {
               reversal: false,
               reversed: false,
               payerIds: ['user-1', 'user-2'],
+              kind: 'NORMAL',
             },
           ],
         }),
@@ -205,8 +206,36 @@ describe('OmegaViewerService', () => {
           reversal: false,
           reversed: false,
           payerIds: ['user-1', 'user-2'],
+          kind: 'NORMAL',
         },
       ]);
+    });
+
+    it('maps kind SHARED through unchanged, so a share-quota payment is identifiable client-side', () => {
+      let result: OmegaViewerExpenseDetail | undefined;
+      service.load({ kind: 'EXPENSE', id: 'expense-1' }).subscribe((detail) => {
+        result = detail as OmegaViewerExpenseDetail;
+      });
+
+      httpMock.expectOne('/api/viewer/expenses/expense-1').flush(
+        buildExpenseDto({
+          paymentTrace: [
+            {
+              id: 'payment-2',
+              amount: 20,
+              paymentDate: '2026-07-05T12:00:00Z',
+              bulletId: 'bullet-1',
+              bulletDescription: 'Salary bullet',
+              reversal: false,
+              reversed: false,
+              payerIds: ['user-1'],
+              kind: 'SHARED',
+            },
+          ],
+        }),
+      );
+
+      expect(result?.payments[0]?.kind).toBe('SHARED');
     });
   });
 
@@ -301,6 +330,7 @@ describe('OmegaViewerService', () => {
               reversal: false,
               reversed: false,
               payerIds: ['user-1'],
+              kind: 'NORMAL',
             },
           ],
         }),
@@ -316,6 +346,7 @@ describe('OmegaViewerService', () => {
           reversal: false,
           reversed: false,
           payerIds: ['user-1'],
+          kind: 'NORMAL',
         },
       ]);
     });

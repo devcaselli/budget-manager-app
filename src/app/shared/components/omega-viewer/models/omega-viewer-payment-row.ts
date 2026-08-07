@@ -80,17 +80,18 @@ function payerLabelOf(payerIds: readonly string[]): string {
  * Explains WHY a row has no revert button, so an ineligible row shows a hint instead of just
  * disappearing without context (F-10 acceptance criterion).
  *
- * Code review M2: only called from `mapPaymentsToRows()` below, and the template
- * (`viewer-payments-section.component.html`) only renders this hint for rows where
- * `revertable === false` — and `revertable` is `!reversal && !reversed`. So this function is
- * only ever invoked with `reversal || reversed` true; a payment that's neither always takes the
- * `revertable: true` branch instead and never reaches this hint at all. There is no third,
- * "likely shared or otherwise backend-ineligible" case reachable here — `SHARED_PAYMENT`/
- * `NO_BULLET` can only ever be discovered by the backend's 422 response at revert time (see
- * `isRevertablePayment`'s doc comment), never predicted from `OmegaViewerPayment`'s shape ahead
- * of time. This function's return type stays `string | null` to match `OmegaViewerPaymentRow.
- * ineligibleHint`, but the `null` case is unreachable in practice, not a placeholder for an
- * unimplemented third hint.
+ * Code review M2 previously found the `SHARED` branch unreachable here — `OmegaViewerPayment`
+ * had no `kind` field, so `SHARED_PAYMENT` could only ever be discovered via the backend's 422
+ * response at revert time (see `isRevertablePayment`'s prior doc comment). Now that `kind` is
+ * exposed (`budget-manager-api-public` commit `2f9b678`), this branch is reachable and correct:
+ * `isRevertablePayment` returns `false` for `kind === 'SHARED'`, so a SHARED row lands here.
+ * The message text matches `PaymentService.describeRevertError`'s `SHARED_PAYMENT` case
+ * verbatim — same wording whether the user sees it as a pre-emptive hint (this function) or,
+ * for any inelegibility this predicate still can't detect ahead of time (e.g. `NO_BULLET`), as
+ * a post-click 422 error.
+ *
+ * `NO_BULLET` remains the one gap this function still can't predict client-side (see
+ * `isRevertablePayment`'s doc comment) — only `reversal`/`reversed`/`SHARED` are reachable here.
  */
 function ineligibleHintOf(payment: OmegaViewerPayment): string | null {
   if (payment.reversal) {
@@ -98,6 +99,9 @@ function ineligibleHintOf(payment: OmegaViewerPayment): string | null {
   }
   if (payment.reversed) {
     return 'Este pagamento já foi revertido.';
+  }
+  if (payment.kind === 'SHARED') {
+    return 'Pagamentos compartilhados são revertidos pela tela de Share.';
   }
   return null;
 }

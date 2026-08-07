@@ -19,6 +19,7 @@ function buildPayment(overrides: Partial<OmegaViewerPayment> = {}): OmegaViewerP
     reversal: false,
     reversed: false,
     payerIds: ['payer-1'],
+    kind: 'NORMAL',
     ...overrides,
   };
 }
@@ -260,6 +261,37 @@ describe('ViewerPaymentsSectionComponent', () => {
       const hint = root.querySelector('[data-testid="payment-ineligible-hint"]');
       expect(hint).not.toBeNull();
       expect(hint?.getAttribute('title')).toContain('já foi revertido');
+    });
+
+    it('hides the revert button for a SHARED payment and shows the Share hint on hover, before any click', () => {
+      setup(
+        buildExpenseDetail({
+          payments: [buildPayment({ id: 'p1', kind: 'SHARED', reversal: false, reversed: false })],
+        }),
+      );
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('.vps__revert-btn')).toBeNull();
+      const hint = root.querySelector('[data-testid="payment-ineligible-hint"]');
+      expect(hint).not.toBeNull();
+      expect(hint?.getAttribute('title')).toBe(
+        'Pagamentos compartilhados são revertidos pela tela de Share.',
+      );
+      // No click happened and no revertError input was set — the hint is reachable purely
+      // from `kind`, not as a byproduct of a failed revert attempt.
+      expect(root.querySelector('.ew-alert[role="alert"]')).toBeNull();
+    });
+
+    it('a NORMAL, eligible payment keeps showing the revert button, unaffected by the new kind field', () => {
+      setup(
+        buildExpenseDetail({
+          payments: [buildPayment({ id: 'p1', kind: 'NORMAL', reversal: false, reversed: false })],
+        }),
+      );
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('.vps__revert-btn')).not.toBeNull();
+      expect(root.querySelector('[data-testid="payment-ineligible-hint"]')).toBeNull();
     });
 
     it('emits requestRevert with the underlying OmegaViewerPayment on click', () => {

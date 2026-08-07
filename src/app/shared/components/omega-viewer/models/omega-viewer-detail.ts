@@ -1,3 +1,5 @@
+import { PaymentKind } from '@features/payment/models/payment';
+
 import { OmegaViewerLink, OmegaViewerRef } from './omega-viewer-ref';
 
 /**
@@ -17,6 +19,12 @@ export interface OmegaViewerAudit {
  * singular resolved payer name at this level (see `payerName` below), only the raw
  * `payerIds` of whoever the payment/share was split across; resolving those ids to
  * display names is F-09/F-10's job, not the mapping layer's.
+ *
+ * `kind` (`NORMAL` | `SHARED`) was added to the backend's `PaymentTraceLineDto` in
+ * `budget-manager-api-public` commit `2f9b678`, closing the gap `isRevertablePayment`'s
+ * doc comment previously called out: `SHARED` (payer-quota) payments can now be detected
+ * client-side instead of only surfacing as a 422 `SHARED_PAYMENT` after the user clicks
+ * "Reverter".
  */
 export interface OmegaViewerPayment {
   readonly id: string;
@@ -27,6 +35,7 @@ export interface OmegaViewerPayment {
   readonly reversal: boolean;
   readonly reversed: boolean;
   readonly payerIds: readonly string[];
+  readonly kind: PaymentKind;
 }
 
 /**

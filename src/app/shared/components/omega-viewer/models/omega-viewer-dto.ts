@@ -1,3 +1,5 @@
+import { PaymentKind } from '@features/payment/models/payment';
+
 import { OmegaViewerItemKind } from './omega-viewer-ref';
 
 /**
@@ -31,6 +33,14 @@ export interface PaymentTraceLineResponseDto {
   readonly reversal: boolean;
   readonly reversed: boolean;
   readonly payerIds: readonly string[];
+  /**
+   * `PaymentKind` (`NORMAL` | `SHARED`) — added in `budget-manager-api-public` commit
+   * `2f9b678` so the Viewer frontend can disable/hide the revert action for `SHARED`
+   * (payer-quota) payments client-side, instead of only discovering the 422
+   * `SHARED_PAYMENT` rejection after the user clicks. Same string-literal union already
+   * used by `features/payment/models/payment.ts`'s `Payment.kind`.
+   */
+  readonly kind: PaymentKind;
 }
 
 export interface InstallmentProgressResponseDto {
