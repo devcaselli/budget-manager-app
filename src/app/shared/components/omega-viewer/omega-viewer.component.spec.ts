@@ -8,6 +8,7 @@ import {
   OmegaViewerDetail,
   OmegaViewerExpenseDetail,
   OmegaViewerInstallmentDetail,
+  OmegaViewerPayment,
 } from './models/omega-viewer-detail';
 import {
   ExpenseViewerResponseDto,
@@ -1639,5 +1640,280 @@ describe('OmegaViewerComponent — notes section (F-08)', () => {
       expect(component['notesDirty']()).toBe(false);
       expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(true); // still true — mode() is EDIT
     });
+  });
+});
+
+describe('OmegaViewerComponent — payments section revert (F-10)', () => {
+  let fixture: ComponentFixture<OmegaViewerComponent>;
+  let component: OmegaViewerComponent;
+  let httpMock: HttpTestingController;
+  let dialog: { open: ReturnType<typeof vi.fn> };
+  let dialogRef: {
+    close: ReturnType<typeof vi.fn>;
+    keydownEvents: ReturnType<typeof vi.fn>;
+    backdropClick: ReturnType<typeof vi.fn>;
+  };
+
+  function buildPayment(overrides: Partial<OmegaViewerPayment> = {}): OmegaViewerPayment {
+    return {
+      id: 'payment-1',
+      amount: 40,
+      paymentDate: '2026-07-05T12:00:00Z',
+      bulletId: 'bullet-1',
+      bulletDescription: 'Salary bullet',
+      reversal: false,
+      reversed: false,
+      payerIds: ['payer-1'],
+      ...overrides,
+    };
+  }
+
+  function buildExpenseDetail(
+    overrides: Partial<OmegaViewerExpenseDetail> = {},
+  ): OmegaViewerExpenseDetail {
+    return {
+      kind: 'EXPENSE',
+      ref: { kind: 'EXPENSE', id: 'expense-1' },
+      name: 'Groceries',
+      cost: 100,
+      remaining: 40,
+      purchaseDate: '2026-07-01',
+      creditCardId: 'card-1',
+      details: null,
+      tagIds: [],
+      payerName: null,
+      payments: [buildPayment()],
+      installmentsRemaining: null,
+      links: [],
+      audit: null,
+      ...overrides,
+    };
+  }
+
+  let loadSpy: ReturnType<typeof vi.fn>;
+
+  /** `dialog.open` defaults to resolving `afterClosed()` with `true` (user confirms the
+   * revert) — same convention as the F-07/F-08 describe blocks above; tests that need to
+   * exercise the "user cancels" path override this per-call.
+   *
+   * `OmegaViewerService.load` is stubbed with a spy (not a fixed `of(detail)`, unlike the
+   * F-07/F-08 blocks above) because F-10's own "refetches the current item" acceptance
+   * criterion needs to observe a SECOND `load()` call happening after `retry()` — a fixed
+   * `of(detail)` stub can't distinguish "never refetched" from "refetched and got the same
+   * static object back". `loadSpy` defaults to always resolving `detail`; tests that need the
+   * second call to return different data override `loadSpy.mockReturnValueOnce(...)`. */
+  async function setup(detail: OmegaViewerDetail): Promise<void> {
+    dialogRef = {
+      close: vi.fn(),
+      keydownEvents: vi.fn().mockReturnValue(of()),
+      backdropClick: vi.fn().mockReturnValue(of()),
+    };
+    dialog = { open: vi.fn().mockReturnValue({ afterClosed: () => of(true) }) };
+    loadSpy = vi.fn().mockReturnValue(of(detail));
+
+    TestBed.configureTestingModule({
+      imports: [OmegaViewerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: MAT_DIALOG_DATA, useValue: { kind: 'EXPENSE', id: 'expense-1' } },
+        { provide: MatDialog, useValue: dialog },
+      ],
+    });
+    TestBed.overrideComponent(OmegaViewerComponent, {
+      set: {
+        providers: [
+          { provide: MatDialog, useValue: dialog },
+          { provide: OmegaViewerService, useValue: { load: loadSpy } },
+        ],
+      },
+    });
+
+    fixture = TestBed.createComponent(OmegaViewerComponent);
+    component = fixture.componentInstance;
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne('/api/credit-cards?page=0&size=100')
+      .flush({ content: [], page: 0, size: 100, totalElements: 0, totalPages: 0 });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  it('clicking Reverter opens the confirm dialog with the payment date', async () => {
+    await setup(buildExpenseDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.vps__revert-btn')?.click();
+    fixture.detectChanges();
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const [, config] = dialog.open.mock.calls[0] as [unknown, { data: { dateLabel: string } }];
+    expect(config.data.dateLabel).toBe('05/07/2026');
+  });
+
+  it('does NOT call PaymentService.revert when the user cancels the confirm dialog', async () => {
+    await setup(buildExpenseDetail());
+    dialog.open.mockReturnValue({ afterClosed: () => of(false) });
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.vps__revert-btn')?.click();
+    fixture.detectChanges();
+
+    httpMock.expectNone('/api/payments/payment-1/revert');
+  });
+
+  it('on confirm, calls POST /payments/:id/revert, refetches the current item via OmegaViewerService.load, and flags mutated', async () => {
+    await setup(buildExpenseDetail());
+
+    // The refetch (`retry()`) re-calls `OmegaViewerService.load()` for the SAME ref — stub the
+    // second call to return a visibly different detail so the refetch is observable, not just
+    // "load() was called again" but "the screen actually reflects the fresh trace".
+    const refetchedDetail = buildExpenseDetail({
+      payments: [buildPayment({ reversed: true }), buildPayment({ id: 'payment-2', reversal: true })],
+    });
+    loadSpy.mockReturnValueOnce(of(refetchedDetail));
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.vps__revert-btn')?.click();
+    fixture.detectChanges();
+
+    const revertReq = httpMock.expectOne('/api/payments/payment-1/revert');
+    expect(revertReq.request.method).toBe('POST');
+    expect(revertReq.request.body).toBeNull();
+    revertReq.flush(
+      { ...buildPayment({ id: 'payment-2', reversal: true }) },
+      { status: 201, statusText: 'Created' },
+    );
+    fixture.detectChanges();
+
+    // Success refetches the CURRENT item's detail — no modal close, `load()` called a second
+    // time for the same ref (not a savedOverride patch, the whole trace changed).
+    expect(loadSpy).toHaveBeenCalledTimes(2);
+    expect(component['readyDetail']()?.kind).toBe('EXPENSE');
+    expect(
+      (component['readyDetail']() as OmegaViewerExpenseDetail | null)?.payments.length,
+    ).toBe(2);
+    expect(component['revertingId']()).toBeNull();
+
+    component['close']();
+    expect(dialogRef.close).toHaveBeenCalledWith({ mutated: true });
+  });
+
+  it('on 422 failure, surfaces a visible revertError inside the still-open modal (no silent failure)', async () => {
+    await setup(buildExpenseDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.vps__revert-btn')?.click();
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne('/api/payments/payment-1/revert')
+      .flush(
+        { reason: 'SHARED_PAYMENT', paymentId: 'payment-1' },
+        { status: 422, statusText: 'Unprocessable Entity' },
+      );
+    fixture.detectChanges();
+
+    expect(component['revertError']()).toBe(
+      'Pagamentos compartilhados são revertidos pela tela de Share.',
+    );
+    expect(component['revertingId']()).toBeNull();
+
+    const alert = root.querySelector('app-viewer-payments-section .ew-alert[role="alert"]');
+    expect(alert).not.toBeNull();
+    expect(alert?.textContent).toContain(
+      'Pagamentos compartilhados são revertidos pela tela de Share.',
+    );
+
+    // Modal stays open — dialogRef.close was never called on failure.
+    expect(dialogRef.close).not.toHaveBeenCalled();
+  });
+
+  it('does not flag mutated on a failed revert', async () => {
+    await setup(buildExpenseDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.vps__revert-btn')?.click();
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne('/api/payments/payment-1/revert')
+      .flush('boom', { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    component['close']();
+    expect(dialogRef.close).toHaveBeenCalledWith({ mutated: false });
+  });
+
+  it('sets revertingId to the payment id while the request is in flight', async () => {
+    await setup(buildExpenseDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.vps__revert-btn')?.click();
+    fixture.detectChanges();
+
+    expect(component['revertingId']()).toBe('payment-1');
+    const button = root.querySelector<HTMLButtonElement>('.vps__revert-btn');
+    expect(button?.disabled).toBe(true);
+    expect(button?.textContent).toContain('Revertendo...');
+
+    httpMock
+      .expectOne('/api/payments/payment-1/revert')
+      .flush('boom', { status: 500, statusText: 'Server Error' });
+  });
+
+  it('does not render the payments section revert button for INSTALLMENT when ineligible, but still shows the hint', async () => {
+    const installmentDetail: OmegaViewerInstallmentDetail = {
+      kind: 'INSTALLMENT',
+      ref: { kind: 'INSTALLMENT', id: 'installment-1' },
+      description: 'Laptop',
+      originalValue: 3000,
+      installmentValue: 250,
+      installmentNumber: 12,
+      purchaseDate: '2026-01-01',
+      lastInstallmentDate: '2026-12-01',
+      creditCardId: 'card-1',
+      details: null,
+      tagIds: [],
+      payerName: null,
+      progress: { paidInstallments: 7, remainingInstallments: 5, totalInstallments: 12 },
+      payments: [buildPayment({ reversed: true })],
+      links: [],
+      audit: null,
+    };
+
+    TestBed.configureTestingModule({
+      imports: [OmegaViewerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MatDialogRef, useValue: { close: vi.fn(), keydownEvents: () => of(), backdropClick: () => of() } },
+        { provide: MAT_DIALOG_DATA, useValue: { kind: 'INSTALLMENT', id: 'installment-1' } },
+      ],
+    });
+    TestBed.overrideComponent(OmegaViewerComponent, {
+      set: {
+        providers: [{ provide: OmegaViewerService, useValue: { load: () => of(installmentDetail) } }],
+      },
+    });
+
+    const installmentFixture = TestBed.createComponent(OmegaViewerComponent);
+    installmentFixture.detectChanges();
+    const installmentHttpMock = TestBed.inject(HttpTestingController);
+    installmentHttpMock
+      .expectOne('/api/credit-cards?page=0&size=100')
+      .flush({ content: [], page: 0, size: 100, totalElements: 0, totalPages: 0 });
+    await installmentFixture.whenStable();
+    installmentFixture.detectChanges();
+
+    const root = installmentFixture.nativeElement as HTMLElement;
+    expect(root.querySelector('.vps__revert-btn')).toBeNull();
+    expect(root.querySelector('[data-testid="payment-ineligible-hint"]')).not.toBeNull();
+
+    installmentHttpMock.verify({ ignoreCancelled: true });
   });
 });

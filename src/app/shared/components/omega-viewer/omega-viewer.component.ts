@@ -23,12 +23,14 @@ import { catchError, filter, map, of, switchMap } from 'rxjs';
 import { CreditCardService } from '@features/credit-card/services/credit-card.service';
 import { PatchExpenseRequest } from '@features/expense/models/expense';
 import { ExpenseService } from '@features/expense/services/expense.service';
+import { PaymentService } from '@features/payment/services/payment.service';
 import { SubscriptionService } from '@features/subscription/services/subscription.service';
 import { TagService } from '@features/tag/services/tag.service';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 
-import { OmegaViewerDetail } from './models/omega-viewer-detail';
+import { OmegaViewerDetail, OmegaViewerPayment } from './models/omega-viewer-detail';
 import { OmegaViewerFieldRow, OmegaViewerRemainingBadge } from './models/omega-viewer-field-row';
+import { formatPaymentDateLabel } from './models/omega-viewer-payment-row';
 import { OmegaViewerRef } from './models/omega-viewer-ref';
 import { OmegaViewerResult } from './models/omega-viewer-result';
 import { mapDetailToFieldRows, mapRemainingBadge } from './omega-viewer-field-mapper';
@@ -38,6 +40,7 @@ import { ViewerEditFormComponent } from './sections/viewer-edit-form.component';
 import { ViewerFieldListComponent } from './sections/viewer-field-list.component';
 import { ViewerNotesSectionComponent } from './sections/viewer-notes-section.component';
 import { ViewerPaymentsSectionComponent } from './sections/viewer-payments-section.component';
+import { ViewerRevertConfirmDialogComponent } from './sections/viewer-revert-confirm-dialog.component';
 
 /** The Omega Viewer's edit mode (F-07) — scoped to whatever item is currently on screen.
  * Always resets to `'VIEW'` on any navigation (push or pop), never preserved across items. */
@@ -121,6 +124,7 @@ export class OmegaViewerComponent {
   private readonly creditCardService = inject(CreditCardService);
   private readonly expenseService = inject(ExpenseService);
   private readonly subscriptionService = inject(SubscriptionService);
+  private readonly paymentService = inject(PaymentService);
   private readonly matDialog = inject(MatDialog);
 
   /** Title heading of the currently-displayed item — F-11 keyboard focus lands here on
@@ -167,6 +171,14 @@ export class OmegaViewerComponent {
    * a notes-only save error are conceptually different failures. */
   protected readonly notesSaving = signal(false);
   protected readonly notesSaveError = signal<string | null>(null);
+  /** F-10: id of the payment currently being reverted, `null` when none is in flight — kept
+   * shell-local (set imperatively in `revertPayment()`'s subscribe handlers) rather than bound
+   * to `PaymentService.reverting$`/`error$` directly: those are `providedIn: 'root'` subjects
+   * shared with `PaymentPage`, and this shell already has a firm rule (see `notesSaving`'s doc
+   * comment above) of never trusting a shared app-lifetime stream for view-local save/error UI
+   * state, to avoid one open surface's state bleeding into another's. */
+  protected readonly revertingId = signal<string | null>(null);
+  protected readonly revertError = signal<string | null>(null);
   /** User-facing message for the most recent failed save attempt, `null` when there is none
    * to show. Rendered inside `ViewerEditFormComponent` (still-open modal) rather than
    * relying on `ExpenseService.error$` — that stream surfaces in `ExpensePage`, which sits
@@ -590,6 +602,54 @@ export class OmegaViewerComponent {
       error: (error: unknown) => {
         this.saving.set(false);
         this.saveError.set(this.describeSaveError(error));
+      },
+    });
+  }
+
+  /** Wired to `ViewerPaymentsSectionComponent`'s `requestRevert` output (F-10). Opens
+   * `ViewerRevertConfirmDialogComponent` — same "dumb section emits, shell owns the
+   * confirmation + HTTP call" split F-08's notes section already established — and only calls
+   * `PaymentService.revert()` if the user confirms. Passes `dateLabel` (not the raw
+   * `paymentDate`) into the dialog via `formatPaymentDateLabel`, the exact same formatter
+   * `ViewerPaymentsSectionComponent`'s own rows use, so the dialog's message never drifts from
+   * what's on screen. */
+  protected requestRevertPayment(payment: OmegaViewerPayment): void {
+    this.matDialog
+      .open<ViewerRevertConfirmDialogComponent, { dateLabel: string }, boolean>(
+        ViewerRevertConfirmDialogComponent,
+        { data: { dateLabel: formatPaymentDateLabel(payment.paymentDate) } },
+      )
+      .afterClosed()
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.revertPayment(payment.id);
+        }
+      });
+  }
+
+  /** Calls `PaymentService.revert()` (backend B5/B6, already merged). On success: re-fetches
+   * the current item's own detail via `retry()` (same "push a new ref, let the switchMap
+   * re-fire" mechanism the error-state Retry button already uses) instead of layering a
+   * `savedOverride` — the reversal changes the WHOLE payment trace (the original flips to
+   * `reversed`, a new reversal row appears), not a single field `saveEdit`/`saveNotes` could
+   * patch onto the existing detail, so a full refetch is the only way to get an accurate
+   * trace without hand-rebuilding it here. Flags `mutated` so `ExpensePage`/`InstallmentPage`
+   * reload their list on close, same convention as every other mutation in this shell.
+   * On failure: surfaces `revertError` inside the still-open modal (never silently dropped —
+   * this exact silent-failure shape was code review C2, a critical finding, earlier in this
+   * feature; not repeating it here for reversal errors). */
+  private revertPayment(paymentId: string): void {
+    this.revertingId.set(paymentId);
+    this.revertError.set(null);
+    this.paymentService.revert(paymentId).subscribe({
+      next: () => {
+        this.revertingId.set(null);
+        this.mutated.set(true);
+        this.retry();
+      },
+      error: (error: unknown) => {
+        this.revertingId.set(null);
+        this.revertError.set(this.paymentService.describeRevertError(error));
       },
     });
   }

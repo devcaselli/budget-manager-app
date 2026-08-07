@@ -1,4 +1,5 @@
 import { formatBrl } from '@shared/utils/currency';
+import { isRevertablePayment } from '@shared/utils/is-revertable-payment';
 
 import { OmegaViewerPayment } from './omega-viewer-detail';
 
@@ -24,6 +25,19 @@ export interface OmegaViewerPaymentRow {
   readonly bulletDescription: string;
   readonly status: OmegaViewerPaymentStatus;
   readonly payerLabel: string;
+  /** F-10: precomputed once here (via `isRevertablePayment`) rather than re-evaluated in the
+   * template, per the same "no method calls in template" rule the rest of this row already
+   * follows. */
+  readonly revertable: boolean;
+  /** F-10: `aria-label` for the row's revert button/tooltip needs the payment's date — kept
+   * as its own field (rather than making the template re-derive it from `dateLabel`) so the
+   * accessible name is always in sync with what's visually shown. */
+  readonly revertAriaLabel: string;
+  /** F-10: hint shown (as a `title` attribute, this project's established lightweight-tooltip
+   * convention — see `bullet-page.html`/`installment-page.html`) for an ineligible row instead
+   * of just hiding the button with no explanation. `null` when `revertable` is `true` (no hint
+   * needed). */
+  readonly ineligibleHint: string | null;
   readonly payment: OmegaViewerPayment;
 }
 
@@ -38,6 +52,14 @@ function statusOf(payment: OmegaViewerPayment): OmegaViewerPaymentStatus {
 }
 
 const paymentDateFormatter = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
+
+/** Exported so the shell (`OmegaViewerComponent`) can render the same date label inside
+ * `ViewerRevertConfirmDialogComponent` (F-10) without duplicating the formatter or drifting
+ * from what the row itself displays — single source of truth for "how a payment date looks"
+ * in this feature. */
+export function formatPaymentDateLabel(paymentDate: string): string {
+  return paymentDateFormatter.format(new Date(paymentDate));
+}
 
 /** `payerIds` never resolves to display names here — no id→name lookup is available in the
  * Omega Viewer's DI graph today (`PayerService` is wallet-scoped and not preloaded by the
@@ -54,16 +76,46 @@ function payerLabelOf(payerIds: readonly string[]): string {
   return `${payerIds.length} pagadores`;
 }
 
+/**
+ * Explains WHY a row has no revert button, so an ineligible row shows a hint instead of just
+ * disappearing without context (F-10 acceptance criterion). `reversal`/`reversed` are the only
+ * two reasons this predicate can actually distinguish from `OmegaViewerPayment`'s shape (see
+ * `isRevertablePayment`'s doc comment for why `SHARED_PAYMENT`/`NO_BULLET` can't be detected
+ * here) — a payment that's neither is assumed likely-shared or otherwise backend-ineligible,
+ * so it gets the generic "revertido pela tela de Share" hint, which is also the single most
+ * common real-world reason a NORMAL, non-reversal, non-reversed row would still be rejected by
+ * the backend's `SHARED_PAYMENT`/`NO_BULLET` checks today.
+ */
+function ineligibleHintOf(payment: OmegaViewerPayment): string | null {
+  if (payment.reversal) {
+    return 'Este pagamento é uma reversão e não pode ser revertido novamente.';
+  }
+  if (payment.reversed) {
+    return 'Este pagamento já foi revertido.';
+  }
+  return null;
+}
+
+function revertAriaLabelOf(dateLabel: string): string {
+  return `Reverter pagamento de ${dateLabel}`;
+}
+
 export function mapPaymentsToRows(
   payments: readonly OmegaViewerPayment[],
 ): readonly OmegaViewerPaymentRow[] {
-  return payments.map((payment) => ({
-    id: payment.id,
-    dateLabel: paymentDateFormatter.format(new Date(payment.paymentDate)),
-    amountLabel: formatBrl(payment.amount),
-    bulletDescription: payment.bulletDescription,
-    status: statusOf(payment),
-    payerLabel: payerLabelOf(payment.payerIds),
-    payment,
-  }));
+  return payments.map((payment) => {
+    const dateLabel = formatPaymentDateLabel(payment.paymentDate);
+    return {
+      id: payment.id,
+      dateLabel,
+      amountLabel: formatBrl(payment.amount),
+      bulletDescription: payment.bulletDescription,
+      status: statusOf(payment),
+      payerLabel: payerLabelOf(payment.payerIds),
+      revertable: isRevertablePayment(payment),
+      revertAriaLabel: revertAriaLabelOf(dateLabel),
+      ineligibleHint: ineligibleHintOf(payment),
+      payment,
+    };
+  });
 }

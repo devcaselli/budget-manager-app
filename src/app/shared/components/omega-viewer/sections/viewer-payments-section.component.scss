@@ -97,6 +97,23 @@
   white-space: nowrap;
 }
 
+.vps__revert-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.vps__ineligible-hint {
+  color: var(--ew-ink-3);
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: help;
+  border-bottom: 1px dotted var(--ew-ink-3);
+}
+
 // ── Shared primitives (view encapsulation needs its own rule per component — same local
 // pattern as viewer-field-list.component.scss/viewer-notes-section.component.scss) ──────────
 .ew-pill {
@@ -114,4 +131,44 @@
   &--normal { color: var(--ew-ink-3); }
   &--reversal { color: var(--ew-acc); }
   &--reversed { color: var(--ew-bad); }
+}
+
+.ew-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-weight: 500;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &--ghost {
+    border-color: transparent;
+  }
+}
+
+.ew-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
 }
