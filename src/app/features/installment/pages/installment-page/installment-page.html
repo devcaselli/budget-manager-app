@@ -126,7 +126,15 @@
         @for (item of filteredListItems(); track item.id) {
           <div class="ew-alloc installment-alloc">
             <div class="ew-alloc-name">
-              <span class="installment-description-row">
+              <span
+                class="installment-description-row"
+                role="button"
+                tabindex="0"
+                (click)="openViewer(item)"
+                (keydown.enter)="openViewer(item)"
+                (keydown.space)="$event.preventDefault(); openViewer(item)"
+                [attr.aria-label]="'View ' + item.description"
+              >
                 {{ item.description }}
                 @if (item.details) {
                   <span
@@ -173,6 +181,15 @@
                 <small>{{ item.remainingAmount | brlCurrency }} left · ends {{ item.lastInstallmentDate }}</small>
               </div>
               <div class="installment-row-actions">
+                <button
+                  class="installment-action-btn"
+                  type="button"
+                  aria-label="View installment"
+                  title="View installment"
+                  (click)="openViewer(item)"
+                >
+                  <mat-icon aria-hidden="true">visibility</mat-icon>
+                </button>
                 <button
                   class="installment-action-btn"
                   type="button"
