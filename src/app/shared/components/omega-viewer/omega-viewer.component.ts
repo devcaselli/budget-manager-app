@@ -37,6 +37,7 @@ import { ViewerDiscardConfirmDialogComponent } from './sections/viewer-discard-c
 import { ViewerEditFormComponent } from './sections/viewer-edit-form.component';
 import { ViewerFieldListComponent } from './sections/viewer-field-list.component';
 import { ViewerNotesSectionComponent } from './sections/viewer-notes-section.component';
+import { ViewerPaymentsSectionComponent } from './sections/viewer-payments-section.component';
 
 /** The Omega Viewer's edit mode (F-07) — scoped to whatever item is currently on screen.
  * Always resets to `'VIEW'` on any navigation (push or pop), never preserved across items. */
@@ -105,6 +106,7 @@ function titleOf(detail: OmegaViewerDetail): string {
     ViewerFieldListComponent,
     ViewerEditFormComponent,
     ViewerNotesSectionComponent,
+    ViewerPaymentsSectionComponent,
   ],
   providers: [OmegaViewerService],
   templateUrl: './omega-viewer.component.html',
@@ -258,6 +260,14 @@ export class OmegaViewerComponent {
   protected readonly remainingBadge = computed<OmegaViewerRemainingBadge>(() => {
     const detail = this.readyDetail();
     return detail ? mapRemainingBadge(detail) : { kind: 'none' };
+  });
+
+  /** F-09: only Expense/Installment details carry a `payments` trace — Subscription has none
+   * (confirmed intentional, see `ViewerPaymentsSectionComponent`'s doc comment). Precomputed
+   * here so the template's `@if` stays a plain signal read, no inline kind comparison. */
+  protected readonly showPaymentsSection = computed(() => {
+    const kind = this.readyDetail()?.kind;
+    return kind === 'EXPENSE' || kind === 'INSTALLMENT';
   });
 
   /** `TagService`/`CreditCardService` are both `providedIn: 'root'` app-lifetime singletons

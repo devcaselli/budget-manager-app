@@ -282,6 +282,43 @@ describe('OmegaViewerService', () => {
 
       expect(result?.links).toEqual([{ ref: { kind: 'EXPENSE', id: 'expense-9' }, label: 'Laptop' }]);
     });
+
+    it('maps paymentTrace lines to OmegaViewerPayment, same as EXPENSE (F-09)', () => {
+      let result: OmegaViewerInstallmentDetail | undefined;
+      service.load({ kind: 'INSTALLMENT', id: 'installment-1' }).subscribe((detail) => {
+        result = detail as OmegaViewerInstallmentDetail;
+      });
+
+      httpMock.expectOne('/api/viewer/installments/installment-1').flush(
+        buildInstallmentDto({
+          paymentTrace: [
+            {
+              id: 'payment-1',
+              amount: 250,
+              paymentDate: '2026-07-05T12:00:00Z',
+              bulletId: 'bullet-1',
+              bulletDescription: 'Card bullet',
+              reversal: false,
+              reversed: false,
+              payerIds: ['user-1'],
+            },
+          ],
+        }),
+      );
+
+      expect(result?.payments).toEqual([
+        {
+          id: 'payment-1',
+          amount: 250,
+          paymentDate: '2026-07-05T12:00:00Z',
+          bulletId: 'bullet-1',
+          bulletDescription: 'Card bullet',
+          reversal: false,
+          reversed: false,
+          payerIds: ['user-1'],
+        },
+      ]);
+    });
   });
 
   describe('SUBSCRIPTION', () => {

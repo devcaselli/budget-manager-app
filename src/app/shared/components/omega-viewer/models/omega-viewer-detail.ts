@@ -13,7 +13,7 @@ export interface OmegaViewerAudit {
 
 /**
  * A single payment/bullet row, used by the Expense and Installment payments sections
- * (F-09/F-10, not built yet). Mirrors the backend's `PaymentTraceLineDto` — there is no
+ * (F-09/F-10). Mirrors the backend's `PaymentTraceLineDto` — there is no
  * singular resolved payer name at this level (see `payerName` below), only the raw
  * `payerIds` of whoever the payment/share was split across; resolving those ids to
  * display names is F-09/F-10's job, not the mapping layer's.
@@ -84,6 +84,13 @@ export interface OmegaViewerInstallmentDetail extends OmegaViewerDetailBase {
   readonly tagIds: readonly string[];
   readonly payerName: string | null;
   readonly progress: OmegaViewerInstallmentProgress;
+  /**
+   * F-09: `InstallmentViewerResponseDto` already carries `paymentTrace` (confirmed in
+   * `omega-viewer-dto.ts`) — this was simply never threaded through `mapInstallment` before
+   * the payments section existed to consume it. Same shape/mapping as Expense's `payments`
+   * (`mapPaymentTraceLine`), nothing invented.
+   */
+  readonly payments: readonly OmegaViewerPayment[];
 }
 
 export interface OmegaViewerSubscriptionDetail extends OmegaViewerDetailBase {

@@ -123,6 +123,7 @@ export class OmegaViewerService {
       tagIds: [],
       payerName: null,
       progress: mapProgress(dto.progress),
+      payments: dto.paymentTrace.map(mapPaymentTraceLine),
       links: mapRefs(dto.refs),
       audit: {
         createdAt: toDateOnly(dto.createdAt),

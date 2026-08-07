@@ -91,6 +91,10 @@
                 (editingChange)="onNotesEditingChange($event)"
               />
 
+              @if (showPaymentsSection()) {
+                <app-viewer-payments-section [detail]="detail" />
+              }
+
               @if (detail.links.length > 0) {
                 <div class="ovw__links">
                   <h4 class="ovw__links-title">Itens relacionados</h4>

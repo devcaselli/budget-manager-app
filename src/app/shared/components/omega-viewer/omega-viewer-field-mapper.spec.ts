@@ -43,6 +43,7 @@ function buildInstallmentDetail(
     tagIds: [],
     payerName: null,
     progress: { paidInstallments: 7, remainingInstallments: 5, totalInstallments: 12 },
+    payments: [],
     links: [],
     audit: null,
     ...overrides,
