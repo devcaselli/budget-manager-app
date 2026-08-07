@@ -26,6 +26,16 @@
   font-size: 12px;
 }
 
+.ew-sub-info[role='button'] {
+  cursor: pointer;
+  border-radius: 4px;
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
+  }
+}
+
 .sub-inactive {
   opacity: 0.55;
 

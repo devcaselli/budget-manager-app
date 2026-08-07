@@ -14,6 +14,7 @@ import {
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 import { matchesNameOrTag } from '@shared/utils/search-filter';
 import { TagChip, toTagChips } from '@shared/utils/tag-chips';
+import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
 
 import {
   SubscriptionFutureConfirmDialogComponent,
@@ -71,6 +72,7 @@ export class SubscriptionPage {
   private readonly subscriptionService = inject(SubscriptionService);
   private readonly walletService = inject(WalletService);
   private readonly tagService = inject(TagService);
+  private readonly omegaViewerLauncher = inject(OmegaViewerLauncher);
 
   /**
    * The wallet currently in context. Its effectiveMonth anchors both how a
@@ -318,6 +320,15 @@ export class SubscriptionPage {
           .assignTags(sub.id, selectedTagIds)
           .pipe(takeUntilDestroyed(this.destroyRef))
           .subscribe({ error: () => undefined });
+      });
+  }
+
+  protected openViewer(sub: SubscriptionListItem): void {
+    this.omegaViewerLauncher
+      .open({ kind: 'SUBSCRIPTION', id: sub.id })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result.mutated) this.subscriptionService.loadSubscriptions();
       });
   }
 
