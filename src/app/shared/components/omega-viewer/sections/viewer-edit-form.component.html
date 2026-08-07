@@ -1,0 +1,60 @@
+<form class="vef__form" [formGroup]="form" (ngSubmit)="submit()">
+  @if (saveError(); as message) {
+    <div class="ew-alert" role="alert">
+      <span>{{ message }}</span>
+    </div>
+  }
+
+  <div class="ew-field">
+    <label for="vef-name">Descrição</label>
+    <input id="vef-name" class="ew-input" formControlName="name" placeholder="e.g. Mercado" />
+    @if (form.controls.name.touched && form.controls.name.invalid) {
+      <p class="vef__error">Informe uma descrição.</p>
+    }
+  </div>
+
+  <div class="ew-field">
+    <label for="vef-cost">Valor</label>
+    <input
+      id="vef-cost"
+      class="ew-input"
+      type="number"
+      [attr.min]="minCost()"
+      step="0.01"
+      formControlName="cost"
+    />
+    @if (form.controls.cost.touched && form.controls.cost.invalid) {
+      <p class="vef__error">{{ minCostMessage() }}</p>
+    }
+  </div>
+
+  <div class="ew-field">
+    <label for="vef-date">Data</label>
+    <input id="vef-date" class="ew-input" type="date" formControlName="purchaseDate" />
+    @if (form.controls.purchaseDate.touched && form.controls.purchaseDate.invalid) {
+      <p class="vef__error">Informe uma data.</p>
+    }
+  </div>
+
+  <div class="ew-field">
+    <label for="vef-card">Cartão</label>
+    <select id="vef-card" class="ew-select" formControlName="creditCardId">
+      <option value="">— Dinheiro / débito —</option>
+      @for (card of creditCards(); track card.id) {
+        <option [value]="card.id">{{ card.name }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="ew-field">
+    <label for="vef-details">Detalhes</label>
+    <textarea id="vef-details" class="ew-textarea" formControlName="details" rows="3"></textarea>
+  </div>
+
+  <div class="vef__actions">
+    <button class="ew-btn ew-btn--ghost" type="button" (click)="onCancel()">Cancelar</button>
+    <button class="ew-btn ew-btn--primary" type="submit" [disabled]="saving()">
+      {{ saving() ? 'Salvando...' : 'Salvar' }}
+    </button>
+  </div>
+</form>

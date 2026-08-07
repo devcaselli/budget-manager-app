@@ -127,7 +127,14 @@
           <tbody>
             @for (expense of filteredExpenseItems(); track expense.id) {
               <tr>
-                <td>
+                <td
+                  role="button"
+                  tabindex="0"
+                  (click)="openViewer(expense)"
+                  (keydown.enter)="openViewer(expense)"
+                  (keydown.space)="$event.preventDefault(); openViewer(expense)"
+                  [attr.aria-label]="'View ' + expense.name"
+                >
                   {{ expense.name }}
                   @if (expense.tagChips.length > 0) {
                     <div class="expense-tag-chips">
@@ -161,6 +168,15 @@
                   }
                 </td>
                 <td class="ep-row-actions">
+                  <button
+                    class="ep-icon-btn"
+                    type="button"
+                    (click)="openViewer(expense)"
+                    aria-label="View expense"
+                    title="View expense"
+                  >
+                    <mat-icon aria-hidden="true">visibility</mat-icon>
+                  </button>
                   <button
                     class="ep-icon-btn"
                     type="button"
