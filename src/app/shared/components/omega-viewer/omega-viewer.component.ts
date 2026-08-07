@@ -10,7 +10,12 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import {
+  MAT_DIALOG_DATA,
+  MatDialog,
+  MatDialogModule,
+  MatDialogRef,
+} from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { HttpErrorResponse } from '@angular/common/http';
 import { catchError, filter, map, of, switchMap } from 'rxjs';
@@ -18,6 +23,7 @@ import { catchError, filter, map, of, switchMap } from 'rxjs';
 import { CreditCardService } from '@features/credit-card/services/credit-card.service';
 import { PatchExpenseRequest } from '@features/expense/models/expense';
 import { ExpenseService } from '@features/expense/services/expense.service';
+import { SubscriptionService } from '@features/subscription/services/subscription.service';
 import { TagService } from '@features/tag/services/tag.service';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 
@@ -30,6 +36,7 @@ import { OmegaViewerService } from './omega-viewer.service';
 import { ViewerDiscardConfirmDialogComponent } from './sections/viewer-discard-confirm-dialog.component';
 import { ViewerEditFormComponent } from './sections/viewer-edit-form.component';
 import { ViewerFieldListComponent } from './sections/viewer-field-list.component';
+import { ViewerNotesSectionComponent } from './sections/viewer-notes-section.component';
 
 /** The Omega Viewer's edit mode (F-07) — scoped to whatever item is currently on screen.
  * Always resets to `'VIEW'` on any navigation (push or pop), never preserved across items. */
@@ -59,8 +66,9 @@ function titleOf(detail: OmegaViewerDetail): string {
  * (history stack, detail resolution, loading/error/retry). F-11 adds the link-navigation UI
  * (slide+fade page-flip, `prefers-reduced-motion` support, keyboard focus management,
  * `aria-live` announcements). F-12 adds the field-list body via `ViewerFieldListComponent`.
- * F-07 adds Expense edit mode (see below). No payments section (F-09) yet — that plugs into
- * this shell later.
+ * F-07 adds Expense edit mode (see below). F-08 adds the notes section (see below) via
+ * `ViewerNotesSectionComponent`, rendered for all 3 kinds. No payments section (F-09) yet —
+ * that plugs into this shell later.
  *
  * `OmegaViewerService` is provided here at component scope (`providers: [OmegaViewerService]`)
  * — it is modal view-state, not an app-lifetime singleton, so it must NOT be
@@ -73,8 +81,15 @@ function titleOf(detail: OmegaViewerDetail): string {
  * F-07 adds Expense edit mode: a `mode` signal scoped to the current stack entry (always
  * reset to `'VIEW'` on any navigation, push or pop — see `navigateTo`/`goBack`), a dirty
  * guard shared by navigation and close (see `guardDirty`), and `disableClose` toggled on the
- * `MatDialogRef` while the edit form is dirty. Installment/Subscription edit forms are not
- * built yet — `mode` can only ever go to `'EDIT'` when the current item is an Expense.
+ * `MatDialogRef` while the edit form is dirty. Installment/Subscription full-record edit forms
+ * are not built yet — `mode` can only ever go to `'EDIT'` when the current item is an Expense.
+ *
+ * F-08 adds the notes section: `ViewerNotesSectionComponent` owns its OWN local edit state
+ * (deliberately not the shell's `mode` signal — see that component's doc comment for why),
+ * editable for Expense/Subscription and read-only for Installment. Its dirtiness
+ * (`notesDirty`) is folded into the SAME `guardDirty()`/`disableClose` machinery `mode` already
+ * drives, so an unsaved note is guarded exactly like an unsaved full Expense edit even though
+ * it can be dirty while `mode()` is still `'VIEW'`.
  */
 @Component({
   selector: 'app-omega-viewer',
@@ -85,6 +100,7 @@ function titleOf(detail: OmegaViewerDetail): string {
     BrDatePipe,
     ViewerFieldListComponent,
     ViewerEditFormComponent,
+    ViewerNotesSectionComponent,
   ],
   providers: [OmegaViewerService],
   templateUrl: './omega-viewer.component.html',
@@ -98,6 +114,7 @@ export class OmegaViewerComponent {
   private readonly tagService = inject(TagService);
   private readonly creditCardService = inject(CreditCardService);
   private readonly expenseService = inject(ExpenseService);
+  private readonly subscriptionService = inject(SubscriptionService);
   private readonly matDialog = inject(MatDialog);
 
   /** Title heading of the currently-displayed item — F-11 keyboard focus lands here on
@@ -119,6 +136,20 @@ export class OmegaViewerComponent {
    * navigate/close guard and `MatDialogRef.disableClose`. */
   private readonly formDirty = signal(false);
   protected readonly saving = signal(false);
+  /** F-08: mirrors `ViewerNotesSectionComponent`'s `dirtyChange` output — a second,
+   * independent dirty source (notes editing is a component-local mode, not the shell's
+   * `mode` signal, see that component's doc comment) folded into the SAME `guardDirty()` via
+   * `isDirty()` below, so an unsaved note is guarded exactly like an unsaved full Expense
+   * edit — one dirty-guard behavior for the user, not two divergent ones. */
+  private readonly notesDirty = signal(false);
+  /** Save-in-flight / failure state for the notes section — kept separate from
+   * `saving`/`saveError` (the full Expense edit form's own state) rather than shared, even
+   * though the two can never be visually active at the same time (notes only renders in
+   * `mode() === 'VIEW'`): sharing would make `saveEdit`/`saveNotes` reset each other's error
+   * message on unrelated failures, which is confusing when Expense's full-edit save error and
+   * a notes-only save error are conceptually different failures. */
+  protected readonly notesSaving = signal(false);
+  protected readonly notesSaveError = signal<string | null>(null);
   /** User-facing message for the most recent failed save attempt, `null` when there is none
    * to show. Rendered inside `ViewerEditFormComponent` (still-open modal) rather than
    * relying on `ExpenseService.error$` — that stream surfaces in `ExpensePage`, which sits
@@ -131,9 +162,10 @@ export class OmegaViewerComponent {
    * the patch response immediately without refetching. Keyed by ref so a stale override can
    * never leak onto a different item after navigation; cleared on every `navigateTo`/`goBack`.
    */
-  private readonly savedOverride = signal<{ ref: OmegaViewerRef; detail: OmegaViewerDetail } | null>(
-    null,
-  );
+  private readonly savedOverride = signal<{
+    ref: OmegaViewerRef;
+    detail: OmegaViewerDetail;
+  } | null>(null);
 
   /** Text of the most recent `aria-live` announcement — screen readers hear this whenever a
    * page-flip lands on a new item (F-11). Empty on first paint (nothing to announce yet, and
@@ -255,16 +287,23 @@ export class OmegaViewerComponent {
     //      which route both through `close()` (the same `guardDirty()`-backed path the "×"
     //      button already used) instead of leaving the user stuck with a modal that appears
     //      to ignore the Escape key.
+    //
+    // F-08: also `true` while `notesDirty()` — notes editing is a component-local mode (see
+    // `ViewerNotesSectionComponent`'s doc comment) that can be active while the shell's own
+    // `mode()` is still `'VIEW'`, so `mode() === 'EDIT'` alone would miss it entirely and let
+    // ESC/backdrop silently drop an in-progress note edit. `notesDirty` (not some
+    // `notesEditing`-shaped flag) is intentional here too, same C1a-style race-window
+    // reasoning: nothing is at risk of being lost until the user has actually typed something.
     effect(() => {
-      this.dialogRef.disableClose = this.mode() === 'EDIT';
+      this.dialogRef.disableClose = this.mode() === 'EDIT' || this.notesDirty();
     });
 
     // Routes ESC and backdrop-click through `close()` — the exact same `guardDirty()` path as
     // the "×" button — instead of letting Material's native `disableClose` merely swallow
-    // them. With `disableClose` now fixed to `mode() === 'EDIT'` (see effect above), these
-    // subscriptions are the only way ESC/backdrop can ever fire while in EDIT, and outside
-    // EDIT `disableClose` is `false` so Material's own handling never reaches here anyway —
-    // no double-close risk.
+    // them. With `disableClose` now fixed to `mode() === 'EDIT' || notesDirty()` (see effect
+    // above), these subscriptions are the only way ESC/backdrop can ever fire whenever
+    // `disableClose` is `true`; whenever it's `false`, Material's own handling never reaches
+    // here anyway — no double-close risk either way.
     this.dialogRef
       .keydownEvents()
       .pipe(
@@ -360,6 +399,74 @@ export class OmegaViewerComponent {
     this.formDirty.set(dirty);
   }
 
+  /** Wired to `ViewerNotesSectionComponent`'s `dirtyChange` output (F-08) — see `notesDirty`'s
+   * doc comment for why this is a second signal rather than reusing `formDirty`. */
+  protected onNotesDirtyChange(dirty: boolean): void {
+    this.notesDirty.set(dirty);
+  }
+
+  /** Wired to `ViewerNotesSectionComponent`'s `cancelEdit` output — no dirty guard needed here
+   * (unlike `cancelEdit()` for the full Expense form): the notes section itself already
+   * resets its own local form state before emitting, so by the time this fires `notesDirty`
+   * is already back to `false`. This handler exists only so a future need (e.g. an
+   * shell-level toast) has somewhere to hook in — today it's a no-op. */
+  protected onNotesCancelEdit(): void {
+    this.notesSaveError.set(null);
+  }
+
+  /** Wired to `ViewerNotesSectionComponent`'s `save` output (F-08). Routes to
+   * `ExpenseService.patch()`/`SubscriptionService.update()` depending on the current item's
+   * kind — Installment never reaches here (`ViewerNotesSectionComponent` renders no Save
+   * button for it). Same "layer the response onto `readyDetail` via `savedOverride`, no
+   * refetch" pattern `saveEdit()` already uses for the full Expense form, and the same
+   * `mutated`/error-surfacing conventions. */
+  protected saveNotes(details: string): void {
+    const detail = this.readyDetail();
+    if (!detail) {
+      return;
+    }
+
+    this.notesSaving.set(true);
+    this.notesSaveError.set(null);
+
+    if (detail.kind === 'EXPENSE') {
+      this.expenseService.patch(detail.ref.id, { details }).subscribe({
+        next: (updated) => {
+          this.notesSaving.set(false);
+          this.notesDirty.set(false);
+          this.mutated.set(true);
+          this.savedOverride.set({
+            ref: detail.ref,
+            detail: { ...detail, details: updated.details ?? null, audit: null },
+          });
+        },
+        error: (error: unknown) => {
+          this.notesSaving.set(false);
+          this.notesSaveError.set(this.describeSaveError(error));
+        },
+      });
+      return;
+    }
+
+    if (detail.kind === 'SUBSCRIPTION') {
+      this.subscriptionService.update(detail.ref.id, { details }).subscribe({
+        next: (updated) => {
+          this.notesSaving.set(false);
+          this.notesDirty.set(false);
+          this.mutated.set(true);
+          this.savedOverride.set({
+            ref: detail.ref,
+            detail: { ...detail, details: updated.details ?? null, audit: null },
+          });
+        },
+        error: (error: unknown) => {
+          this.notesSaving.set(false);
+          this.notesSaveError.set(this.describeSaveError(error));
+        },
+      });
+    }
+  }
+
   /** Wired to `ViewerEditFormComponent`'s `save` output. `patch` only carries the fields the
    * form actually changed (built by the form itself) — the backend's `PatchExpenseUseCase`
    * treats every absent field as "don't touch", so this never re-sends untouched values.
@@ -412,12 +519,18 @@ export class OmegaViewerComponent {
     });
   }
 
-  /** Best-effort mapping from the patch failure to a message the user can act on. The 422
+  /** Best-effort mapping from a patch failure to a message the user can act on — shared by
+   * `saveEdit()` (full Expense form) and `saveNotes()` (F-08, Expense/Subscription). The 422
    * `ExpenseCostBelowPaidAmountException` case is the one guaranteed to recur in practice
    * (reducing `cost` below what's already been paid) — `ViewerEditFormComponent`'s own
    * dynamic `min` validator (M1) should catch most of these client-side before the request
    * ever goes out, but the backend remains the source of truth, so this stays as the
-   * fallback safety net for whatever slips past it or fails for any other reason. */
+   * fallback safety net for whatever slips past it or fails for any other reason. This
+   * specific 422 title can only ever come from a `cost`-bearing patch (i.e. `saveEdit()`),
+   * never from `saveNotes()` (`details`-only payload) — so the special-cased branch is
+   * effectively dead for notes saves, which always fall through to the generic message
+   * below; kept as one shared function rather than forked per-caller since the fallback text
+   * is already kind-agnostic. */
   private describeSaveError(error: unknown): string {
     if (error instanceof HttpErrorResponse && error.status === 422) {
       const title = (error.error as { title?: string } | null)?.title;
@@ -434,11 +547,15 @@ export class OmegaViewerComponent {
     this.saveError.set(null);
   }
 
-  /** Shared by `navigateTo`/`goBack`/`close`/`cancelEdit` — if the edit form is dirty, opens
-   * `ViewerDiscardConfirmDialogComponent` and only runs `action` when the user confirms
-   * discarding; otherwise runs `action` immediately. */
+  /** Shared by `navigateTo`/`goBack`/`close`/`cancelEdit` — if the full Expense edit form OR
+   * the notes section (F-08) is dirty, opens `ViewerDiscardConfirmDialogComponent` and only
+   * runs `action` when the user confirms discarding; otherwise runs `action` immediately.
+   * `notesDirty` is checked independently of `mode()` — unlike the full edit form, notes
+   * editing is a component-local mode that can be dirty while the shell itself is still in
+   * `'VIEW'` (see `ViewerNotesSectionComponent`'s doc comment). */
   private guardDirty(action: () => void): void {
-    if (this.mode() !== 'EDIT' || !this.formDirty()) {
+    const formIsDirty = this.mode() === 'EDIT' && this.formDirty();
+    if (!formIsDirty && !this.notesDirty()) {
       action();
       return;
     }
@@ -448,6 +565,8 @@ export class OmegaViewerComponent {
       .afterClosed()
       .subscribe((confirmed) => {
         if (confirmed) {
+          this.notesDirty.set(false);
+          this.notesSaveError.set(null);
           action();
         }
       });

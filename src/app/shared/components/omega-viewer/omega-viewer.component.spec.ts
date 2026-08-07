@@ -19,7 +19,9 @@ import { OmegaViewerResult } from './models/omega-viewer-result';
 import { OmegaViewerComponent } from './omega-viewer.component';
 import { OmegaViewerService } from './omega-viewer.service';
 
-function buildExpenseDto(overrides: Partial<ExpenseViewerResponseDto> = {}): ExpenseViewerResponseDto {
+function buildExpenseDto(
+  overrides: Partial<ExpenseViewerResponseDto> = {},
+): ExpenseViewerResponseDto {
   return {
     id: 'expense-1',
     name: 'Groceries',
@@ -201,9 +203,13 @@ describe('OmegaViewerComponent', () => {
   it('goBack pops the stack and always refetches (no caching)', () => {
     setup({ kind: 'EXPENSE', id: 'expense-1' });
 
-    httpMock.expectOne('/api/viewer/expenses/expense-1').flush(
-      buildExpenseDto({ refs: [{ type: 'INSTALLMENT', id: 'installment-1', label: 'Parcelamento' }] }),
-    );
+    httpMock
+      .expectOne('/api/viewer/expenses/expense-1')
+      .flush(
+        buildExpenseDto({
+          refs: [{ type: 'INSTALLMENT', id: 'installment-1', label: 'Parcelamento' }],
+        }),
+      );
 
     component['navigateTo']({ kind: 'INSTALLMENT', id: 'installment-1' });
     fixture.detectChanges();
@@ -304,9 +310,14 @@ describe('OmegaViewerComponent — audit metadata + deleted strip (F-13)', () =>
   }
 
   it('renders the audit metadata line, formatted via BrDatePipe, when audit is present', async () => {
-    await setup(buildExpenseDetail({ audit: { createdAt: '2026-01-01', updatedAt: '2026-02-15', deletedAt: null } }));
+    await setup(
+      buildExpenseDetail({
+        audit: { createdAt: '2026-01-01', updatedAt: '2026-02-15', deletedAt: null },
+      }),
+    );
 
-    const text = (fixture.nativeElement as HTMLElement).querySelector('.ovw__audit')?.textContent ?? '';
+    const text =
+      (fixture.nativeElement as HTMLElement).querySelector('.ovw__audit')?.textContent ?? '';
 
     expect(text).toContain('Criado em');
     expect(text).toContain('Atualizado em');
@@ -336,7 +347,11 @@ describe('OmegaViewerComponent — audit metadata + deleted strip (F-13)', () =>
   });
 
   it('hides the deleted strip when deletedAt is null', async () => {
-    await setup(buildExpenseDetail({ audit: { createdAt: '2026-01-01', updatedAt: '2026-02-15', deletedAt: null } }));
+    await setup(
+      buildExpenseDetail({
+        audit: { createdAt: '2026-01-01', updatedAt: '2026-02-15', deletedAt: null },
+      }),
+    );
 
     const alert = (fixture.nativeElement as HTMLElement).querySelector('.ew-alert[role="alert"]');
 
@@ -492,18 +507,18 @@ describe('OmegaViewerComponent — link navigation, focus, aria-live, reduced-mo
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.ovw__item-title')?.textContent).toBe(
-      'Laptop',
-    );
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.ovw__item-title')?.textContent,
+    ).toBe('Laptop');
 
     (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.ovw__back')?.click();
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.ovw__item-title')?.textContent).toBe(
-      'Groceries',
-    );
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.ovw__item-title')?.textContent,
+    ).toBe('Groceries');
   });
 
   it('moves keyboard focus to the new item title on every page-flip — never lost', async () => {
@@ -551,9 +566,9 @@ describe('OmegaViewerComponent — link navigation, focus, aria-live, reduced-mo
     fixture.detectChanges();
 
     expect(
-      (fixture.nativeElement as HTMLElement).querySelector('.ovw__flip')?.classList.contains(
-        'ovw__flip--anim',
-      ),
+      (fixture.nativeElement as HTMLElement)
+        .querySelector('.ovw__flip')
+        ?.classList.contains('ovw__flip--anim'),
     ).toBe(true);
   });
 
@@ -569,9 +584,9 @@ describe('OmegaViewerComponent — link navigation, focus, aria-live, reduced-mo
 
     expect(matchMediaSpy).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)');
     expect(
-      (fixture.nativeElement as HTMLElement).querySelector('.ovw__flip')?.classList.contains(
-        'ovw__flip--anim',
-      ),
+      (fixture.nativeElement as HTMLElement)
+        .querySelector('.ovw__flip')
+        ?.classList.contains('ovw__flip--anim'),
     ).toBe(false);
   });
 });
@@ -1123,7 +1138,9 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
         .flush('boom', { status: 500, statusText: 'Error' });
       fixture.detectChanges();
 
-      expect(component['saveError']()).toBe('Não foi possível salvar as alterações. Tente novamente.');
+      expect(component['saveError']()).toBe(
+        'Não foi possível salvar as alterações. Tente novamente.',
+      );
       expect(component['saving']()).toBe(false);
       // Still in EDIT with the user's typed values intact — correct retry behavior, unchanged.
       expect(component['mode']()).toBe('EDIT');
@@ -1134,10 +1151,15 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
 
       component['enterEditMode']();
       component['saveEdit']({ cost: 5 });
-      httpMock.expectOne('/api/expenses/expense-1').flush(
-        { title: 'Expense cost below paid amount', detail: 'new cost is below the amount already paid' },
-        { status: 422, statusText: 'Unprocessable Entity' },
-      );
+      httpMock
+        .expectOne('/api/expenses/expense-1')
+        .flush(
+          {
+            title: 'Expense cost below paid amount',
+            detail: 'new cost is below the amount already paid',
+          },
+          { status: 422, statusText: 'Unprocessable Entity' },
+        );
       fixture.detectChanges();
 
       expect(component['saveError']()).toBe(
@@ -1224,5 +1246,264 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
     component['enterEditMode']();
 
     expect(component['mode']()).toBe('VIEW');
+  });
+});
+
+describe('OmegaViewerComponent — notes section (F-08)', () => {
+  let fixture: ComponentFixture<OmegaViewerComponent>;
+  let component: OmegaViewerComponent;
+  let httpMock: HttpTestingController;
+  let dialog: { open: ReturnType<typeof vi.fn> };
+  let dialogRef: {
+    close: ReturnType<typeof vi.fn>;
+    keydownEvents: ReturnType<typeof vi.fn>;
+    backdropClick: ReturnType<typeof vi.fn>;
+  };
+
+  function buildExpenseDetail(
+    overrides: Partial<OmegaViewerExpenseDetail> = {},
+  ): OmegaViewerExpenseDetail {
+    return {
+      kind: 'EXPENSE',
+      ref: { kind: 'EXPENSE', id: 'expense-1' },
+      name: 'Groceries',
+      cost: 100,
+      remaining: 40,
+      purchaseDate: '2026-07-01',
+      creditCardId: 'card-1',
+      details: 'Original note',
+      tagIds: [],
+      payerName: null,
+      payments: [],
+      installmentsRemaining: null,
+      links: [],
+      audit: null,
+      ...overrides,
+    };
+  }
+
+  function buildInstallmentDetail(
+    overrides: Partial<OmegaViewerInstallmentDetail> = {},
+  ): OmegaViewerInstallmentDetail {
+    return {
+      kind: 'INSTALLMENT',
+      ref: { kind: 'INSTALLMENT', id: 'installment-1' },
+      description: 'Laptop',
+      originalValue: 3000,
+      installmentValue: 250,
+      installmentNumber: 12,
+      purchaseDate: '2026-01-01',
+      lastInstallmentDate: '2026-12-01',
+      creditCardId: 'card-1',
+      details: 'Read-only installment note',
+      tagIds: [],
+      payerName: null,
+      progress: { paidInstallments: 7, remainingInstallments: 5, totalInstallments: 12 },
+      links: [],
+      audit: null,
+      ...overrides,
+    };
+  }
+
+  function buildSubscriptionDetail(details: string | null = null): OmegaViewerDetail {
+    return {
+      kind: 'SUBSCRIPTION',
+      ref: { kind: 'SUBSCRIPTION', id: 'subscription-1' },
+      description: 'Netflix',
+      currency: 'BRL',
+      state: 'PRODUCTION',
+      startMonth: '2026-01',
+      endMonth: null,
+      creditCardId: 'card-1',
+      details,
+      tagIds: [],
+      payerName: null,
+      links: [],
+      audit: null,
+    };
+  }
+
+  /** Stubs `OmegaViewerService.load()` to resolve whatever detail matches `initialRef.kind` —
+   * lets a single `setup()` serve all 3 kinds by varying `initialRef`. */
+  async function setup(initialRef: OmegaViewerRef, detail: OmegaViewerDetail): Promise<void> {
+    dialogRef = {
+      close: vi.fn(),
+      keydownEvents: vi.fn().mockReturnValue(of()),
+      backdropClick: vi.fn().mockReturnValue(of()),
+    };
+    dialog = { open: vi.fn().mockReturnValue({ afterClosed: () => of(true) }) };
+
+    TestBed.configureTestingModule({
+      imports: [OmegaViewerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MatDialogRef, useValue: dialogRef },
+        { provide: MAT_DIALOG_DATA, useValue: initialRef },
+        { provide: MatDialog, useValue: dialog },
+      ],
+    });
+    TestBed.overrideComponent(OmegaViewerComponent, {
+      set: {
+        providers: [
+          { provide: MatDialog, useValue: dialog },
+          { provide: OmegaViewerService, useValue: { load: () => of(detail) } },
+        ],
+      },
+    });
+
+    fixture = TestBed.createComponent(OmegaViewerComponent);
+    component = fixture.componentInstance;
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne('/api/credit-cards?page=0&size=100')
+      .flush({ content: [], page: 0, size: 100, totalElements: 0, totalPages: 0 });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  it('renders the notes section for EXPENSE in VIEW mode', async () => {
+    await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('app-viewer-notes-section')).not.toBeNull();
+    expect(root.textContent).toContain('Original note');
+  });
+
+  it('renders the notes section for SUBSCRIPTION with an editable Edit button', async () => {
+    await setup({ kind: 'SUBSCRIPTION', id: 'subscription-1' }, buildSubscriptionDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    const section = root.querySelector('app-viewer-notes-section');
+    expect(section).not.toBeNull();
+    expect(section?.querySelector('.vns__edit-btn')).not.toBeNull();
+  });
+
+  it('renders the notes section for INSTALLMENT as read-only (no Edit button)', async () => {
+    await setup({ kind: 'INSTALLMENT', id: 'installment-1' }, buildInstallmentDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    const section = root.querySelector('app-viewer-notes-section');
+    expect(section).not.toBeNull();
+    expect(section?.textContent).toContain('Read-only installment note');
+    expect(section?.querySelector('.vns__edit-btn')).toBeNull();
+    expect(section?.querySelector('textarea')).toBeNull();
+  });
+
+  it('hides the notes section while the shell is in full Expense EDIT mode', async () => {
+    await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+
+    component['enterEditMode']();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('app-viewer-notes-section')).toBeNull();
+  });
+
+  it('saveNotes for EXPENSE calls ExpenseService.patch, layers the response, and sets mutated', async () => {
+    await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+
+    component['saveNotes']('Updated note');
+
+    const req = httpMock.expectOne('/api/expenses/expense-1');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ details: 'Updated note' });
+    req.flush({
+      id: 'expense-1',
+      name: 'Groceries',
+      cost: 100,
+      remaining: 40,
+      purchaseDate: '2026-07-01',
+      walletId: 'wallet-1',
+      creditCardId: 'card-1',
+      installment: false,
+      details: 'Updated note',
+    });
+    fixture.detectChanges();
+
+    expect(component['readyDetail']()?.details).toBe('Updated note');
+    expect(component['notesSaving']()).toBe(false);
+    // `mutated` is private — observed indirectly via close()'s result payload.
+    component['close']();
+    expect(dialogRef.close).toHaveBeenCalledWith({ mutated: true });
+  });
+
+  it('saveNotes for SUBSCRIPTION calls SubscriptionService.update and layers the response', async () => {
+    await setup({ kind: 'SUBSCRIPTION', id: 'subscription-1' }, buildSubscriptionDetail());
+
+    component['saveNotes']('Sub note');
+
+    const req = httpMock.expectOne('/api/subscriptions/subscription-1');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ details: 'Sub note' });
+    req.flush({
+      id: 'subscription-1',
+      description: 'Netflix',
+      currency: 'BRL',
+      state: 'PRODUCTION',
+      flag: 'NONE',
+      startMonth: '2026-01',
+      endMonth: null,
+      versions: [],
+      creditCardId: 'card-1',
+      details: 'Sub note',
+    });
+    fixture.detectChanges();
+
+    expect(component['readyDetail']()?.details).toBe('Sub note');
+    expect(component['notesSaving']()).toBe(false);
+  });
+
+  it('saveNotes surfaces a notesSaveError on failure without touching the full-edit saveError', async () => {
+    await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+
+    component['saveNotes']('Updated note');
+    httpMock
+      .expectOne('/api/expenses/expense-1')
+      .flush('boom', { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+
+    expect(component['notesSaveError']()).toBe(
+      'Não foi possível salvar as alterações. Tente novamente.',
+    );
+    expect(component['saveError']()).toBeNull();
+    expect(component['notesSaving']()).toBe(false);
+  });
+
+  it('disableClose is set while notesDirty is true, even though mode() stays VIEW', async () => {
+    await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+
+    component['onNotesDirtyChange'](true);
+    fixture.detectChanges();
+
+    expect(component['mode']()).toBe('VIEW');
+    expect(dialogRef).toBeDefined();
+    // `dialogRef.disableClose` is set on the injected `MatDialogRef` mock object itself.
+    expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(true);
+  });
+
+  it('guardDirty blocks navigateTo while notes are dirty and the user cancels the discard dialog', async () => {
+    await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+    dialog.open.mockReturnValue({ afterClosed: () => of(false) });
+
+    component['onNotesDirtyChange'](true);
+    component['navigateTo']({ kind: 'INSTALLMENT', id: 'installment-1' });
+    fixture.detectChanges();
+
+    expect(dialog.open).toHaveBeenCalled();
+    expect(component['current']()).toEqual({ kind: 'EXPENSE', id: 'expense-1' });
+  });
+
+  it('guardDirty allows close() through once notes are no longer dirty', async () => {
+    await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+
+    component['onNotesDirtyChange'](true);
+    component['onNotesDirtyChange'](false);
+    component['close']();
+
+    expect(dialogRef.close).toHaveBeenCalled();
   });
 });

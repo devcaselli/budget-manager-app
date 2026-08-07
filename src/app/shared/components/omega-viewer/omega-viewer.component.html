@@ -29,7 +29,9 @@
       @case ('error') {
         <div class="ew-alert" role="alert">
           <span>Não foi possível carregar os detalhes.</span>
-          <button class="ew-btn ew-btn--ghost" type="button" (click)="retry()">Tentar novamente</button>
+          <button class="ew-btn ew-btn--ghost" type="button" (click)="retry()">
+            Tentar novamente
+          </button>
         </div>
       }
       @case ('ready') {
@@ -79,6 +81,15 @@
             } @else {
               <app-viewer-field-list [rows]="fieldRows()" [remainingBadge]="remainingBadge()" />
 
+              <app-viewer-notes-section
+                [detail]="detail"
+                [saving]="notesSaving()"
+                [saveError]="notesSaveError()"
+                (save)="saveNotes($event)"
+                (cancelEdit)="onNotesCancelEdit()"
+                (dirtyChange)="onNotesDirtyChange($event)"
+              />
+
               @if (detail.links.length > 0) {
                 <div class="ovw__links">
                   <h4 class="ovw__links-title">Itens relacionados</h4>
@@ -97,7 +108,8 @@
 
               @if (detail.audit; as audit) {
                 <p class="ovw__audit">
-                  Criado em {{ audit.createdAt | brDate }} · Atualizado em {{ audit.updatedAt | brDate }}
+                  Criado em {{ audit.createdAt | brDate }} · Atualizado em
+                  {{ audit.updatedAt | brDate }}
                 </p>
               }
             }
