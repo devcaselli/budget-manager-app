@@ -86,10 +86,14 @@ function titleOf(detail: OmegaViewerDetail): string {
  *
  * F-08 adds the notes section: `ViewerNotesSectionComponent` owns its OWN local edit state
  * (deliberately not the shell's `mode` signal — see that component's doc comment for why),
- * editable for Expense/Subscription and read-only for Installment. Its dirtiness
- * (`notesDirty`) is folded into the SAME `guardDirty()`/`disableClose` machinery `mode` already
- * drives, so an unsaved note is guarded exactly like an unsaved full Expense edit even though
- * it can be dirty while `mode()` is still `'VIEW'`.
+ * editable for Expense/Subscription and read-only for Installment. Its dirtiness (`notesDirty`,
+ * fine-grained) is folded into `guardDirty()` and its coarse "is editing at all" counterpart
+ * (`notesEditing`) into `disableClose` — the same `mode`/`formDirty` split the full Expense
+ * edit form already uses, and for the same reason (code review M1): a coarse, race-free signal
+ * for the native ESC/backdrop block, a fine one for "is there actually something to lose".
+ * `enterEditMode()` itself is routed through `guardDirty()` (code review C1) since it destroys
+ * the notes section, and the shell defensively self-heals both signals if that section is ever
+ * torn down through any OTHER path too (see the `notesSection` viewChild effect).
  */
 @Component({
   selector: 'app-omega-viewer',
@@ -121,6 +125,12 @@ export class OmegaViewerComponent {
    * every page-flip so focus is never lost mid-navigation. `tabindex="-1"` on the host
    * element (set in the template) makes a non-interactive heading a valid focus target. */
   private readonly titleRef = viewChild<ElementRef<HTMLElement>>('titleEl');
+  /** Code review M2: imperative handle onto the notes section so `guardDirty()`'s confirmed
+   * branch can command it to drop local edit state (`resetEdit()`) instead of only hoping it
+   * notices via `detail()` changing — see `ViewerNotesSectionComponent.resetEdit()`'s doc
+   * comment. `undefined` whenever the section isn't rendered (full Expense edit mode, or the
+   * detail hasn't loaded yet) — every call site below already guards on that. */
+  private readonly notesSection = viewChild(ViewerNotesSectionComponent);
 
   /** Navigation stack — index 0 is the item the viewer was opened with. */
   private readonly history = signal<readonly OmegaViewerRef[]>([this.initialRef]);
@@ -142,6 +152,11 @@ export class OmegaViewerComponent {
    * `isDirty()` below, so an unsaved note is guarded exactly like an unsaved full Expense
    * edit — one dirty-guard behavior for the user, not two divergent ones. */
   private readonly notesDirty = signal(false);
+  /** Code review M1: mirrors `ViewerNotesSectionComponent`'s `editingChange` output — the
+   * coarse "notes form is open" counterpart to `mode` for `disableClose`, exactly as
+   * `formDirty` is the fine counterpart to `notesDirty` for `guardDirty()`. See the
+   * `disableClose` effect below for why `notesDirty` alone isn't enough there. */
+  private readonly notesEditing = signal(false);
   /** Save-in-flight / failure state for the notes section — kept separate from
    * `saving`/`saveError` (the full Expense edit form's own state) rather than shared, even
    * though the two can never be visually active at the same time (notes only renders in
@@ -288,19 +303,54 @@ export class OmegaViewerComponent {
     //      button already used) instead of leaving the user stuck with a modal that appears
     //      to ignore the Escape key.
     //
-    // F-08: also `true` while `notesDirty()` — notes editing is a component-local mode (see
+    // F-08: also `true` while `notesEditing()` — notes editing is a component-local mode (see
     // `ViewerNotesSectionComponent`'s doc comment) that can be active while the shell's own
     // `mode()` is still `'VIEW'`, so `mode() === 'EDIT'` alone would miss it entirely and let
-    // ESC/backdrop silently drop an in-progress note edit. `notesDirty` (not some
-    // `notesEditing`-shaped flag) is intentional here too, same C1a-style race-window
-    // reasoning: nothing is at risk of being lost until the user has actually typed something.
+    // ESC/backdrop silently drop an in-progress note edit.
+    //
+    // Code review M1: this used to gate on `notesDirty()` (fine-grained) instead of
+    // `notesEditing()` (coarse). That reopened the exact C1a race window the `mode`-not-
+    // `formDirty` choice above was designed to close: between the user's first keystroke in
+    // the notes textarea and `dirtyChange(true)` landing here (a tick later, from inside a
+    // `valueChanges` subscribe), `notesDirty()` was still `false` and ESC/backdrop could slip
+    // through unguarded. `notesEditing()` flips the instant the notes `FormGroup` is created
+    // (`startEdit()`), with no dependency on the form actually being dirty yet — same
+    // race-free guarantee `mode()` already gives the full Expense form. `notesDirty` stays
+    // reserved for `guardDirty()` below, where the fine-grained "is there actually something
+    // to lose" distinction is exactly what's wanted.
     effect(() => {
-      this.dialogRef.disableClose = this.mode() === 'EDIT' || this.notesDirty();
+      this.dialogRef.disableClose = this.mode() === 'EDIT' || this.notesEditing();
+    });
+
+    // Code review C1 (defensive part, take 2): the natural fix — have
+    // `ViewerNotesSectionComponent` emit `dirtyChange(false)`/`editingChange(false)` from its
+    // own `DestroyRef.onDestroy()` when the shell tears it down (full Expense edit mode) —
+    // does NOT work with signal-based `output()`. `OutputEmitterRef` marks itself destroyed via
+    // its OWN `DestroyRef.onDestroy()` callback, registered when the output field is
+    // constructed (before the component's constructor body runs), so by the time any
+    // `onDestroy` callback added inside the constructor fires, the output is already dead —
+    // `emit()` silently no-ops with an `NG0953` console warning instead of reaching here.
+    // Confirmed with a failing test before landing this fix the other way.
+    //
+    // Instead: `notesSection` (a `viewChild`) is itself a reactive signal — it flips to
+    // `undefined` the instant Angular removes `<app-viewer-notes-section>` from the DOM, no
+    // extra wiring in the child needed. Watching that transition here gives the shell the same
+    // guarantee (self-healing `notesDirty`/`notesEditing`, whatever destroys the section) with
+    // no dependency on the child's own teardown machinery at all.
+    let hadNotesSection = false;
+    effect(() => {
+      const hasNotesSection = this.notesSection() !== undefined;
+      if (hadNotesSection && !hasNotesSection) {
+        this.notesDirty.set(false);
+        this.notesEditing.set(false);
+        this.notesSaveError.set(null);
+      }
+      hadNotesSection = hasNotesSection;
     });
 
     // Routes ESC and backdrop-click through `close()` — the exact same `guardDirty()` path as
     // the "×" button — instead of letting Material's native `disableClose` merely swallow
-    // them. With `disableClose` now fixed to `mode() === 'EDIT' || notesDirty()` (see effect
+    // them. With `disableClose` now fixed to `mode() === 'EDIT' || notesEditing()` (see effect
     // above), these subscriptions are the only way ESC/backdrop can ever fire whenever
     // `disableClose` is `true`; whenever it's `false`, Material's own handling never reaches
     // here anyway — no double-close risk either way.
@@ -380,12 +430,20 @@ export class OmegaViewerComponent {
   }
 
   /** Entry point for the "Editar" action in the template — only reachable while the current
-   * item is an Expense (Installment/Subscription edit forms aren't built yet). */
+   * item is an Expense (Installment/Subscription edit forms aren't built yet).
+   *
+   * Code review C1: entering full-edit destroys `<app-viewer-notes-section>` (the template's
+   * `@else` branch that renders it is swapped for `ViewerEditFormComponent` — see the
+   * shell's HTML), which is exactly the kind of unsaved-work loss `guardDirty()` exists to
+   * catch. Routed through the guard like every other exit path (`navigateTo`/`goBack`/
+   * `close`/`cancelEdit`) instead of setting `mode` directly, so an in-progress note edit is
+   * never silently discarded and `notesDirty` never gets left stuck `true` (the guard's
+   * confirmed branch already resets it). */
   protected enterEditMode(): void {
     if (this.readyDetail()?.kind !== 'EXPENSE') {
       return;
     }
-    this.mode.set('EDIT');
+    this.guardDirty(() => this.mode.set('EDIT'));
   }
 
   /** Wired to `ViewerEditFormComponent`'s `cancelEdit` output — same dirty guard as
@@ -403,6 +461,13 @@ export class OmegaViewerComponent {
    * doc comment for why this is a second signal rather than reusing `formDirty`. */
   protected onNotesDirtyChange(dirty: boolean): void {
     this.notesDirty.set(dirty);
+  }
+
+  /** Wired to `ViewerNotesSectionComponent`'s `editingChange` output (code review M1) — see
+   * `notesEditing`'s doc comment for why `disableClose` needs this coarse signal alongside
+   * the fine-grained `notesDirty`. */
+  protected onNotesEditingChange(editing: boolean): void {
+    this.notesEditing.set(editing);
   }
 
   /** Wired to `ViewerNotesSectionComponent`'s `cancelEdit` output — no dirty guard needed here
@@ -547,12 +612,13 @@ export class OmegaViewerComponent {
     this.saveError.set(null);
   }
 
-  /** Shared by `navigateTo`/`goBack`/`close`/`cancelEdit` — if the full Expense edit form OR
-   * the notes section (F-08) is dirty, opens `ViewerDiscardConfirmDialogComponent` and only
-   * runs `action` when the user confirms discarding; otherwise runs `action` immediately.
-   * `notesDirty` is checked independently of `mode()` — unlike the full edit form, notes
-   * editing is a component-local mode that can be dirty while the shell itself is still in
-   * `'VIEW'` (see `ViewerNotesSectionComponent`'s doc comment). */
+  /** Shared by `navigateTo`/`goBack`/`close`/`cancelEdit`/`enterEditMode` (code review C1) —
+   * if the full Expense edit form OR the notes section (F-08) is dirty, opens
+   * `ViewerDiscardConfirmDialogComponent` and only runs `action` when the user confirms
+   * discarding; otherwise runs `action` immediately. `notesDirty` is checked independently of
+   * `mode()` — unlike the full edit form, notes editing is a component-local mode that can be
+   * dirty while the shell itself is still in `'VIEW'` (see `ViewerNotesSectionComponent`'s doc
+   * comment). */
   private guardDirty(action: () => void): void {
     const formIsDirty = this.mode() === 'EDIT' && this.formDirty();
     if (!formIsDirty && !this.notesDirty()) {
@@ -567,6 +633,17 @@ export class OmegaViewerComponent {
         if (confirmed) {
           this.notesDirty.set(false);
           this.notesSaveError.set(null);
+          // Code review M2: the shell's own `notesDirty` mirror is cleared above, but the
+          // notes section's local `FormGroup` isn't — `action()` below only changes `detail()`
+          // for `navigateTo`/`goBack` (which re-triggers the section's own re-seed effect) or
+          // tears the section down entirely (`enterEditMode`). Neither happens for
+          // `cancelEdit()` (`action` is `leaveEditMode()`, which touches neither `detail()`
+          // nor destroys the section), so without this call the section would reappear still
+          // showing the very text the user just confirmed discarding — contradicting the
+          // dialog they just answered. `resetEdit()` is a no-op if the section already closed
+          // itself (or isn't rendered at all right now), so calling it unconditionally here is
+          // safe for every `guardDirty()` caller, not just `cancelEdit()`.
+          this.notesSection()?.resetEdit();
           action();
         }
       });

@@ -78,6 +78,14 @@ export class ViewerNotesSectionComponent {
   /** Fires whenever local edit state changes dirty-ness — mirrors
    * `ViewerEditFormComponent.dirtyChange` so the shell can fold it into the same guard. */
   readonly dirtyChange = output<boolean>();
+  /** Code review M1: coarse "is the notes form open at all" signal — mirrors the shell's own
+   * `mode` for the full Expense edit form. Emitted from `startEdit()`/`closeEdit()`, i.e. the
+   * instant the form is created/torn down, with no dependency on `FormGroup.dirty`. Exists
+   * only so the shell can compose it into `disableClose` alongside `notesDirty` (fine-grained,
+   * guard-only) — see `OmegaViewerComponent`'s `disableClose` effect for why the two need to
+   * stay separate: `notesDirty` alone reopens the exact ESC/backdrop race window (C1a) that
+   * `mode`+`formDirty` already closed for the full Expense form. */
+  readonly editingChange = output<boolean>();
 
   /** Read-only for Installment (product decision, see class doc) — Expense/Subscription are
    * editable. */
@@ -100,6 +108,15 @@ export class ViewerNotesSectionComponent {
       this.detail();
       this.closeEdit();
     });
+
+    // Code review C1 (defensive part) — see the doc comment on `OmegaViewerComponent`'s
+    // `notesSectionPresence` effect for why the equivalent cleanup lives there, on the SHELL
+    // side, instead of here via `this.destroyRef.onDestroy(() => this.dirtyChange.emit(...))`:
+    // signal-based `output()` marks itself destroyed via its OWN `DestroyRef.onDestroy()``
+    // callback (registered when the output field is constructed, before this constructor body
+    // runs), so by the time this component's `onDestroy` callbacks fire the output is already
+    // dead — `emit()` silently no-ops with an `NG0953` console warning instead of reaching the
+    // parent. Confirmed with a failing test before landing this comment.
   }
 
   protected startEdit(): void {
@@ -111,6 +128,7 @@ export class ViewerNotesSectionComponent {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.dirtyChange.emit(form.dirty));
     this.formSignal.set(form);
+    this.editingChange.emit(true);
   }
 
   protected submit(): void {
@@ -126,8 +144,21 @@ export class ViewerNotesSectionComponent {
     this.cancelEdit.emit();
   }
 
+  /** Code review M2: imperative reset channel for the shell. `guardDirty()`'s confirmed branch
+   * clears its own `notesDirty` mirror, but without this there is no way for it to also tell
+   * THIS component to drop its local `FormGroup` — the section only self-corrects today via
+   * the `detail()` re-seed effect above, which doesn't fire on `cancelEdit()`'s
+   * `leaveEditMode()` path (it never changes `detail()`). Called by the shell only when the
+   * discarded action was `cancelEdit`; every other confirmed action already changes `detail()`
+   * (`navigateTo`/`goBack`) or tears this component down entirely (`enterEditMode`), so it's
+   * effectively a no-op — safe to call — in those cases too. */
+  public resetEdit(): void {
+    this.closeEdit();
+  }
+
   private closeEdit(): void {
     this.formSignal.set(null);
     this.dirtyChange.emit(false);
+    this.editingChange.emit(false);
   }
 }

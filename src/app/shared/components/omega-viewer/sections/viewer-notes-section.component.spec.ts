@@ -223,6 +223,48 @@ describe('ViewerNotesSectionComponent', () => {
       expect(component['editing']()).toBe(false);
     });
 
+    // Code review C1 (defensive part): the parent (`OmegaViewerComponent`) is responsible for
+    // noticing this component's destruction and self-healing its own `notesDirty`/
+    // `notesEditing` mirrors — see `OmegaViewerComponent`'s `notesSection` viewChild effect and
+    // its doc comment for why that could NOT be done from here via
+    // `destroyRef.onDestroy(() => this.dirtyChange.emit(false))`: signal-based `output()`
+    // marks itself destroyed before this component's own `onDestroy` callbacks run, so the
+    // emit would silently no-op (`NG0953`). Covered at the shell level in
+    // `omega-viewer.component.spec.ts` ("C1/M1/M2 — real note editing composed with
+    // enterEditMode").
+    it('emits editingChange(true) on startEdit and editingChange(false) on cancel', () => {
+      setup(buildExpenseDetail({ details: 'Some details' }));
+      const emissions: boolean[] = [];
+      component.editingChange.subscribe((v) => emissions.push(v));
+
+      component['startEdit']();
+      fixture.detectChanges();
+      expect(emissions.at(-1)).toBe(true);
+
+      component['onCancel']();
+      fixture.detectChanges();
+      expect(emissions.at(-1)).toBe(false);
+    });
+
+    it('resetEdit() closes local edit state without emitting cancelEdit or save', () => {
+      setup(buildExpenseDetail({ details: 'Some details' }));
+      let cancelled = false;
+      let saved = false;
+      component.cancelEdit.subscribe(() => (cancelled = true));
+      component.save.subscribe(() => (saved = true));
+
+      component['startEdit']();
+      fixture.detectChanges();
+      expect(component['editing']()).toBe(true);
+
+      component.resetEdit();
+      fixture.detectChanges();
+
+      expect(component['editing']()).toBe(false);
+      expect(cancelled).toBe(false);
+      expect(saved).toBe(false);
+    });
+
     it('renders the saveError message with role="alert" while editing', () => {
       setup(buildExpenseDetail());
       component['startEdit']();

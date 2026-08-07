@@ -1473,16 +1473,41 @@ describe('OmegaViewerComponent — notes section (F-08)', () => {
     expect(component['notesSaving']()).toBe(false);
   });
 
-  it('disableClose is set while notesDirty is true, even though mode() stays VIEW', async () => {
+  it('disableClose is set while notesEditing is true, even though mode() stays VIEW', async () => {
     await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
 
-    component['onNotesDirtyChange'](true);
+    component['onNotesEditingChange'](true);
     fixture.detectChanges();
 
     expect(component['mode']()).toBe('VIEW');
     expect(dialogRef).toBeDefined();
     // `dialogRef.disableClose` is set on the injected `MatDialogRef` mock object itself.
     expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(true);
+  });
+
+  // M1 fix: `notesDirty` alone must NOT drive `disableClose` anymore — that was the race
+  // window the fix closed (ESC could slip through in the tick between the user's first
+  // keystroke and `dirtyChange(true)` landing here). Only `notesEditing` (coarse, fires the
+  // instant the form opens) may drive it now.
+  it('disableClose stays false when only notesDirty (not notesEditing) is set — M1 regression guard', async () => {
+    await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+
+    component['onNotesDirtyChange'](true);
+    fixture.detectChanges();
+
+    expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(false);
+  });
+
+  it('disableClose clears once notes editing closes (editingChange(false)), independent of notesDirty', async () => {
+    await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+
+    component['onNotesEditingChange'](true);
+    fixture.detectChanges();
+    expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(true);
+
+    component['onNotesEditingChange'](false);
+    fixture.detectChanges();
+    expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(false);
   });
 
   it('guardDirty blocks navigateTo while notes are dirty and the user cancels the discard dialog', async () => {
@@ -1505,5 +1530,111 @@ describe('OmegaViewerComponent — notes section (F-08)', () => {
     component['close']();
 
     expect(dialogRef.close).toHaveBeenCalled();
+  });
+
+  // s1 (code review): the tests above all drive `notesDirty` via the shell's own
+  // `onNotesDirtyChange()` handler directly, bypassing `ViewerNotesSectionComponent` entirely
+  // — which means the section's destruction (the actual root cause of C1) was never exercised.
+  // These 4 cases interact with the rendered `<textarea>` for real, exactly like the reviewer
+  // asked for.
+  describe('C1/M1/M2 — real note editing composed with enterEditMode (code review)', () => {
+    function typeIntoNotesTextarea(root: HTMLElement, value: string): void {
+      const textarea = root.querySelector('textarea') as HTMLTextAreaElement;
+      textarea.value = value;
+      textarea.dispatchEvent(new Event('input'));
+    }
+
+    it('1) a dirty note + clicking "Editar" on the title opens the discard-confirm dialog instead of destroying the note', async () => {
+      await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+      dialog.open.mockReturnValue({ afterClosed: () => of(false) }); // user cancels discard
+
+      const root = fixture.nativeElement as HTMLElement;
+      root.querySelector<HTMLButtonElement>('.vns__edit-btn')?.click();
+      fixture.detectChanges();
+      typeIntoNotesTextarea(root, 'A note in progress');
+      fixture.detectChanges();
+      expect(component['notesDirty']()).toBe(true);
+
+      root.querySelector<HTMLButtonElement>('.ovw__edit-btn')?.click();
+      fixture.detectChanges();
+
+      expect(dialog.open).toHaveBeenCalled();
+      // Full-edit was NOT entered directly — the guard intercepted it.
+      expect(component['mode']()).toBe('VIEW');
+      expect(root.querySelector('app-viewer-notes-section')).not.toBeNull();
+    });
+
+    it('2) cancelling the discard dialog leaves the note dirty and still editable — nothing was discarded', async () => {
+      await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+      dialog.open.mockReturnValue({ afterClosed: () => of(false) }); // user cancels discard
+
+      const root = fixture.nativeElement as HTMLElement;
+      root.querySelector<HTMLButtonElement>('.vns__edit-btn')?.click();
+      fixture.detectChanges();
+      typeIntoNotesTextarea(root, 'A note in progress');
+      fixture.detectChanges();
+
+      root.querySelector<HTMLButtonElement>('.ovw__edit-btn')?.click();
+      fixture.detectChanges();
+
+      expect(component['notesDirty']()).toBe(true);
+      expect(component['mode']()).toBe('VIEW');
+      const textarea = root.querySelector('textarea') as HTMLTextAreaElement;
+      expect(textarea).not.toBeNull();
+      expect(textarea.value).toBe('A note in progress');
+    });
+
+    it('3) confirming the discard dialog clears notesDirty AND does not leave the discarded text visible afterward', async () => {
+      await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+      dialog.open.mockReturnValue({ afterClosed: () => of(true) }); // user confirms discard
+
+      const root = fixture.nativeElement as HTMLElement;
+      root.querySelector<HTMLButtonElement>('.vns__edit-btn')?.click();
+      fixture.detectChanges();
+      typeIntoNotesTextarea(root, 'Text that will be discarded');
+      fixture.detectChanges();
+
+      root.querySelector<HTMLButtonElement>('.ovw__edit-btn')?.click();
+      fixture.detectChanges();
+
+      // C1: notesDirty is not left stuck true.
+      expect(component['notesDirty']()).toBe(false);
+      // Full edit was entered as requested.
+      expect(component['mode']()).toBe('EDIT');
+
+      // Leave full-edit again (not dirty, guard passes straight through) and confirm the notes
+      // section — if still rendered — shows neither an open textarea nor the discarded text
+      // (proof of the M2 fix: resetEdit() actually cleared the child's local form).
+      component['cancelEdit']();
+      fixture.detectChanges();
+
+      const section = root.querySelector('app-viewer-notes-section');
+      expect(section).not.toBeNull();
+      expect(section?.querySelector('textarea')).toBeNull();
+      expect(section?.textContent).not.toContain('Text that will be discarded');
+    });
+
+    it('4) a note dirty via the real textarea, then the section destroyed WITHOUT going through guardDirty (mode.set direct) still self-clears notesDirty via the shell\'s defensive viewChild effect', async () => {
+      await setup({ kind: 'EXPENSE', id: 'expense-1' }, buildExpenseDetail());
+
+      const root = fixture.nativeElement as HTMLElement;
+      root.querySelector<HTMLButtonElement>('.vns__edit-btn')?.click();
+      fixture.detectChanges();
+      typeIntoNotesTextarea(root, 'Note lost when the section is torn down');
+      fixture.detectChanges();
+      expect(component['notesDirty']()).toBe(true);
+
+      // Bypasses guardDirty entirely (unlike enterEditMode()) to isolate the DEFENSIVE fix: the
+      // shell's `notesSection` viewChild effect noticing the section vanished from the DOM and
+      // self-healing `notesDirty`/`notesEditing`, independent of the shell's guard ever
+      // running. This is what protects any FUTURE path that destroys the section without going
+      // through guardDirty first (the exact fragility the reviewer flagged).
+      component['mode'].set('EDIT');
+      fixture.detectChanges();
+
+      expect(root.querySelector('app-viewer-notes-section')).toBeNull();
+      expect(component['notesDirty']()).toBe(false);
+      expect((dialogRef as unknown as { disableClose?: boolean }).disableClose).toBe(true); // still true — mode() is EDIT
+    });
   });
 });

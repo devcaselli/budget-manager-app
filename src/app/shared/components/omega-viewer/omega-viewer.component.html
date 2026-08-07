@@ -88,6 +88,7 @@
                 (save)="saveNotes($event)"
                 (cancelEdit)="onNotesCancelEdit()"
                 (dirtyChange)="onNotesDirtyChange($event)"
+                (editingChange)="onNotesEditingChange($event)"
               />
 
               @if (detail.links.length > 0) {
