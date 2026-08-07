@@ -1701,7 +1701,16 @@ describe('OmegaViewerComponent — payments section revert (F-10)', () => {
    * criterion needs to observe a SECOND `load()` call happening after `retry()` — a fixed
    * `of(detail)` stub can't distinguish "never refetched" from "refetched and got the same
    * static object back". `loadSpy` defaults to always resolving `detail`; tests that need the
-   * second call to return different data override `loadSpy.mockReturnValueOnce(...)`. */
+   * second call to return different data override `loadSpy.mockReturnValueOnce(...)`.
+   *
+   * Code review C1: `mockImplementation(() => of({ ...detail }))`, NOT
+   * `mockReturnValue(of(detail))` — the latter resolves every call with the exact SAME object
+   * reference, which is what let the original C1 bug (`retry()` destroying an in-progress note
+   * edit) hide from this entire describe block: `detailState` never appeared to "change
+   * identity" between calls, so `ViewerNotesSectionComponent`'s re-seed effect never fired and
+   * the destructive path was never exercised. A real `HttpClient` response is always a fresh
+   * object per call — `mockImplementation` returning a new spread object every time matches
+   * that and would have caught the regression before it shipped. */
   async function setup(detail: OmegaViewerDetail): Promise<void> {
     dialogRef = {
       close: vi.fn(),
@@ -1709,7 +1718,7 @@ describe('OmegaViewerComponent — payments section revert (F-10)', () => {
       backdropClick: vi.fn().mockReturnValue(of()),
     };
     dialog = { open: vi.fn().mockReturnValue({ afterClosed: () => of(true) }) };
-    loadSpy = vi.fn().mockReturnValue(of(detail));
+    loadSpy = vi.fn().mockImplementation(() => of({ ...detail }));
 
     TestBed.configureTestingModule({
       imports: [OmegaViewerComponent],
@@ -1915,5 +1924,107 @@ describe('OmegaViewerComponent — payments section revert (F-10)', () => {
     expect(root.querySelector('[data-testid="payment-ineligible-hint"]')).not.toBeNull();
 
     installmentHttpMock.verify({ ignoreCancelled: true });
+  });
+
+  // C1 (independent review, angular-arch): reproduces the bug empirically confirmed by the
+  // reviewer — a note dirty via the REAL textarea, then a revert, used to destroy the note
+  // silently because `revertPayment()`'s success handler called `retry()` directly instead of
+  // going through `guardDirty()`. With `loadSpy` now returning a NEW object reference per call
+  // (see the doc comment on `setup()` above), this is the scenario that would have exposed it.
+  describe('C1 (code review) — revert composed with a dirty note in the SAME item', () => {
+    function typeIntoNotesTextarea(root: HTMLElement, value: string): void {
+      const textarea = root.querySelector('textarea') as HTMLTextAreaElement;
+      textarea.value = value;
+      textarea.dispatchEvent(new Event('input'));
+    }
+
+    it('blocks the revert BEFORE PaymentService.revert() is ever called when a note is dirty, and opens the discard-confirm dialog instead', async () => {
+      await setup(buildExpenseDetail());
+      // Every `dialog.open()` call (discard-confirm AND revert-confirm both go through the
+      // same `MatDialog` mock) resolves `afterClosed()` with `false` — the user cancels
+      // whichever dialog opens. If C1 were still broken, the revert-confirm dialog would open
+      // and (irrelevant to this assertion either way) no request would fire on cancel; the
+      // real proof is which dialog opens FIRST and that no revert request is sent at all.
+      dialog.open.mockReturnValue({ afterClosed: () => of(false) });
+
+      const root = fixture.nativeElement as HTMLElement;
+      root.querySelector<HTMLButtonElement>('.vns__edit-btn')?.click();
+      fixture.detectChanges();
+      typeIntoNotesTextarea(root, 'A note in progress, not yet saved');
+      fixture.detectChanges();
+      expect(component['notesDirty']()).toBe(true);
+
+      root.querySelector<HTMLButtonElement>('.vps__revert-btn')?.click();
+      fixture.detectChanges();
+
+      // The guard's discard-confirm dialog fired — exactly one dialog, before any revert
+      // request was ever sent.
+      expect(dialog.open).toHaveBeenCalledTimes(1);
+      httpMock.expectNone('/api/payments/payment-1/revert');
+
+      // The note survived: still dirty, still showing what the user typed. Nothing was
+      // silently destroyed.
+      expect(component['notesDirty']()).toBe(true);
+      const textarea = root.querySelector('textarea') as HTMLTextAreaElement;
+      expect(textarea).not.toBeNull();
+      expect(textarea.value).toBe('A note in progress, not yet saved');
+    });
+
+    it('confirming the discard dialog clears the dirty note, THEN opens the revert-confirm dialog, and only then calls PaymentService.revert()', async () => {
+      await setup(buildExpenseDetail());
+      dialog.open.mockReturnValue({ afterClosed: () => of(true) }); // confirms whichever dialog opens
+
+      const root = fixture.nativeElement as HTMLElement;
+      root.querySelector<HTMLButtonElement>('.vns__edit-btn')?.click();
+      fixture.detectChanges();
+      typeIntoNotesTextarea(root, 'Text that will be discarded');
+      fixture.detectChanges();
+      expect(component['notesDirty']()).toBe(true);
+
+      root.querySelector<HTMLButtonElement>('.vps__revert-btn')?.click();
+      fixture.detectChanges();
+
+      // Two dialogs in sequence: discard-confirm first (guard), revert-confirm second — both
+      // routed through the same `MatDialog` mock, both auto-confirmed here.
+      expect(dialog.open).toHaveBeenCalledTimes(2);
+      expect(component['notesDirty']()).toBe(false);
+
+      // Only NOW does the actual revert HTTP request go out — proving the guard ran to
+      // completion (and the user confirmed discarding) BEFORE the write was ever dispatched.
+      const revertReq = httpMock.expectOne('/api/payments/payment-1/revert');
+      expect(revertReq.request.method).toBe('POST');
+      revertReq.flush(
+        { ...buildPayment({ id: 'payment-2', reversal: true }) },
+        { status: 201, statusText: 'Created' },
+      );
+      fixture.detectChanges();
+
+      expect(component['mutated']()).toBe(true);
+    });
+
+    it('a note dirty via mode()===EDIT (full Expense edit) also blocks the revert before dispatch — showPaymentsSection() already hides the button, but the guard still holds if that ever changes', async () => {
+      await setup(buildExpenseDetail());
+      dialog.open.mockReturnValue({ afterClosed: () => of(false) });
+
+      const root = fixture.nativeElement as HTMLElement;
+      root.querySelector<HTMLButtonElement>('.ovw__edit-btn')?.click();
+      fixture.detectChanges();
+
+      // M1: showPaymentsSection() now folds in mode() === 'VIEW', so the revert button is not
+      // even rendered while full-edit is open — confirms the structural guarantee directly.
+      expect(root.querySelector('.vps__revert-btn')).toBeNull();
+      expect(component['mode']()).toBe('EDIT');
+
+      // Defense in depth: even calling the handler directly (as if the button were reachable)
+      // still routes through guardDirty() and blocks before any HTTP call, because mode() ===
+      // 'EDIT' with a dirty form satisfies the same guard condition.
+      component['onFormDirtyChange'](true);
+      const payment = buildExpenseDetail().payments[0];
+      component['requestRevertPayment'](payment);
+      fixture.detectChanges();
+
+      expect(dialog.open).toHaveBeenCalledTimes(1);
+      httpMock.expectNone('/api/payments/payment-1/revert');
+    });
   });
 });

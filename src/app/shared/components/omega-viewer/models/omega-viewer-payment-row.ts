@@ -78,13 +78,19 @@ function payerLabelOf(payerIds: readonly string[]): string {
 
 /**
  * Explains WHY a row has no revert button, so an ineligible row shows a hint instead of just
- * disappearing without context (F-10 acceptance criterion). `reversal`/`reversed` are the only
- * two reasons this predicate can actually distinguish from `OmegaViewerPayment`'s shape (see
- * `isRevertablePayment`'s doc comment for why `SHARED_PAYMENT`/`NO_BULLET` can't be detected
- * here) — a payment that's neither is assumed likely-shared or otherwise backend-ineligible,
- * so it gets the generic "revertido pela tela de Share" hint, which is also the single most
- * common real-world reason a NORMAL, non-reversal, non-reversed row would still be rejected by
- * the backend's `SHARED_PAYMENT`/`NO_BULLET` checks today.
+ * disappearing without context (F-10 acceptance criterion).
+ *
+ * Code review M2: only called from `mapPaymentsToRows()` below, and the template
+ * (`viewer-payments-section.component.html`) only renders this hint for rows where
+ * `revertable === false` — and `revertable` is `!reversal && !reversed`. So this function is
+ * only ever invoked with `reversal || reversed` true; a payment that's neither always takes the
+ * `revertable: true` branch instead and never reaches this hint at all. There is no third,
+ * "likely shared or otherwise backend-ineligible" case reachable here — `SHARED_PAYMENT`/
+ * `NO_BULLET` can only ever be discovered by the backend's 422 response at revert time (see
+ * `isRevertablePayment`'s doc comment), never predicted from `OmegaViewerPayment`'s shape ahead
+ * of time. This function's return type stays `string | null` to match `OmegaViewerPaymentRow.
+ * ineligibleHint`, but the `null` case is unreachable in practice, not a placeholder for an
+ * unimplemented third hint.
  */
 function ineligibleHintOf(payment: OmegaViewerPayment): string | null {
   if (payment.reversal) {

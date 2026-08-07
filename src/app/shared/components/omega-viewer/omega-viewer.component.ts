@@ -276,10 +276,22 @@ export class OmegaViewerComponent {
 
   /** F-09: only Expense/Installment details carry a `payments` trace — Subscription has none
    * (confirmed intentional, see `ViewerPaymentsSectionComponent`'s doc comment). Precomputed
-   * here so the template's `@if` stays a plain signal read, no inline kind comparison. */
+   * here so the template's `@if` stays a plain signal read, no inline kind comparison.
+   *
+   * Code review M1: also requires `mode() === 'VIEW'` explicitly, rather than relying on the
+   * template only ever placing this section inside the `VIEW`-mode `@else` branch (full
+   * Expense edit swaps the whole body for `ViewerEditFormComponent`). That template placement
+   * was already correct, but it made "no revert during full-edit" an accident of layout, not a
+   * guarantee this `computed()` itself enforces — if the template were ever reorganized, the
+   * revert button would become reachable during a dirty full-edit with no guard on that path,
+   * with a much larger blast radius than the notes-section case (the whole Expense edit would
+   * be lost, not just a note). Folding `mode()` in here makes the guarantee structural. */
   protected readonly showPaymentsSection = computed(() => {
-    const kind = this.readyDetail()?.kind;
-    return kind === 'EXPENSE' || kind === 'INSTALLMENT';
+    const detail = this.readyDetail();
+    if (!detail || this.mode() !== 'VIEW') {
+      return false;
+    }
+    return detail.kind === 'EXPENSE' || detail.kind === 'INSTALLMENT';
   });
 
   /** `TagService`/`CreditCardService` are both `providedIn: 'root'` app-lifetime singletons
@@ -612,8 +624,29 @@ export class OmegaViewerComponent {
    * `PaymentService.revert()` if the user confirms. Passes `dateLabel` (not the raw
    * `paymentDate`) into the dialog via `formatPaymentDateLabel`, the exact same formatter
    * `ViewerPaymentsSectionComponent`'s own rows use, so the dialog's message never drifts from
-   * what's on screen. */
+   * what's on screen.
+   *
+   * Code review C1: routed through `guardDirty()` BEFORE the confirm dialog even opens, not
+   * after the revert succeeds. `revertPayment()`'s success handler used to call `retry()`
+   * directly — `retry()` pushes a new ref, the `switchMap` refetches, `detailState` emits a
+   * NEW object identity (real `HttpClient` responses are always a fresh object; only the F-10
+   * tests' `mockReturnValue(of(detail))` masked this by returning the SAME reference every
+   * time), and `ViewerNotesSectionComponent`'s re-seed effect treats that identity change as
+   * "different item, close local edit state" — silently destroying an in-progress note edit
+   * with no guard, no confirmation, nothing. Same bug shape as `enterEditMode()`'s original
+   * C1 (F-07/F-08).
+   *
+   * The guard runs here, before `PaymentService.revert()` is ever called, rather than around
+   * the post-success `retry()` — the reviewer's preferred fix (ii). A revert is a real backend
+   * write the instant the success callback runs; a "Descartar alterações?" prompt appearing
+   * AFTER that write already persisted would leave the screen in an ambiguous state if the
+   * user cancelled (stale trace vs. an edit the user chose to keep). Blocking before the
+   * request goes out at all means the write and the discard decision can never race. */
   protected requestRevertPayment(payment: OmegaViewerPayment): void {
+    this.guardDirty(() => this.openRevertConfirmDialog(payment));
+  }
+
+  private openRevertConfirmDialog(payment: OmegaViewerPayment): void {
     this.matDialog
       .open<ViewerRevertConfirmDialogComponent, { dateLabel: string }, boolean>(
         ViewerRevertConfirmDialogComponent,
@@ -637,7 +670,13 @@ export class OmegaViewerComponent {
    * reload their list on close, same convention as every other mutation in this shell.
    * On failure: surfaces `revertError` inside the still-open modal (never silently dropped —
    * this exact silent-failure shape was code review C2, a critical finding, earlier in this
-   * feature; not repeating it here for reversal errors). */
+   * feature; not repeating it here for reversal errors).
+   *
+   * `retry()` itself is called directly here, NOT through `guardDirty()` again — by the time
+   * this runs, `requestRevertPayment()` has already routed the whole flow through the guard
+   * once, before the confirm dialog even opened (code review C1), so there is nothing left to
+   * be dirty here: either nothing was dirty to begin with, or the user already confirmed
+   * discarding it before this request was ever sent. */
   private revertPayment(paymentId: string): void {
     this.revertingId.set(paymentId);
     this.revertError.set(null);
@@ -682,13 +721,13 @@ export class OmegaViewerComponent {
     this.saveError.set(null);
   }
 
-  /** Shared by `navigateTo`/`goBack`/`close`/`cancelEdit`/`enterEditMode` (code review C1) —
-   * if the full Expense edit form OR the notes section (F-08) is dirty, opens
-   * `ViewerDiscardConfirmDialogComponent` and only runs `action` when the user confirms
-   * discarding; otherwise runs `action` immediately. `notesDirty` is checked independently of
-   * `mode()` — unlike the full edit form, notes editing is a component-local mode that can be
-   * dirty while the shell itself is still in `'VIEW'` (see `ViewerNotesSectionComponent`'s doc
-   * comment). */
+  /** Shared by `navigateTo`/`goBack`/`close`/`cancelEdit`/`enterEditMode` (code review C1) and
+   * `requestRevertPayment()` (code review C1, F-10 follow-up) — if the full Expense edit form
+   * OR the notes section (F-08) is dirty, opens `ViewerDiscardConfirmDialogComponent` and only
+   * runs `action` when the user confirms discarding; otherwise runs `action` immediately.
+   * `notesDirty` is checked independently of `mode()` — unlike the full edit form, notes
+   * editing is a component-local mode that can be dirty while the shell itself is still in
+   * `'VIEW'` (see `ViewerNotesSectionComponent`'s doc comment). */
   private guardDirty(action: () => void): void {
     const formIsDirty = this.mode() === 'EDIT' && this.formDirty();
     if (!formIsDirty && !this.notesDirty()) {
