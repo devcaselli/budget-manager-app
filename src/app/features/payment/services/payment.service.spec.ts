@@ -96,6 +96,84 @@ describe('PaymentService', () => {
 
     expect(errors.at(-1)).toBe('Não foi possível registrar o pagamento.');
   });
+
+  describe('revert', () => {
+    it('should POST to /api/payments/:id/revert with a null body and return the reversal payment', () => {
+      const reversal: Payment = { ...payment, id: 'payment-2', reversal: true };
+
+      let result: Payment | undefined;
+      service.revert('payment-1').subscribe((value) => (result = value));
+
+      const request = httpMock.expectOne('/api/payments/payment-1/revert');
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toBeNull();
+      request.flush(reversal, { status: 201, statusText: 'Created' });
+
+      expect(result).toEqual(reversal);
+    });
+
+    it('should track reverting$ with the payment id while the call is in flight', () => {
+      const states: (string | null)[] = [];
+      service.reverting$.subscribe((value) => states.push(value));
+
+      service.revert('payment-1').subscribe();
+      expect(states.at(-1)).toBe('payment-1');
+
+      httpMock
+        .expectOne('/api/payments/payment-1/revert')
+        .flush({ ...payment, id: 'payment-2', reversal: true }, { status: 201, statusText: 'Created' });
+
+      expect(states.at(-1)).toBeNull();
+    });
+
+    it('should set error$ to a generic message on a non-422 failure', () => {
+      const errors: (string | null)[] = [];
+      service.error$.subscribe((value) => errors.push(value));
+
+      service.revert('payment-1').subscribe({ error: () => undefined });
+
+      httpMock
+        .expectOne('/api/payments/payment-1/revert')
+        .flush({ message: 'boom' }, { status: 500, statusText: 'Server Error' });
+
+      expect(errors.at(-1)).toBe('Não foi possível reverter o pagamento.');
+    });
+
+    it.each([
+      ['SHARED_PAYMENT', 'Pagamentos compartilhados são revertidos pela tela de Share.'],
+      ['ALREADY_A_REVERSAL', 'Este pagamento já é uma reversão e não pode ser revertido novamente.'],
+      ['ALREADY_REVERTED', 'Este pagamento já foi revertido anteriormente.'],
+      ['NO_BULLET', 'Este pagamento não está vinculado a um bullet e não pode ser revertido.'],
+    ])('should map the 422 reason %s to a specific message', (reason, expected) => {
+      const errors: (string | null)[] = [];
+      service.error$.subscribe((value) => errors.push(value));
+
+      service.revert('payment-1').subscribe({ error: () => undefined });
+
+      httpMock
+        .expectOne('/api/payments/payment-1/revert')
+        .flush(
+          { reason, paymentId: 'payment-1' },
+          { status: 422, statusText: 'Unprocessable Entity' },
+        );
+
+      expect(errors.at(-1)).toBe(expected);
+    });
+
+    it('should propagate the error to the caller (not swallow it)', () => {
+      let caughtError: unknown;
+      service.revert('payment-1').subscribe({ error: (error: unknown) => (caughtError = error) });
+
+      httpMock
+        .expectOne('/api/payments/payment-1/revert')
+        .flush(
+          { reason: 'ALREADY_REVERTED', paymentId: 'payment-1' },
+          { status: 422, statusText: 'Unprocessable Entity' },
+        );
+
+      expect(caughtError).toBeDefined();
+    });
+  });
 });
 
 const payment: Payment = {

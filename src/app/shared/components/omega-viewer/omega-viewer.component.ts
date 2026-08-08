@@ -23,12 +23,14 @@ import { catchError, filter, map, of, switchMap } from 'rxjs';
 import { CreditCardService } from '@features/credit-card/services/credit-card.service';
 import { PatchExpenseRequest } from '@features/expense/models/expense';
 import { ExpenseService } from '@features/expense/services/expense.service';
+import { PaymentService } from '@features/payment/services/payment.service';
 import { SubscriptionService } from '@features/subscription/services/subscription.service';
 import { TagService } from '@features/tag/services/tag.service';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 
-import { OmegaViewerDetail } from './models/omega-viewer-detail';
+import { OmegaViewerDetail, OmegaViewerPayment } from './models/omega-viewer-detail';
 import { OmegaViewerFieldRow, OmegaViewerRemainingBadge } from './models/omega-viewer-field-row';
+import { formatPaymentDateLabel } from './models/omega-viewer-payment-row';
 import { OmegaViewerRef } from './models/omega-viewer-ref';
 import { OmegaViewerResult } from './models/omega-viewer-result';
 import { mapDetailToFieldRows, mapRemainingBadge } from './omega-viewer-field-mapper';
@@ -37,6 +39,8 @@ import { ViewerDiscardConfirmDialogComponent } from './sections/viewer-discard-c
 import { ViewerEditFormComponent } from './sections/viewer-edit-form.component';
 import { ViewerFieldListComponent } from './sections/viewer-field-list.component';
 import { ViewerNotesSectionComponent } from './sections/viewer-notes-section.component';
+import { ViewerPaymentsSectionComponent } from './sections/viewer-payments-section.component';
+import { ViewerRevertConfirmDialogComponent } from './sections/viewer-revert-confirm-dialog.component';
 
 /** The Omega Viewer's edit mode (F-07) — scoped to whatever item is currently on screen.
  * Always resets to `'VIEW'` on any navigation (push or pop), never preserved across items. */
@@ -105,6 +109,7 @@ function titleOf(detail: OmegaViewerDetail): string {
     ViewerFieldListComponent,
     ViewerEditFormComponent,
     ViewerNotesSectionComponent,
+    ViewerPaymentsSectionComponent,
   ],
   providers: [OmegaViewerService],
   templateUrl: './omega-viewer.component.html',
@@ -119,6 +124,7 @@ export class OmegaViewerComponent {
   private readonly creditCardService = inject(CreditCardService);
   private readonly expenseService = inject(ExpenseService);
   private readonly subscriptionService = inject(SubscriptionService);
+  private readonly paymentService = inject(PaymentService);
   private readonly matDialog = inject(MatDialog);
 
   /** Title heading of the currently-displayed item — F-11 keyboard focus lands here on
@@ -165,6 +171,14 @@ export class OmegaViewerComponent {
    * a notes-only save error are conceptually different failures. */
   protected readonly notesSaving = signal(false);
   protected readonly notesSaveError = signal<string | null>(null);
+  /** F-10: id of the payment currently being reverted, `null` when none is in flight — kept
+   * shell-local (set imperatively in `revertPayment()`'s subscribe handlers) rather than bound
+   * to `PaymentService.reverting$`/`error$` directly: those are `providedIn: 'root'` subjects
+   * shared with `PaymentPage`, and this shell already has a firm rule (see `notesSaving`'s doc
+   * comment above) of never trusting a shared app-lifetime stream for view-local save/error UI
+   * state, to avoid one open surface's state bleeding into another's. */
+  protected readonly revertingId = signal<string | null>(null);
+  protected readonly revertError = signal<string | null>(null);
   /** User-facing message for the most recent failed save attempt, `null` when there is none
    * to show. Rendered inside `ViewerEditFormComponent` (still-open modal) rather than
    * relying on `ExpenseService.error$` — that stream surfaces in `ExpensePage`, which sits
@@ -258,6 +272,26 @@ export class OmegaViewerComponent {
   protected readonly remainingBadge = computed<OmegaViewerRemainingBadge>(() => {
     const detail = this.readyDetail();
     return detail ? mapRemainingBadge(detail) : { kind: 'none' };
+  });
+
+  /** F-09: only Expense/Installment details carry a `payments` trace — Subscription has none
+   * (confirmed intentional, see `ViewerPaymentsSectionComponent`'s doc comment). Precomputed
+   * here so the template's `@if` stays a plain signal read, no inline kind comparison.
+   *
+   * Code review M1: also requires `mode() === 'VIEW'` explicitly, rather than relying on the
+   * template only ever placing this section inside the `VIEW`-mode `@else` branch (full
+   * Expense edit swaps the whole body for `ViewerEditFormComponent`). That template placement
+   * was already correct, but it made "no revert during full-edit" an accident of layout, not a
+   * guarantee this `computed()` itself enforces — if the template were ever reorganized, the
+   * revert button would become reachable during a dirty full-edit with no guard on that path,
+   * with a much larger blast radius than the notes-section case (the whole Expense edit would
+   * be lost, not just a note). Folding `mode()` in here makes the guarantee structural. */
+  protected readonly showPaymentsSection = computed(() => {
+    const detail = this.readyDetail();
+    if (!detail || this.mode() !== 'VIEW') {
+      return false;
+    }
+    return detail.kind === 'EXPENSE' || detail.kind === 'INSTALLMENT';
   });
 
   /** `TagService`/`CreditCardService` are both `providedIn: 'root'` app-lifetime singletons
@@ -584,6 +618,81 @@ export class OmegaViewerComponent {
     });
   }
 
+  /** Wired to `ViewerPaymentsSectionComponent`'s `requestRevert` output (F-10). Opens
+   * `ViewerRevertConfirmDialogComponent` — same "dumb section emits, shell owns the
+   * confirmation + HTTP call" split F-08's notes section already established — and only calls
+   * `PaymentService.revert()` if the user confirms. Passes `dateLabel` (not the raw
+   * `paymentDate`) into the dialog via `formatPaymentDateLabel`, the exact same formatter
+   * `ViewerPaymentsSectionComponent`'s own rows use, so the dialog's message never drifts from
+   * what's on screen.
+   *
+   * Code review C1: routed through `guardDirty()` BEFORE the confirm dialog even opens, not
+   * after the revert succeeds. `revertPayment()`'s success handler used to call `retry()`
+   * directly — `retry()` pushes a new ref, the `switchMap` refetches, `detailState` emits a
+   * NEW object identity (real `HttpClient` responses are always a fresh object; only the F-10
+   * tests' `mockReturnValue(of(detail))` masked this by returning the SAME reference every
+   * time), and `ViewerNotesSectionComponent`'s re-seed effect treats that identity change as
+   * "different item, close local edit state" — silently destroying an in-progress note edit
+   * with no guard, no confirmation, nothing. Same bug shape as `enterEditMode()`'s original
+   * C1 (F-07/F-08).
+   *
+   * The guard runs here, before `PaymentService.revert()` is ever called, rather than around
+   * the post-success `retry()` — the reviewer's preferred fix (ii). A revert is a real backend
+   * write the instant the success callback runs; a "Descartar alterações?" prompt appearing
+   * AFTER that write already persisted would leave the screen in an ambiguous state if the
+   * user cancelled (stale trace vs. an edit the user chose to keep). Blocking before the
+   * request goes out at all means the write and the discard decision can never race. */
+  protected requestRevertPayment(payment: OmegaViewerPayment): void {
+    this.guardDirty(() => this.openRevertConfirmDialog(payment));
+  }
+
+  private openRevertConfirmDialog(payment: OmegaViewerPayment): void {
+    this.matDialog
+      .open<ViewerRevertConfirmDialogComponent, { dateLabel: string }, boolean>(
+        ViewerRevertConfirmDialogComponent,
+        { data: { dateLabel: formatPaymentDateLabel(payment.paymentDate) } },
+      )
+      .afterClosed()
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.revertPayment(payment.id);
+        }
+      });
+  }
+
+  /** Calls `PaymentService.revert()` (backend B5/B6, already merged). On success: re-fetches
+   * the current item's own detail via `retry()` (same "push a new ref, let the switchMap
+   * re-fire" mechanism the error-state Retry button already uses) instead of layering a
+   * `savedOverride` — the reversal changes the WHOLE payment trace (the original flips to
+   * `reversed`, a new reversal row appears), not a single field `saveEdit`/`saveNotes` could
+   * patch onto the existing detail, so a full refetch is the only way to get an accurate
+   * trace without hand-rebuilding it here. Flags `mutated` so `ExpensePage`/`InstallmentPage`
+   * reload their list on close, same convention as every other mutation in this shell.
+   * On failure: surfaces `revertError` inside the still-open modal (never silently dropped —
+   * this exact silent-failure shape was code review C2, a critical finding, earlier in this
+   * feature; not repeating it here for reversal errors).
+   *
+   * `retry()` itself is called directly here, NOT through `guardDirty()` again — by the time
+   * this runs, `requestRevertPayment()` has already routed the whole flow through the guard
+   * once, before the confirm dialog even opened (code review C1), so there is nothing left to
+   * be dirty here: either nothing was dirty to begin with, or the user already confirmed
+   * discarding it before this request was ever sent. */
+  private revertPayment(paymentId: string): void {
+    this.revertingId.set(paymentId);
+    this.revertError.set(null);
+    this.paymentService.revert(paymentId).subscribe({
+      next: () => {
+        this.revertingId.set(null);
+        this.mutated.set(true);
+        this.retry();
+      },
+      error: (error: unknown) => {
+        this.revertingId.set(null);
+        this.revertError.set(this.paymentService.describeRevertError(error));
+      },
+    });
+  }
+
   /** Best-effort mapping from a patch failure to a message the user can act on — shared by
    * `saveEdit()` (full Expense form) and `saveNotes()` (F-08, Expense/Subscription). The 422
    * `ExpenseCostBelowPaidAmountException` case is the one guaranteed to recur in practice
@@ -612,13 +721,13 @@ export class OmegaViewerComponent {
     this.saveError.set(null);
   }
 
-  /** Shared by `navigateTo`/`goBack`/`close`/`cancelEdit`/`enterEditMode` (code review C1) —
-   * if the full Expense edit form OR the notes section (F-08) is dirty, opens
-   * `ViewerDiscardConfirmDialogComponent` and only runs `action` when the user confirms
-   * discarding; otherwise runs `action` immediately. `notesDirty` is checked independently of
-   * `mode()` — unlike the full edit form, notes editing is a component-local mode that can be
-   * dirty while the shell itself is still in `'VIEW'` (see `ViewerNotesSectionComponent`'s doc
-   * comment). */
+  /** Shared by `navigateTo`/`goBack`/`close`/`cancelEdit`/`enterEditMode` (code review C1) and
+   * `requestRevertPayment()` (code review C1, F-10 follow-up) — if the full Expense edit form
+   * OR the notes section (F-08) is dirty, opens `ViewerDiscardConfirmDialogComponent` and only
+   * runs `action` when the user confirms discarding; otherwise runs `action` immediately.
+   * `notesDirty` is checked independently of `mode()` — unlike the full edit form, notes
+   * editing is a component-local mode that can be dirty while the shell itself is still in
+   * `'VIEW'` (see `ViewerNotesSectionComponent`'s doc comment). */
   private guardDirty(action: () => void): void {
     const formIsDirty = this.mode() === 'EDIT' && this.formDirty();
     if (!formIsDirty && !this.notesDirty()) {

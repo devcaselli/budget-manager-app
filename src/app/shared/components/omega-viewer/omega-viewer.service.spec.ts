@@ -190,6 +190,7 @@ describe('OmegaViewerService', () => {
               reversal: false,
               reversed: false,
               payerIds: ['user-1', 'user-2'],
+              kind: 'NORMAL',
             },
           ],
         }),
@@ -205,8 +206,36 @@ describe('OmegaViewerService', () => {
           reversal: false,
           reversed: false,
           payerIds: ['user-1', 'user-2'],
+          kind: 'NORMAL',
         },
       ]);
+    });
+
+    it('maps kind SHARED through unchanged, so a share-quota payment is identifiable client-side', () => {
+      let result: OmegaViewerExpenseDetail | undefined;
+      service.load({ kind: 'EXPENSE', id: 'expense-1' }).subscribe((detail) => {
+        result = detail as OmegaViewerExpenseDetail;
+      });
+
+      httpMock.expectOne('/api/viewer/expenses/expense-1').flush(
+        buildExpenseDto({
+          paymentTrace: [
+            {
+              id: 'payment-2',
+              amount: 20,
+              paymentDate: '2026-07-05T12:00:00Z',
+              bulletId: 'bullet-1',
+              bulletDescription: 'Salary bullet',
+              reversal: false,
+              reversed: false,
+              payerIds: ['user-1'],
+              kind: 'SHARED',
+            },
+          ],
+        }),
+      );
+
+      expect(result?.payments[0]?.kind).toBe('SHARED');
     });
   });
 
@@ -281,6 +310,45 @@ describe('OmegaViewerService', () => {
       );
 
       expect(result?.links).toEqual([{ ref: { kind: 'EXPENSE', id: 'expense-9' }, label: 'Laptop' }]);
+    });
+
+    it('maps paymentTrace lines to OmegaViewerPayment, same as EXPENSE (F-09)', () => {
+      let result: OmegaViewerInstallmentDetail | undefined;
+      service.load({ kind: 'INSTALLMENT', id: 'installment-1' }).subscribe((detail) => {
+        result = detail as OmegaViewerInstallmentDetail;
+      });
+
+      httpMock.expectOne('/api/viewer/installments/installment-1').flush(
+        buildInstallmentDto({
+          paymentTrace: [
+            {
+              id: 'payment-1',
+              amount: 250,
+              paymentDate: '2026-07-05T12:00:00Z',
+              bulletId: 'bullet-1',
+              bulletDescription: 'Card bullet',
+              reversal: false,
+              reversed: false,
+              payerIds: ['user-1'],
+              kind: 'NORMAL',
+            },
+          ],
+        }),
+      );
+
+      expect(result?.payments).toEqual([
+        {
+          id: 'payment-1',
+          amount: 250,
+          paymentDate: '2026-07-05T12:00:00Z',
+          bulletId: 'bullet-1',
+          bulletDescription: 'Card bullet',
+          reversal: false,
+          reversed: false,
+          payerIds: ['user-1'],
+          kind: 'NORMAL',
+        },
+      ]);
     });
   });
 

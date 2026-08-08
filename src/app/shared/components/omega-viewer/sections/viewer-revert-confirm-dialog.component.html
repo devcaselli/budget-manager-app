@@ -1,0 +1,25 @@
+<div class="vrc-head" mat-dialog-title>
+  <div>
+    <h2 class="vrc-title">Reverter <em>pagamento?</em></h2>
+    <p class="vrc-subtitle">Pagamento de {{ data.dateLabel }}</p>
+  </div>
+  <button class="vrc-close" type="button" mat-icon-button (click)="cancel()" aria-label="Fechar">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="vrc-body">
+  <p class="vrc-message">
+    Esta ação cria um pagamento de reversão para o pagamento de {{ data.dateLabel }}. O
+    pagamento original passará a ser marcado como revertido e não poderá ser revertido
+    novamente.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions class="vrc-actions" align="end">
+  <button mat-button type="button" (click)="cancel()">Cancelar</button>
+  <button mat-flat-button class="vrc-confirm-btn" type="button" (click)="confirm()">
+    <mat-icon aria-hidden="true">undo</mat-icon>
+    Reverter pagamento
+  </button>
+</mat-dialog-actions>

@@ -123,6 +123,7 @@ export class OmegaViewerService {
       tagIds: [],
       payerName: null,
       progress: mapProgress(dto.progress),
+      payments: dto.paymentTrace.map(mapPaymentTraceLine),
       links: mapRefs(dto.refs),
       audit: {
         createdAt: toDateOnly(dto.createdAt),
@@ -202,5 +203,6 @@ function mapPaymentTraceLine(line: PaymentTraceLineResponseDto): OmegaViewerPaym
     reversal: line.reversal,
     reversed: line.reversed,
     payerIds: line.payerIds,
+    kind: line.kind,
   };
 }

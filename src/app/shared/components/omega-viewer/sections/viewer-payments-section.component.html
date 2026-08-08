@@ -1,0 +1,66 @@
+<div class="vps__root">
+  <h4 class="vps__title">Pagamentos</h4>
+
+  @if (revertError(); as message) {
+    <div class="ew-alert" role="alert">
+      <span>{{ message }}</span>
+    </div>
+  }
+
+  @if (rows().length === 0) {
+    <p class="vps__empty">Nenhum pagamento registrado.</p>
+  } @else {
+    <ul class="vps__list">
+      @for (row of rows(); track row.id) {
+        <li class="vps__row" [class.vps__row--reversal]="row.status === 'reversal'" [class.vps__row--reversed]="row.status === 'reversed'">
+          <div class="vps__row-main">
+            <span class="vps__date">{{ row.dateLabel }}</span>
+            <span class="vps__bullet">{{ row.bulletDescription }}</span>
+          </div>
+          <div class="vps__row-meta">
+            <span class="vps__payer">{{ row.payerLabel }}</span>
+            @switch (row.status) {
+              @case ('reversal') {
+                <span class="ew-pill ew-pill--reversal" data-testid="payment-status-reversal">
+                  Reversão
+                </span>
+              }
+              @case ('reversed') {
+                <span class="ew-pill ew-pill--reversed" data-testid="payment-status-reversed">
+                  Revertido
+                </span>
+              }
+              @case ('normal') {
+                <span class="ew-pill ew-pill--normal" data-testid="payment-status-normal">
+                  Normal
+                </span>
+              }
+            }
+            <span class="vps__amount ew-blur">{{ row.amountLabel }}</span>
+
+            @if (row.revertable) {
+              <button
+                class="ew-btn ew-btn--ghost vps__revert-btn"
+                type="button"
+                [attr.aria-label]="row.revertAriaLabel"
+                [disabled]="revertingId() === row.id"
+                (click)="onRevertClick(row)"
+              >
+                {{ revertingId() === row.id ? 'Revertendo...' : 'Reverter' }}
+              </button>
+            } @else {
+              <span
+                class="vps__ineligible-hint"
+                [title]="row.ineligibleHint"
+                [attr.aria-label]="row.ineligibleHint"
+                data-testid="payment-ineligible-hint"
+              >
+                Não revertível
+              </span>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</div>
