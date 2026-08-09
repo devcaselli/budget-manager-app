@@ -4,6 +4,8 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 
+import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
+import { OmegaViewerResult } from '@shared/components/omega-viewer/models/omega-viewer-result';
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { ExpenseService } from '@features/expense/services/expense.service';
 import { PaymentService } from '@features/payment/services/payment.service';
@@ -93,6 +95,11 @@ class FakePendingReviewService {
   applySyncResult = vi.fn();
 }
 
+class FakeOmegaViewerLauncher {
+  readonly result$ = new BehaviorSubject<OmegaViewerResult>({ mutated: false });
+  open = vi.fn().mockReturnValue(this.result$.asObservable());
+}
+
 function buildExpense(overrides: Partial<Expense> = {}): Expense {
   return {
     id: 'expense-1',
@@ -140,12 +147,14 @@ describe('ExpensePage — share derivation & split button visibility', () => {
   let pendingReviewService: FakePendingReviewService;
   let dialog: { open: ReturnType<typeof vi.fn> };
   let dialogAfterClosed: BehaviorSubject<unknown>;
+  let omegaViewerLauncher: FakeOmegaViewerLauncher;
 
   beforeEach(() => {
     expenseService = new FakeExpenseService();
     shareService = new FakeShareService();
     syncService = new FakeSyncService();
     pendingReviewService = new FakePendingReviewService();
+    omegaViewerLauncher = new FakeOmegaViewerLauncher();
     dialogAfterClosed = new BehaviorSubject<unknown>(undefined);
     dialog = {
       open: vi.fn().mockReturnValue({
@@ -168,6 +177,7 @@ describe('ExpensePage — share derivation & split button visibility', () => {
         { provide: SyncService, useValue: syncService },
         { provide: PendingReviewService, useValue: pendingReviewService },
         { provide: MatDialog, useValue: dialog },
+        { provide: OmegaViewerLauncher, useValue: omegaViewerLauncher },
       ],
     });
 
@@ -342,6 +352,79 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     expect(syncService.ingest).not.toHaveBeenCalled();
     expect(dialog.open).not.toHaveBeenCalled();
   });
+
+  describe('openViewer — Omega Viewer launcher integration (F-14)', () => {
+    it('opens the launcher with the EXPENSE ref and does NOT reload the list when the result is unmutated', () => {
+      const walletService = TestBed.inject(WalletService) as unknown as {
+        selectedWallet$: BehaviorSubject<Wallet | null>;
+      };
+      walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+      expenseService.expenses$.next([buildExpense({ id: 'expense-1' })]);
+      fixture.detectChanges();
+      expenseService.loadByWalletId.mockClear();
+
+      const [item] = expenseItems();
+      (component as unknown as { openViewer: (e: unknown) => void }).openViewer(item);
+
+      expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'EXPENSE', id: 'expense-1' });
+
+      omegaViewerLauncher.result$.next({ mutated: false });
+
+      expect(expenseService.loadByWalletId).not.toHaveBeenCalled();
+    });
+
+    it('reloads the wallet expenses when the launcher result reports mutated:true', () => {
+      const walletService = TestBed.inject(WalletService) as unknown as {
+        selectedWallet$: BehaviorSubject<Wallet | null>;
+      };
+      walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+      expenseService.expenses$.next([buildExpense({ id: 'expense-1' })]);
+      fixture.detectChanges();
+      expenseService.loadByWalletId.mockClear();
+
+      const [item] = expenseItems();
+      (component as unknown as { openViewer: (e: unknown) => void }).openViewer(item);
+
+      omegaViewerLauncher.result$.next({ mutated: true });
+
+      expect(expenseService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
+    });
+
+    it('opens the viewer from the name-cell keyboard trigger (Enter) — role=button, tabindex=0', () => {
+      expenseService.expenses$.next([buildExpense({ id: 'expense-1', name: 'Groceries' })]);
+      fixture.detectChanges();
+
+      const nameCell = fixture.nativeElement.querySelector('td[role="button"]');
+      expect(nameCell).toBeTruthy();
+      expect(nameCell.getAttribute('tabindex')).toBe('0');
+
+      nameCell.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+      expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'EXPENSE', id: 'expense-1' });
+    });
+
+    it('opens the viewer from the name-cell keyboard trigger (Space)', () => {
+      expenseService.expenses$.next([buildExpense({ id: 'expense-1', name: 'Groceries' })]);
+      fixture.detectChanges();
+
+      const nameCell = fixture.nativeElement.querySelector('td[role="button"]');
+      nameCell.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+
+      expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'EXPENSE', id: 'expense-1' });
+    });
+
+    it('opens the viewer from the visibility icon button in the row actions cluster', () => {
+      expenseService.expenses$.next([buildExpense({ id: 'expense-1', name: 'Groceries' })]);
+      fixture.detectChanges();
+
+      const viewButton = fixture.nativeElement.querySelector('button[title="View expense"]');
+      expect(viewButton).toBeTruthy();
+
+      viewButton.click();
+
+      expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'EXPENSE', id: 'expense-1' });
+    });
+  });
 });
 
 describe('ExpensePage — unhidden filter checkbox (Task 8a) & share indicator (Task 8b verification)', () => {
@@ -396,6 +479,7 @@ describe('ExpensePage — unhidden filter checkbox (Task 8a) & share indicator (
           provide: MatDialog,
           useValue: { open: vi.fn().mockReturnValue({ afterClosed: () => of(undefined) }) },
         },
+        { provide: OmegaViewerLauncher, useClass: FakeOmegaViewerLauncher },
       ],
     });
 

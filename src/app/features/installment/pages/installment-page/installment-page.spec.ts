@@ -10,6 +10,8 @@ import { TagService } from '@features/tag/services/tag.service';
 import { Installment, CreditCard } from '@features/installment/models/installment';
 import { Tag } from '@features/tag/models/tag';
 import { Wallet } from '@features/wallet/models/wallet';
+import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
+import { OmegaViewerResult } from '@shared/components/omega-viewer/models/omega-viewer-result';
 
 import { InstallmentPage } from './installment-page';
 
@@ -48,6 +50,11 @@ class FakeWalletService {
   findPayersByWalletId(): Observable<unknown[]> {
     return of([]);
   }
+}
+
+class FakeOmegaViewerLauncher {
+  readonly result$ = new BehaviorSubject<OmegaViewerResult>({ mutated: false });
+  open = vi.fn().mockReturnValue(this.result$.asObservable());
 }
 
 function buildInstallment(overrides: Partial<Installment> = {}): Installment {
@@ -342,5 +349,135 @@ describe('InstallmentPage — export CSV', () => {
     fixture.detectChanges();
 
     expect(() => (component as unknown as { onExportClick: () => void }).onExportClick()).not.toThrow();
+  });
+});
+
+describe('InstallmentPage — openViewer — Omega Viewer launcher integration (F-15)', () => {
+  let fixture: ComponentFixture<InstallmentPage>;
+  let component: InstallmentPage;
+  let installmentService: FakeInstallmentService;
+  let walletService: FakeWalletService;
+  let omegaViewerLauncher: FakeOmegaViewerLauncher;
+
+  const wallet: Wallet = {
+    id: 'wallet-1',
+    description: 'Main',
+    budget: 1000,
+    remaining: 500,
+    startDate: '2026-01-01',
+    closedDate: null,
+    closed: false,
+    effectiveMonth: '2026-01',
+    state: 'PRODUCTION',
+  };
+
+  beforeEach(() => {
+    installmentService = new FakeInstallmentService();
+    walletService = new FakeWalletService();
+    omegaViewerLauncher = new FakeOmegaViewerLauncher();
+
+    TestBed.configureTestingModule({
+      imports: [InstallmentPage],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: InstallmentService, useValue: installmentService },
+        { provide: TagService, useClass: FakeTagService },
+        { provide: WalletService, useValue: walletService },
+        {
+          provide: MatDialog,
+          useValue: { open: vi.fn().mockReturnValue({ afterClosed: () => of(undefined) }) },
+        },
+        { provide: OmegaViewerLauncher, useValue: omegaViewerLauncher },
+      ],
+    });
+
+    fixture = TestBed.createComponent(InstallmentPage);
+    component = fixture.componentInstance;
+  });
+
+  function listItems() {
+    return (component as unknown as { listItems: () => readonly { id: string; description: string }[] }).listItems();
+  }
+
+  it('opens the launcher with the INSTALLMENT ref and does NOT reload the list when the result is unmutated', () => {
+    walletService.selectedWallet$.next(wallet);
+    installmentService.installments$.next([buildInstallment({ id: 'inst-1' })]);
+    fixture.detectChanges();
+    installmentService.loadByWalletId.mockClear();
+
+    const [item] = listItems();
+    (component as unknown as { openViewer: (i: unknown) => void }).openViewer(item);
+
+    expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'INSTALLMENT', id: 'inst-1' });
+
+    omegaViewerLauncher.result$.next({ mutated: false });
+
+    expect(installmentService.loadByWalletId).not.toHaveBeenCalled();
+  });
+
+  it('reloads the wallet installments when the launcher result reports mutated:true', () => {
+    walletService.selectedWallet$.next(wallet);
+    installmentService.installments$.next([buildInstallment({ id: 'inst-1' })]);
+    fixture.detectChanges();
+    installmentService.loadByWalletId.mockClear();
+
+    const [item] = listItems();
+    (component as unknown as { openViewer: (i: unknown) => void }).openViewer(item);
+
+    omegaViewerLauncher.result$.next({ mutated: true });
+
+    expect(installmentService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
+  });
+
+  it('opens the viewer from the description-row keyboard trigger (Enter) — role=button, tabindex=0', () => {
+    walletService.selectedWallet$.next(wallet);
+    installmentService.installments$.next([buildInstallment({ id: 'inst-1', description: 'Notebook' })]);
+    fixture.detectChanges();
+
+    const descriptionRow = fixture.nativeElement.querySelector('span[role="button"]');
+    expect(descriptionRow).toBeTruthy();
+    expect(descriptionRow.getAttribute('tabindex')).toBe('0');
+
+    descriptionRow.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'INSTALLMENT', id: 'inst-1' });
+  });
+
+  it('opens the viewer from the description-row keyboard trigger (Space)', () => {
+    walletService.selectedWallet$.next(wallet);
+    installmentService.installments$.next([buildInstallment({ id: 'inst-1', description: 'Notebook' })]);
+    fixture.detectChanges();
+
+    const descriptionRow = fixture.nativeElement.querySelector('span[role="button"]');
+    descriptionRow.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+
+    expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'INSTALLMENT', id: 'inst-1' });
+  });
+
+  it('opens the viewer from the visibility icon button in the row actions cluster', () => {
+    walletService.selectedWallet$.next(wallet);
+    installmentService.installments$.next([buildInstallment({ id: 'inst-1', description: 'Notebook' })]);
+    fixture.detectChanges();
+
+    const viewButton = fixture.nativeElement.querySelector('button[title="View installment"]');
+    expect(viewButton).toBeTruthy();
+
+    viewButton.click();
+
+    expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'INSTALLMENT', id: 'inst-1' });
+  });
+
+  it('does not conflict with the notes-edit button — clicking notes does not open the viewer', () => {
+    walletService.selectedWallet$.next(wallet);
+    installmentService.installments$.next([buildInstallment({ id: 'inst-1', description: 'Notebook' })]);
+    fixture.detectChanges();
+
+    const notesButton = fixture.nativeElement.querySelector('button[title="Edit notes"]');
+    expect(notesButton).toBeTruthy();
+
+    notesButton.click();
+
+    expect(omegaViewerLauncher.open).not.toHaveBeenCalled();
   });
 });

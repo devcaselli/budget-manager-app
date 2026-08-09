@@ -1,0 +1,105 @@
+:host {
+  display: block;
+}
+
+.vef__form {
+  display: grid;
+  gap: 18px;
+}
+
+.vef__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.vef__error {
+  margin: 7px 0 0;
+  color: var(--ew-bad);
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+// ── Field/input primitives ───────────────────────────────────────────────────
+// Not defined globally in styles.scss — mirrors the same local pattern used by
+// expense-create-dialog.component.scss (view encapsulation means these class names need
+// their own rule inside every component that uses them).
+.ew-field {
+  display: grid;
+  gap: 6px;
+
+  label {
+    font-family: var(--ew-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ew-ink-3);
+  }
+}
+
+.ew-input,
+.ew-select,
+.ew-textarea {
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  color: var(--ew-ink);
+  background: var(--ew-bg-2, #fff);
+  border: 1px solid var(--ew-line-2);
+  border-radius: 8px;
+  padding: 9px 12px;
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 1px;
+  }
+}
+
+.ew-textarea {
+  resize: vertical;
+  font-family: var(--ew-sans);
+}
+
+.ew-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  &--primary {
+    background: var(--ew-acc);
+    color: #1c1814;
+    border-color: var(--ew-acc);
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background: var(--ew-acc-2);
+      border-color: var(--ew-acc-2);
+      color: #1c1814;
+    }
+  }
+
+  &--ghost {
+    border-color: transparent;
+  }
+}

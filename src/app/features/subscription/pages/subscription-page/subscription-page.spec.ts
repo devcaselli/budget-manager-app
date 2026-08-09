@@ -11,6 +11,8 @@ import { TagService } from '@features/tag/services/tag.service';
 import { Subscription } from '@features/subscription/models/subscription';
 import { Tag } from '@features/tag/models/tag';
 import { Wallet } from '@features/wallet/models/wallet';
+import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
+import { OmegaViewerResult } from '@shared/components/omega-viewer/models/omega-viewer-result';
 
 import { SubscriptionPage } from './subscription-page';
 
@@ -43,6 +45,11 @@ class FakeWalletService {
   findPayersByWalletId(): Observable<unknown[]> {
     return of([]);
   }
+}
+
+class FakeOmegaViewerLauncher {
+  readonly result$ = new BehaviorSubject<OmegaViewerResult>({ mutated: false });
+  open = vi.fn().mockReturnValue(this.result$.asObservable());
 }
 
 function buildSubscription(overrides: Partial<Subscription> = {}): Subscription {
@@ -182,5 +189,106 @@ describe('SubscriptionPage — search by name or tag', () => {
     const rows = fixture.nativeElement.querySelectorAll('.ew-sub');
     expect(rows.length).toBe(1);
     expect(rows[0].textContent).toContain('Netflix');
+  });
+});
+
+describe('SubscriptionPage — openViewer — Omega Viewer launcher integration (F-16)', () => {
+  let fixture: ComponentFixture<SubscriptionPage>;
+  let component: SubscriptionPage;
+  let subscriptionService: FakeSubscriptionService;
+  let omegaViewerLauncher: FakeOmegaViewerLauncher;
+
+  beforeEach(() => {
+    subscriptionService = new FakeSubscriptionService();
+    omegaViewerLauncher = new FakeOmegaViewerLauncher();
+
+    TestBed.configureTestingModule({
+      imports: [SubscriptionPage],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: SubscriptionService, useValue: subscriptionService },
+        { provide: CreditCardService, useClass: FakeCreditCardService },
+        { provide: TagService, useClass: FakeTagService },
+        { provide: WalletService, useClass: FakeWalletService },
+        { provide: MatDialog, useValue: { open: vi.fn() } },
+        { provide: OmegaViewerLauncher, useValue: omegaViewerLauncher },
+      ],
+    });
+
+    fixture = TestBed.createComponent(SubscriptionPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  function subscriptionItems() {
+    return (
+      component as unknown as {
+        subscriptionItems: () => readonly { id: string; description: string }[];
+      }
+    ).subscriptionItems();
+  }
+
+  it('opens the launcher with the SUBSCRIPTION ref and does NOT reload the list when the result is unmutated', () => {
+    subscriptionService.subscriptions$.next([buildSubscription({ id: 'sub-1' })]);
+    fixture.detectChanges();
+    subscriptionService.loadSubscriptions.mockClear();
+
+    const [item] = subscriptionItems();
+    (component as unknown as { openViewer: (s: unknown) => void }).openViewer(item);
+
+    expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'SUBSCRIPTION', id: 'sub-1' });
+
+    omegaViewerLauncher.result$.next({ mutated: false });
+
+    expect(subscriptionService.loadSubscriptions).not.toHaveBeenCalled();
+  });
+
+  it('reloads subscriptions when the launcher result reports mutated:true', () => {
+    subscriptionService.subscriptions$.next([buildSubscription({ id: 'sub-1' })]);
+    fixture.detectChanges();
+    subscriptionService.loadSubscriptions.mockClear();
+
+    const [item] = subscriptionItems();
+    (component as unknown as { openViewer: (s: unknown) => void }).openViewer(item);
+
+    omegaViewerLauncher.result$.next({ mutated: true });
+
+    expect(subscriptionService.loadSubscriptions).toHaveBeenCalled();
+  });
+
+  it('opens the viewer from the info-cell keyboard trigger (Enter) — role=button, tabindex=0', () => {
+    subscriptionService.subscriptions$.next([buildSubscription({ id: 'sub-1', description: 'Netflix' })]);
+    fixture.detectChanges();
+
+    const infoCell = fixture.nativeElement.querySelector('div[role="button"]');
+    expect(infoCell).toBeTruthy();
+    expect(infoCell.getAttribute('tabindex')).toBe('0');
+
+    infoCell.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'SUBSCRIPTION', id: 'sub-1' });
+  });
+
+  it('opens the viewer from the info-cell keyboard trigger (Space)', () => {
+    subscriptionService.subscriptions$.next([buildSubscription({ id: 'sub-1', description: 'Netflix' })]);
+    fixture.detectChanges();
+
+    const infoCell = fixture.nativeElement.querySelector('div[role="button"]');
+    infoCell.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+
+    expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'SUBSCRIPTION', id: 'sub-1' });
+  });
+
+  it('opens the viewer from the visibility icon button in the row actions cluster', () => {
+    subscriptionService.subscriptions$.next([buildSubscription({ id: 'sub-1', description: 'Netflix' })]);
+    fixture.detectChanges();
+
+    const viewButton = fixture.nativeElement.querySelector('button[title="View subscription"]');
+    expect(viewButton).toBeTruthy();
+
+    viewButton.click();
+
+    expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'SUBSCRIPTION', id: 'sub-1' });
   });
 });

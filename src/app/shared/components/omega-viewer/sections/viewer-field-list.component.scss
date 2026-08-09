@@ -1,0 +1,43 @@
+:host {
+  display: block;
+}
+
+.vfl__badge-row {
+  margin-bottom: 16px;
+}
+
+.vfl__list {
+  margin: 0;
+  display: grid;
+  gap: 0;
+}
+
+.vfl__row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 2fr;
+  gap: 16px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-top: 1px solid var(--ew-line);
+
+  &:first-child {
+    border-top: 0;
+  }
+}
+
+.vfl__label {
+  margin: 0;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.vfl__value {
+  margin: 0;
+  color: var(--ew-ink);
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  word-break: break-word;
+}

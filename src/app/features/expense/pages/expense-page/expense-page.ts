@@ -41,6 +41,7 @@ import {
   TagPickerDialogData,
   TagPickerDialogResult,
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
+import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
 
 import {
   ExpenseDeleteDialogComponent,
@@ -104,6 +105,7 @@ export class ExpensePage {
   private readonly tagService = inject(TagService);
   private readonly syncService = inject(SyncService);
   private readonly pendingReviewService = inject(PendingReviewService);
+  private readonly omegaViewerLauncher = inject(OmegaViewerLauncher);
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
@@ -516,6 +518,16 @@ export class ExpensePage {
           // errorSubject (rendered via errorMessage() in the template). This handler exists
           // only to stop the rejection from surfacing as unhandled.
           .subscribe({ error: () => undefined });
+      });
+  }
+
+  protected openViewer(expense: ExpenseListItem): void {
+    const walletId = this.selectedWallet()?.id ?? null;
+    this.omegaViewerLauncher
+      .open({ kind: 'EXPENSE', id: expense.id })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result.mutated) this.expenseService.loadByWalletId(walletId);
       });
   }
 

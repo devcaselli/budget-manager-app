@@ -1,0 +1,22 @@
+@if (remainingBadge(); as badge) {
+  @if (badge.kind === 'remaining') {
+    <div class="vfl__badge-row">
+      @if (badge.count === 0) {
+        <span class="ew-pill ew-pill--paid" data-testid="remaining-badge-paid">Parcelas quitadas</span>
+      } @else {
+        <span class="ew-pill ew-pill--open" data-testid="remaining-badge-open">
+          {{ badge.count }} parcela(s) restante(s)
+        </span>
+      }
+    </div>
+  }
+}
+
+<dl class="vfl__list">
+  @for (item of rows(); track item.key) {
+    <div class="vfl__row">
+      <dt class="vfl__label">{{ item.label }}</dt>
+      <dd class="vfl__value" [class.ew-blur]="item.sensitive">{{ item.value }}</dd>
+    </div>
+  }
+</dl>

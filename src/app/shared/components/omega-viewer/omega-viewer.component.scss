@@ -1,0 +1,199 @@
+.ovw__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--ew-line);
+  margin: 0;
+  padding: 26px 28px 18px;
+}
+
+.ovw__head-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ovw__back {
+  padding: 7px 14px;
+}
+
+.ovw__title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ew-ink);
+}
+
+.ovw__close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink-2);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: 0 0 34px;
+  font-size: 18px;
+
+  &:hover {
+    color: var(--ew-ink);
+    border-color: var(--ew-ink-3);
+  }
+}
+
+.ovw__body {
+  padding: 24px 28px;
+  max-height: 65vh;
+  min-width: min(48rem, calc(100vw - 4rem));
+}
+
+.ovw__actions {
+  gap: 10px;
+  padding: 18px 28px 24px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.ovw__item-title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--ew-ink);
+
+  // Focus target for keyboard/screen-reader users after a page-flip (F-11) — the browser's
+  // default focus ring on a non-interactive, tabindex="-1" heading is the right affordance
+  // here, so it is intentionally NOT suppressed with outline: none.
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 4px;
+  }
+}
+
+// ── Edit mode entry point (F-07) ─────────────────────────────────────────────
+.ovw__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ovw__edit-btn {
+  flex: 0 0 auto;
+}
+
+// ── Related items navigation (F-11) ─────────────────────────────────────────
+.ovw__links {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.ovw__links-title {
+  margin: 0 0 10px;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ovw__link-row {
+  width: 100%;
+  justify-content: space-between;
+  margin-bottom: 8px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// ── Page-flip transition (F-11) ──────────────────────────────────────────────
+// Instant swap by default — .ovw__flip--anim (applied only when the component determined
+// prefers-reduced-motion is NOT set) opts into the slide+fade. This ordering — animate as
+// the exception, not the default — is what makes reduced-motion actually work rather than
+// merely being "supported in theory".
+.ovw__flip--anim {
+  animation: ovw-flip-in 0.22s ease-out;
+}
+
+@keyframes ovw-flip-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ovw__flip--anim {
+    animation: none;
+  }
+}
+
+// ── Screen-reader-only live region ───────────────────────────────────────────
+.ew-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// ── Buttons (.ew-btn / .ew-btn--ghost) ───────────────────────────────────────
+// Not defined globally in styles.scss — mirrors the same local pattern used by
+// tag-picker-dialog.component.scss, since Angular view encapsulation means a global-looking
+// class name still needs its rule inside every component that uses it.
+.ew-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  &--ghost {
+    border-color: transparent;
+  }
+}
+
+.ovw__audit {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--ew-line);
+  color: var(--ew-ink-3);
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.ew-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}

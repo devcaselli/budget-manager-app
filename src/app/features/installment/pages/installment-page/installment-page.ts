@@ -23,6 +23,7 @@ import {
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 import { matchesNameOrTag } from '@shared/utils/search-filter';
 import { TagChip, toTagChips } from '@shared/utils/tag-chips';
+import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
 
 import { InstallmentService } from '../../services/installment.service';
 import { Installment, InstallmentSortOrder, PatchInstallmentRequest, SaveInstallmentRequest } from '../../models/installment';
@@ -104,6 +105,7 @@ export class InstallmentPage {
   private readonly installmentService = inject(InstallmentService);
   private readonly walletService = inject(WalletService);
   private readonly tagService = inject(TagService);
+  private readonly omegaViewerLauncher = inject(OmegaViewerLauncher);
 
   private readonly installments = toSignal(this.installmentService.installments$, { initialValue: [] });
   private readonly allInstallments = toSignal(this.installmentService.allInstallments$, { initialValue: [] });
@@ -398,6 +400,16 @@ export class InstallmentPage {
           .assignTags(item.id, selectedTagIds)
           .pipe(takeUntilDestroyed(this.destroyRef))
           .subscribe({ error: () => undefined });
+      });
+  }
+
+  protected openViewer(item: InstallmentListItem): void {
+    const walletId = this.selectedWallet()?.id ?? null;
+    this.omegaViewerLauncher
+      .open({ kind: 'INSTALLMENT', id: item.id })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result.mutated) this.installmentService.loadByWalletId(walletId);
       });
   }
 

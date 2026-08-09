@@ -188,6 +188,54 @@ describe('ExpenseService', () => {
     request.flush({ ...expense, tagIds: [] });
   });
 
+  it('F-06: should PATCH /api/expenses/:id with the widened editable fields (name/cost/purchaseDate/creditCardId/details)', () => {
+    const emittedExpenses: (readonly Expense[])[] = [];
+
+    service.expenses$.subscribe((value) => emittedExpenses.push(value));
+    service.loadByWalletId('wallet-1');
+    httpMock.expectOne('/api/expenses/wallet/wallet-1?page=0&size=100').flush(pagedResponse([expense]));
+
+    const updated: Expense = {
+      ...expense,
+      name: 'Mercado (editado)',
+      cost: 300,
+      purchaseDate: '2026-05-01',
+      creditCardId: 'card-2',
+      details: 'Compra parcelada',
+    };
+
+    service
+      .patch(expense.id, {
+        name: 'Mercado (editado)',
+        cost: 300,
+        purchaseDate: '2026-05-01',
+        creditCardId: 'card-2',
+        details: 'Compra parcelada',
+      })
+      .subscribe((result) => expect(result).toEqual(updated));
+
+    const request = httpMock.expectOne('/api/expenses/expense-1');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({
+      name: 'Mercado (editado)',
+      cost: 300,
+      purchaseDate: '2026-05-01',
+      creditCardId: 'card-2',
+      details: 'Compra parcelada',
+    });
+    request.flush(updated);
+
+    expect(emittedExpenses.at(-1)).toEqual([updated]);
+  });
+
+  it('F-06: should PATCH with only the fields provided, leaving the rest absent (backend "absent = don\'t touch" semantics)', () => {
+    service.patch(expense.id, { cost: 999 }).subscribe();
+
+    const request = httpMock.expectOne('/api/expenses/expense-1');
+    expect(request.request.body).toEqual({ cost: 999 });
+    request.flush({ ...expense, cost: 999 });
+  });
+
   it('should propagate an assignTags error and surface it via error$', () => {
     const errors: (string | null)[] = [];
     service.error$.subscribe((v) => errors.push(v));
