@@ -45,6 +45,24 @@ describe('PaymentService', () => {
     expect(emittedPayments.at(-1)).toEqual([payment]);
   });
 
+  it('should walk every page of a multi-page wallet and concatenate them into payments$', () => {
+    const emittedPayments: (readonly Payment[])[] = [];
+    const page0Payment: Payment = { ...payment, id: 'payment-page-0' };
+    const page1Payment: Payment = { ...payment, id: 'payment-page-1' };
+
+    service.payments$.subscribe((value) => emittedPayments.push(value));
+    service.loadByWalletId('wallet-1');
+
+    httpMock
+      .expectOne('/api/payments/wallet/wallet-1?page=0&size=100')
+      .flush(multiPageResponse([page0Payment], 0, 2));
+    httpMock
+      .expectOne('/api/payments/wallet/wallet-1?page=1&size=100')
+      .flush(multiPageResponse([page1Payment], 1, 2));
+
+    expect(emittedPayments.at(-1)).toEqual([page0Payment, page1Payment]);
+  });
+
   it('should pay an expense via POST /api/pay?walletId=:walletId', () => {
     const request: PayExpenseRequest = {
       walletId: 'wallet-1',
@@ -201,4 +219,12 @@ function pagedResponse(content: readonly Payment[]): PagedPaymentResponse {
     totalElements: content.length,
     totalPages: content.length > 0 ? 1 : 0,
   };
+}
+
+function multiPageResponse(
+  content: readonly Payment[],
+  page: number,
+  totalPages: number,
+): PagedPaymentResponse {
+  return { content, page, size: 100, totalElements: totalPages * 100, totalPages };
 }
