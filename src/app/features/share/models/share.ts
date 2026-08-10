@@ -13,7 +13,14 @@ export interface ShareQuota {
   readonly payerId: string;
   readonly payerName: string;
   readonly ratio: number;
+  /** Total/journey amount for this quota (e.g. full installment plan) — used by the
+   *  Shares screen. NOT the periodic amount; for a monthly-obligation figure use
+   *  `monthlyAmount` instead (see PayerPage's Obligations panel). */
   readonly amount: number;
+  /** Periodic (monthly) amount for this quota — what the payer actually owes this
+   *  month. Used by the Obligations panel (PayerPage), which must match the same
+   *  monthly figure as the page's top-level `activeShareAmount`/`amountDue` totals. */
+  readonly monthlyAmount: number;
   readonly paymentIds: readonly string[];
 }
 

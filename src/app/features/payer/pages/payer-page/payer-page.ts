@@ -53,7 +53,9 @@ const SOURCE_TYPE_LABEL: Record<ShareSourceType, string> = {
 };
 
 /** One row of the Obligations panel — one row per share quota, decomposing an
- *  `activeShareAmount` badge into the individual shares that sum to it. */
+ *  `activeShareAmount` badge into the individual shares that sum to it. `amount` here
+ *  is the periodic/monthly value (`quota.monthlyAmount`), matching the page's monthly
+ *  totals — NOT the total/journey `quota.amount` the Shares screen uses. */
 export interface ObligationRow {
   readonly shareId: string;
   readonly payerId: string;
@@ -177,6 +179,14 @@ export class PayerPage {
    * Big-O: O(shares · quotas) to flatten, which is the same order as the data itself —
    * no avoidable nested lookups. Memoized by `computed`, recomputes only when
    * `walletShares()` changes.
+   *
+   * `amount` is sourced from `quota.monthlyAmount`, not `quota.amount` — this panel
+   * must show the periodic/monthly value to match the page's own totals
+   * (`totalAmountDue`, `activeShareAmount`), the same monthly semantics `shareBadge()`
+   * already relies on. `quota.amount` is the total/journey figure (full installment
+   * plan, etc.) and belongs to the Shares screen (`SharePage`), not here — using it
+   * here was the bug Victor found manually testing: this panel showed the raw/total
+   * Share amount instead of the monthly one shown at the top of the screen.
    */
   protected readonly obligationRows = computed<readonly ObligationRow[]>(() => {
     const rows: ObligationRow[] = [];
@@ -190,7 +200,7 @@ export class PayerPage {
           sourceLabel: label,
           sourceType: share.sourceType,
           createdAt: share.createdAt,
-          amount: Number(quota.amount),
+          amount: Number(quota.monthlyAmount),
         });
       }
     }

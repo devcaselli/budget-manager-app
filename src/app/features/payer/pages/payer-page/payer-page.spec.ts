@@ -47,7 +47,13 @@ function buildShare(overrides: Partial<Share> = {}): Share {
     ownerRatio: 0.7,
     currency: 'BRL',
     status: 'ACTIVE',
-    quotas: [{ payerId: 'payer-1', payerName: 'Alice', ratio: 0.3, amount: 30, paymentIds: [] }],
+    // amount (journey/total) deliberately differs from monthlyAmount (periodic) in this
+    // fixture's default — regression guard for the bug Victor found: the Obligations
+    // panel must render monthlyAmount, not amount. If a future edit reverts
+    // obligationRows() to read quota.amount, these tests should fail loudly.
+    quotas: [
+      { payerId: 'payer-1', payerName: 'Alice', ratio: 0.3, amount: 300, monthlyAmount: 30, paymentIds: [] },
+    ],
     paymentIds: [],
     createdAt: '2026-06-01T10:00:00Z',
     revertedAt: null,
@@ -254,7 +260,9 @@ describe('PayerPage — Obligations panel (Task 10)', () => {
         walletId: 'wallet-1',
         sourceName: 'Supermarket run',
         sourceType: 'EXPENSE',
-        quotas: [{ payerId: 'payer-1', payerName: 'Alice', ratio: 0.3, amount: 30, paymentIds: [] }],
+        quotas: [
+          { payerId: 'payer-1', payerName: 'Alice', ratio: 0.3, amount: 300, monthlyAmount: 30, paymentIds: [] },
+        ],
       }),
     ]);
     fixture.detectChanges();
@@ -269,8 +277,8 @@ describe('PayerPage — Obligations panel (Task 10)', () => {
         id: 'share-1',
         walletId: 'wallet-1',
         quotas: [
-          { payerId: 'payer-1', payerName: 'Alice', ratio: 0.2, amount: 20, paymentIds: [] },
-          { payerId: 'payer-2', payerName: 'Bob', ratio: 0.1, amount: 10, paymentIds: [] },
+          { payerId: 'payer-1', payerName: 'Alice', ratio: 0.2, amount: 200, monthlyAmount: 20, paymentIds: [] },
+          { payerId: 'payer-2', payerName: 'Bob', ratio: 0.1, amount: 100, monthlyAmount: 10, paymentIds: [] },
         ],
       }),
     ]);
@@ -280,6 +288,22 @@ describe('PayerPage — Obligations panel (Task 10)', () => {
       .filter((row) => row.payerId === 'payer-1')
       .reduce((sum, row) => sum + row.amount, 0);
     expect(total).toBe(20);
+  });
+
+  it('uses quota.monthlyAmount, not quota.amount, for the rendered/decomposed value', () => {
+    shareService.walletShares$.next([
+      buildShare({
+        id: 'share-1',
+        walletId: 'wallet-1',
+        quotas: [
+          { payerId: 'payer-1', payerName: 'Alice', ratio: 0.3, amount: 999, monthlyAmount: 30, paymentIds: [] },
+        ],
+      }),
+    ]);
+    fixture.detectChanges();
+
+    expect(obligationRows()[0]?.amount).toBe(30);
+    expect(rowTexts()[0]?.[4]).toBe('R$ 30,00');
   });
 
   it('renders no rows and the empty state when walletShares$ is empty', () => {
@@ -341,7 +365,7 @@ describe('PayerPage — Obligations panel (Task 10)', () => {
     shareService.walletShares$.next([
       buildShare({
         quotas: [
-          { payerId: 'transient-xyz', payerName: 'Guest Diner', ratio: 1, amount: 30, paymentIds: [] },
+          { payerId: 'transient-xyz', payerName: 'Guest Diner', ratio: 1, amount: 300, monthlyAmount: 30, paymentIds: [] },
         ],
       }),
     ]);
@@ -355,7 +379,7 @@ describe('PayerPage — Obligations panel (Task 10)', () => {
     shareService.walletShares$.next([
       buildShare({
         quotas: [
-          { payerId: 'transient-xyz', payerName: 'Guest Diner', ratio: 1, amount: 30, paymentIds: [] },
+          { payerId: 'transient-xyz', payerName: 'Guest Diner', ratio: 1, amount: 300, monthlyAmount: 30, paymentIds: [] },
         ],
       }),
     ]);
@@ -369,12 +393,16 @@ describe('PayerPage — Obligations panel (Task 10)', () => {
     shareService.walletShares$.next([
       buildShare({
         id: 'share-1',
-        quotas: [{ payerId: 'payer-1', payerName: 'Alice', ratio: 0.3, amount: 30, paymentIds: [] }],
+        quotas: [
+          { payerId: 'payer-1', payerName: 'Alice', ratio: 0.3, amount: 300, monthlyAmount: 30, paymentIds: [] },
+        ],
       }),
       buildShare({
         id: 'share-2',
         sourceName: 'Netflix',
-        quotas: [{ payerId: 'payer-2', payerName: 'Bob', ratio: 0.5, amount: 50, paymentIds: [] }],
+        quotas: [
+          { payerId: 'payer-2', payerName: 'Bob', ratio: 0.5, amount: 500, monthlyAmount: 50, paymentIds: [] },
+        ],
       }),
     ]);
     selectPayer('payer-2');
@@ -387,11 +415,15 @@ describe('PayerPage — Obligations panel (Task 10)', () => {
     shareService.walletShares$.next([
       buildShare({
         id: 'share-1',
-        quotas: [{ payerId: 'payer-1', payerName: 'Alice', ratio: 0.3, amount: 30, paymentIds: [] }],
+        quotas: [
+          { payerId: 'payer-1', payerName: 'Alice', ratio: 0.3, amount: 300, monthlyAmount: 30, paymentIds: [] },
+        ],
       }),
       buildShare({
         id: 'share-2',
-        quotas: [{ payerId: 'payer-2', payerName: 'Bob', ratio: 0.5, amount: 50, paymentIds: [] }],
+        quotas: [
+          { payerId: 'payer-2', payerName: 'Bob', ratio: 0.5, amount: 500, monthlyAmount: 50, paymentIds: [] },
+        ],
       }),
     ]);
     fixture.detectChanges();
