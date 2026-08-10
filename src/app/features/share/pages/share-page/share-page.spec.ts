@@ -91,7 +91,7 @@ function buildShare(overrides: Partial<Share> = {}): Share {
     ownerRatio: 0.7,
     currency: 'BRL',
     status: 'ACTIVE',
-    quotas: [{ payerId: 'payer-1', payerName: 'Maria', ratio: 0.3, amount: 30, paymentIds: [] }],
+    quotas: [{ payerId: 'payer-1', payerName: 'Maria', ratio: 0.3, amount: 30, monthlyAmount: 30, paymentIds: [] }],
     paymentIds: [],
     createdAt: '2026-06-01T10:00:00Z',
     revertedAt: null,
