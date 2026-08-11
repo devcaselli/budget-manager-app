@@ -2185,6 +2185,16 @@ describe('OmegaViewerComponent — end-to-end integration + accessibility (F-17)
     fixture.detectChanges();
   }
 
+  // This block has the heaviest nav-driven HTTP traffic in the file (multi-hop navigation,
+  // repeated flips, edit-save round trips) — verify every request issued during a test was
+  // actually flushed/expected, same as the real-dialog F-17 block below (see its own
+  // `afterEach`). `ignoreCancelled` matches that block too: `switchMap`-driven navigation here
+  // can leave an in-flight detail request cancelled by the next hop, which is expected
+  // behavior, not a leak.
+  afterEach(() => {
+    httpMock.verify({ ignoreCancelled: true });
+  });
+
   function title(root: HTMLElement): string | undefined {
     return root.querySelector('.ovw__item-title')?.textContent?.trim();
   }
@@ -2352,9 +2362,31 @@ describe('OmegaViewerComponent — end-to-end integration + accessibility (F-17)
   });
 
   describe('3) mode resets on BOTH ends of a flip, not only the destination', () => {
-    it('EDIT on the source Expense -> navigate to Installment (opens VIEW) -> Back -> source Expense is ALSO VIEW again, not restored to EDIT', async () => {
+    it('EDIT on an Expense reached via navigateTo (not the initial item) -> Back -> goBack() itself resets mode to VIEW on the item it pops back to', async () => {
       await setup();
       const root = fixture.nativeElement as HTMLElement;
+
+      // Hop away from the initial Expense first: Expense -> Installment. `mode` is VIEW on
+      // both ends of this hop already (Installment isn't EDIT-capable), so by the time we
+      // reach the assertions below, `mode` did NOT start this test as VIEW-via-navigateTo —
+      // it will be driven to EDIT independently, on the item `goBack()` pops BACK TO.
+      linkRowFor(root, 'Laptop')?.click();
+      await settle();
+      expect(title(root)).toBe('Laptop');
+
+      // From Installment, flip to the Expense (its own link row points back at it) and enter
+      // EDIT there. This Expense is now a NON-initial stack entry: unlike the old version of
+      // this test (which entered EDIT on the item the shell opened with, then relied on
+      // `navigateTo()`'s own reset to already clear it before Back ever ran), `mode` here is
+      // still `'EDIT'` at the moment `.ovw__back` is pressed below — nothing else has reset
+      // it in between. That makes the coming assertion sensitive to `goBack()`'s OWN
+      // `leaveEditMode()` call specifically (proven via mutation: deleting `leaveEditMode()`
+      // from `goBack()` alone, while `navigateTo()` keeps its own call, fails this test; the
+      // previous version of this test kept passing under that exact mutation because
+      // `navigateTo()` had already reset mode to VIEW before Back was ever pressed).
+      linkRowFor(root, 'Groceries')?.click();
+      await settle();
+      expect(title(root)).toBe('Groceries');
 
       root.querySelector<HTMLButtonElement>('.ovw__edit-btn')?.click();
       fixture.detectChanges();
@@ -2363,88 +2395,93 @@ describe('OmegaViewerComponent — end-to-end integration + accessibility (F-17)
 
       // The shell's own template swaps the ENTIRE body (including the link-navigation rows)
       // for `ViewerEditFormComponent` while `mode() === 'EDIT'` — see the shell's `@else`
-      // branch in `omega-viewer.component.html`. There is genuinely no link row a real user
-      // could click right now; the only way this shell ever leaves full-edit for another item
-      // in practice is via a programmatic caller (e.g. the ExpensePage row's own "open linked
-      // item" affordance, or — as tested elsewhere in this file — the notes-composition guard
-      // paths). Calling `navigateTo()` directly here exercises exactly the guarded transition
-      // itself (untouched form, guard passes straight through, mode resets on both ends),
-      // matching how every other programmatic-path test in this spec file already drives
-      // `navigateTo`/`goBack` where the DOM has no reachable trigger for the scenario.
-      component['navigateTo']({ kind: 'INSTALLMENT', id: 'installment-1' });
+      // branch in `omega-viewer.component.html`. There is genuinely no link row or Back
+      // button a real user could click right now (the header's `.ovw__back` is still present,
+      // but exercising it here would go through the DOM anyway — see below). Calling
+      // `goBack()` directly on the component matches how every other programmatic-path test
+      // in this spec file already drives `navigateTo`/`goBack` where the assertion cares
+      // about the method's own effect, not the surrounding click plumbing.
+      component['goBack']();
       await settle();
 
-      // Destination lands in VIEW, never inheriting the source's EDIT.
+      // Popping back to Installment must land in VIEW — this is `goBack()`'s OWN reset, not
+      // a residual VIEW state left over from `navigateTo()` (see mutation-testing note above).
       expect(title(root)).toBe('Laptop');
       expect(component['mode']()).toBe('VIEW');
       expect(root.querySelector('app-viewer-edit-form')).toBeNull();
-
-      root.querySelector<HTMLButtonElement>('.ovw__back')?.click();
-      await settle();
-
-      // The reset also applies to the SOURCE side of the flip: coming back to the Expense
-      // does not resurrect its earlier EDIT — this is the half of the reset a
-      // "destination is always VIEW" test alone would never catch.
-      expect(title(root)).toBe('Groceries');
-      expect(component['mode']()).toBe('VIEW');
-      expect(root.querySelector('app-viewer-edit-form')).toBeNull();
-      expect(root.querySelector('.ovw__edit-btn')).not.toBeNull();
     });
   });
 
-  describe('4) keyboard-only walkthrough — never a .click(), focus never lost across the sequence', () => {
+  describe('4) focus-management / activation walkthrough — every interactive element is natively keyboard-activatable, focus never lost across the sequence', () => {
     /**
-     * Activates `el` the way a keyboard user does: focuses it, then dispatches a real `keydown`
-     * `KeyboardEvent` for the given key. jsdom (unlike a real browser) does not implement the
-     * native user-agent default action of a focused `<button>`/`<input type=submit>` firing a
-     * `click` on Enter/Space — there is no polyfill for that in this project's test setup — so
-     * this helper's own `keydown` listener performs the equivalent activation once the listener
-     * observes the key it was told to expect. This keeps the test's OWN interaction free of any
-     * direct `.click()` call site (matching the task's "no .click()" constraint on the actions
-     * under test) while still being explicit that the final activation step is what a real
-     * browser's default action would already do for a native, semantic `<button>`.
+     * IMPORTANT — what this helper does NOT prove: jsdom does not implement the native
+     * user-agent default action of a focused `<button>`/`<input type=submit>` firing a
+     * `click` on Enter/Space (no polyfill for that exists in this project's test setup), so a
+     * synthetic `keydown` `KeyboardEvent` dispatched here is inert on its own — there are zero
+     * `keydown`/`keyup`/`keypress` handlers anywhere in the omega-viewer templates or
+     * component. A prior version of this test dispatched `keydown` and then ALSO called
+     * `.click()` on the element, and asserted on the result — which made the assertions pass
+     * regardless of whether the `keydown` dispatch did anything at all (confirmed via
+     * mutation: deleting the `dispatchEvent(keydown)` line left all tests passing; the
+     * `.click()` call alone did 100% of the work). That claimed a keyboard-only guarantee the
+     * test never actually provided.
+     *
+     * What genuinely guarantees Enter/Space activation in a REAL browser is the element being
+     * a native, non-disabled `<button>` (or `<input type="submit">`/`<button type="submit">`
+     * inside a `<form>`) — the browser's own default action handles the rest; jsdom's gap is a
+     * jsdom limitation, not a signal that the app is missing anything. So this test asserts
+     * BOTH: (a) native activatability of every element in the walkthrough — real button tag,
+     * not disabled, correct `type` — which is what actually guarantees keyboard behavior
+     * outside jsdom, and (b) the walkthrough's genuinely-provable contract: focus management
+     * across the whole sequence (F-11's "focus lands on the new title on every flip"), which
+     * mutation-testing confirmed IS load-bearing (removing `titleRef().focus()` calls from the
+     * component fails this test). `.click()` is used directly to drive the flow, same as every
+     * other DOM-interaction test in this file — no longer dressed up as a `keydown` dispatch.
      */
-    function pressKey(el: HTMLElement, key: 'Enter' | ' ' | 'Escape'): void {
-      el.focus();
-      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
-      el.dispatchEvent(event);
-      if ((key === 'Enter' || key === ' ') && el instanceof HTMLButtonElement) {
-        el.click();
-      }
+    function assertNativelyActivatable(el: HTMLElement | null): asserts el is HTMLButtonElement {
+      expect(el).not.toBeNull();
+      expect(el).toBeInstanceOf(HTMLButtonElement);
+      const button = el as HTMLButtonElement;
+      // A native, non-disabled <button> is activated by both Enter and Space via the
+      // browser's own default action on keydown/keyup — no app-level key handler required.
+      expect(button.disabled).toBe(false);
+      expect(button.tagName).toBe('BUTTON');
+      expect(['button', 'submit']).toContain(button.type);
     }
 
-    it('open -> flip via Enter on a link row -> Back via Enter -> Editar via Enter -> edit a field -> Save via Enter -> close via Escape, with focus always landing somewhere sensible', async () => {
+    it('open -> flip on a link row -> Back -> Editar -> edit a field -> Save -> close via Escape, with every control natively keyboard-activatable and focus always landing somewhere sensible', async () => {
       await setup();
       const root = fixture.nativeElement as HTMLElement;
 
       // 1) Opened: initial title is focusable-adjacent (F-11 lands focus on the heading even
       // on first load's re-render path) — assert we start from a known, sane focus baseline
-      // before doing anything keyboard-driven.
+      // before doing anything.
       expect(title(root)).toBe('Groceries');
 
-      // 2) Flip via Enter on the Expense -> Installment link row (never a raw .click()).
+      // 2) Flip on the Expense -> Installment link row — assert it's a real, enabled <button>
+      // (guarantees Enter/Space activation in a real browser) before driving it.
       const linkRow = linkRowFor(root, 'Laptop');
-      expect(linkRow).not.toBeNull();
-      pressKey(linkRow as HTMLButtonElement, 'Enter');
+      assertNativelyActivatable(linkRow);
+      linkRow.click();
       await settle();
 
       expect(title(root)).toBe('Laptop');
       // F-11's contract: focus lands on the new item's title heading after every flip.
       expect(document.activeElement).toBe(root.querySelector('.ovw__item-title'));
 
-      // 3) Back via Enter on the Back button.
+      // 3) Back on the Back button.
       const backBtn = root.querySelector<HTMLButtonElement>('.ovw__back');
-      expect(backBtn).not.toBeNull();
-      pressKey(backBtn as HTMLButtonElement, 'Enter');
+      assertNativelyActivatable(backBtn);
+      backBtn.click();
       await settle();
 
       expect(title(root)).toBe('Groceries');
       expect(document.activeElement).toBe(root.querySelector('.ovw__item-title'));
 
-      // 4) Enter EDIT mode via Enter on "Editar".
+      // 4) Enter EDIT mode via "Editar".
       const editBtn = root.querySelector<HTMLButtonElement>('.ovw__edit-btn');
-      expect(editBtn).not.toBeNull();
-      pressKey(editBtn as HTMLButtonElement, 'Enter');
+      assertNativelyActivatable(editBtn);
+      editBtn.click();
       fixture.detectChanges();
 
       expect(component['mode']()).toBe('EDIT');
@@ -2459,13 +2496,16 @@ describe('OmegaViewerComponent — end-to-end integration + accessibility (F-17)
       fixture.detectChanges();
       expect(component['formDirty']()).toBe(true);
 
-      // 5) Save via Enter — a real submit button inside a <form>, activated via Tab+Enter
-      // (Tab to the Save button, then Enter), never a direct .click().
+      // 5) Save — a real submit button inside a <form>, so Enter from any field in the form
+      // (not just the button itself) also submits it via the browser's native form-submit
+      // default action, on top of the button's own Enter/Space activation.
       const saveBtn = root.querySelector<HTMLButtonElement>('.vef__actions .ew-btn--primary');
-      expect(saveBtn).not.toBeNull();
-      saveBtn?.focus();
+      assertNativelyActivatable(saveBtn);
+      expect(saveBtn.type).toBe('submit');
+      expect(saveBtn.closest('form')).not.toBeNull();
+      saveBtn.focus();
       expect(document.activeElement).toBe(saveBtn);
-      pressKey(saveBtn as HTMLButtonElement, 'Enter');
+      saveBtn.click();
       fixture.detectChanges();
 
       const patchReq = httpMock.expectOne('/api/expenses/expense-1');
@@ -2643,7 +2683,13 @@ describe('OmegaViewerComponent — revert -> refetch -> mutated propagation via 
  * microtasks/macrotasks, so a fixed number of `await Promise.resolve()` calls is not reliable.
  * Callers must NOT call `expectOne(url)` again for the same request afterward — `expectOne`
  * removes it from the pending queue as a side effect on success, so this helper's own retry
- * loop only re-attempts after a *failed* `expectOne` (which throws before removing anything). */
+ * loop only re-attempts after a *failed* `expectOne`. Note that "failed" doesn't mean nothing
+ * was removed: internally `expectOne` calls `match()`, which SPLICES OUT every matching
+ * request from the pending queue first and only THEN throws if the match count isn't exactly
+ * 1 (zero matches: nothing to splice, throws empty-handed; more than one match: all matches
+ * are already removed by the time it throws). Either way this helper's retry is safe — on the
+ * zero-match case there's nothing to have lost, and the >1 case can't happen here since each
+ * `url` this helper is called with is only ever issued once per test. */
 async function waitUntilRequestMade(
   httpMock: HttpTestingController,
   url: string,
