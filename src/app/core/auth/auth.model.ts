@@ -37,3 +37,77 @@ export interface StoredSession {
   readonly token: string;
   readonly refreshToken: string;
 }
+
+/**
+ * Discriminated union of every `code` value the auth API's `ProblemDetail`
+ * responses can carry, plus forward-looking/theoretical members documented below.
+ *
+ * Confirmed live in the backend today (`ProblemDetail.code`, a top-level sibling of
+ * `title`/`detail`/`status`, RFC 7807 style) — these 4 member names are copied
+ * verbatim from the backend's actual `code` strings, not renamed for frontend taste,
+ * because a mismatch here would silently break error handling:
+ * - `INVALID_CREDENTIALS` (401) — wrong password OR unknown email on `POST /auth/token`.
+ *   Deliberately the same code for both cases (anti-enumeration).
+ * - `INVALID_OR_EXPIRED_TOKEN` (400) — `verify-email` / `resend-verification` /
+ *   `reset-password` given a nonexistent, expired, consumed, or wrong-purpose token.
+ *   One code covers all 4 causes; the backend does not distinguish them.
+ * - `UNAUTHORIZED` (401) — missing/invalid bearer token on a protected endpoint.
+ *   Distinct from `INVALID_CREDENTIALS`: this is "you're not logged in", not "your
+ *   login attempt failed".
+ * - `RATE_LIMITED` (429) — any of the 6 rate-limited auth endpoints (register, token,
+ *   verify-email, resend-verification, forgot-password, reset-password) tripping its
+ *   IP or email bucket.
+ *
+ * NOT backed by the backend yet — included only as forward-looking type design so
+ * consumers can compile an exhaustive switch today without churn later. No code path
+ * can currently produce these; do not assume they are reachable from a real HTTP call:
+ * - `EMAIL_EXISTS` — `AuthController.register` swallows duplicate-email registration
+ *   anti-enumeration-style and never surfaces a distinguishable error today.
+ * - `EMAIL_NOT_CONFIRMED` — not sent; login before email verification is currently
+ *   allowed per the epic's confirmed soft-verification design.
+ * - `OTP_REQUIRED`, `OTP_INVALID` — Tema D (OTP/2FA) has not started; these codes do
+ *   not exist in any backend response yet.
+ *
+ * `UNKNOWN` is the required fallback for network errors, malformed response bodies,
+ * or a `code` string this frontend build doesn't recognize (forward compatibility
+ * with future backend codes) — never crash, never silently guess.
+ */
+export type AuthErrorCode =
+  | 'INVALID_CREDENTIALS'
+  | 'INVALID_OR_EXPIRED_TOKEN'
+  | 'UNAUTHORIZED'
+  | 'RATE_LIMITED'
+  | 'EMAIL_EXISTS'
+  | 'EMAIL_NOT_CONFIRMED'
+  | 'OTP_REQUIRED'
+  | 'OTP_INVALID'
+  | 'UNKNOWN';
+
+/** Shape of the `code` extension property on the backend's RFC 7807 `ProblemDetail` body. */
+export interface ProblemDetailBody {
+  readonly type?: string;
+  readonly title?: string;
+  readonly status?: number;
+  readonly detail?: string;
+  readonly instance?: string;
+  readonly code?: string;
+  readonly correlationId?: string;
+}
+
+/**
+ * Typed auth error carrying a discriminated `AuthErrorCode` so callers can branch on
+ * `code` (exhaustively, via `assertNever`) instead of matching HTTP status + message
+ * substrings. `message` is still populated (kept human-readable for direct display,
+ * e.g. `err.message` in a template) but must never be used to decide control flow —
+ * that's what `code` is for.
+ */
+export class AuthError extends Error {
+  readonly code: AuthErrorCode;
+
+  constructor(code: AuthErrorCode, message: string) {
+    super(message);
+    this.name = 'AuthError';
+    this.code = code;
+    Object.setPrototypeOf(this, AuthError.prototype);
+  }
+}

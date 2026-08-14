@@ -12,6 +12,7 @@ import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { AuthService } from '@core/auth/auth.service';
+import { AuthError } from '@core/auth/auth.model';
 
 interface PwRule {
   readonly label: string;
@@ -103,7 +104,7 @@ export class LoginPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => this.router.navigate(['/dashboard']),
-        error: (err: Error) => this.loginError.set(err.message),
+        error: (err: AuthError) => this.loginError.set(err.message),
       });
   }
 
@@ -133,7 +134,7 @@ export class LoginPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => this.router.navigate(['/dashboard']),
-        error: (err: Error) => this.signupError.set(err.message),
+        error: (err: AuthError) => this.signupError.set(err.message),
       });
   }
 }
