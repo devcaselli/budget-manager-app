@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { environment } from '@environments/environment';
 
 import { AuthService } from './auth.service';
-import { StoredSession, TokenResponse } from './auth.model';
+import { AuthError, AuthErrorCode, ProblemDetailBody, StoredSession, TokenResponse } from './auth.model';
 
 const STORAGE_KEY = 'bm_session';
 const AUTH_URL = `${environment.apiUrl}/auth`;
@@ -29,6 +29,19 @@ function tokenResponse(overrides: Partial<TokenResponse> = {}): TokenResponse {
 
 function seedSession(session: StoredSession): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+}
+
+/** Build a realistic RFC 7807 `ProblemDetail` body with the `code` extension property. */
+function problemDetail(overrides: Partial<ProblemDetailBody> = {}): ProblemDetailBody {
+  return {
+    type: 'about:blank',
+    title: 'Error',
+    status: 400,
+    detail: 'Something went wrong.',
+    instance: '/auth/token',
+    correlationId: 'corr-1',
+    ...overrides,
+  };
 }
 
 /** Minimal in-memory localStorage — the test env does not provide one. */
@@ -101,22 +114,110 @@ describe('AuthService', () => {
       expect(service.getToken()).not.toBeNull();
     });
 
-    it('maps a 401 to a friendly credentials message', () => {
+    it('maps a 401 INVALID_CREDENTIALS response to a typed AuthError', () => {
       const service = createService();
-      let message = '';
-      service.login('jane@mail.com', 'bad').subscribe({ error: (e: Error) => (message = e.message) });
+      let error: AuthError | undefined;
+      service.login('jane@mail.com', 'bad').subscribe({ error: (e: AuthError) => (error = e) });
 
-      httpMock.expectOne(`${AUTH_URL}/token`).flush(null, { status: 401, statusText: 'Unauthorized' });
-      expect(message).toBe('Email ou senha inválidos.');
+      httpMock
+        .expectOne(`${AUTH_URL}/token`)
+        .flush(problemDetail({ status: 401, code: 'INVALID_CREDENTIALS' }), {
+          status: 401,
+          statusText: 'Unauthorized',
+        });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('INVALID_CREDENTIALS');
+      expect(error?.message).toBe('Invalid email or password.');
     });
 
-    it('maps a network failure (status 0) to a server-unavailable message', () => {
+    it('maps a network failure (status 0) to an UNKNOWN AuthError', () => {
       const service = createService();
-      let message = '';
-      service.login('jane@mail.com', 'pw').subscribe({ error: (e: Error) => (message = e.message) });
+      let error: AuthError | undefined;
+      service.login('jane@mail.com', 'pw').subscribe({ error: (e: AuthError) => (error = e) });
 
       httpMock.expectOne(`${AUTH_URL}/token`).error(new ProgressEvent('error'), { status: 0 });
-      expect(message).toBe('Servidor indisponível. Tente novamente.');
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
+      expect(error?.message).toBe('Something went wrong. Please try again.');
+    });
+  });
+
+  describe('AuthErrorCode parsing (mapHttpError)', () => {
+    it('parses INVALID_OR_EXPIRED_TOKEN from a 400 ProblemDetail', () => {
+      const service = createService();
+      let error: AuthError | undefined;
+      service.login('jane@mail.com', 'bad').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/token`)
+        .flush(problemDetail({ status: 400, code: 'INVALID_OR_EXPIRED_TOKEN' }), {
+          status: 400,
+          statusText: 'Bad Request',
+        });
+
+      expect(error?.code).toBe<AuthErrorCode>('INVALID_OR_EXPIRED_TOKEN');
+    });
+
+    it('parses UNAUTHORIZED from a 401 ProblemDetail distinct from INVALID_CREDENTIALS', () => {
+      const service = createService();
+      let error: AuthError | undefined;
+      service.login('jane@mail.com', 'bad').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/token`)
+        .flush(problemDetail({ status: 401, code: 'UNAUTHORIZED' }), {
+          status: 401,
+          statusText: 'Unauthorized',
+        });
+
+      expect(error?.code).toBe<AuthErrorCode>('UNAUTHORIZED');
+    });
+
+    it('parses RATE_LIMITED from a 429 ProblemDetail', () => {
+      const service = createService();
+      let error: AuthError | undefined;
+      service.login('jane@mail.com', 'bad').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/token`)
+        .flush(problemDetail({ status: 429, code: 'RATE_LIMITED' }), {
+          status: 429,
+          statusText: 'Too Many Requests',
+        });
+
+      expect(error?.code).toBe<AuthErrorCode>('RATE_LIMITED');
+    });
+
+    it('falls back to UNKNOWN when the response has no code property', () => {
+      const service = createService();
+      let error: AuthError | undefined;
+      service.login('jane@mail.com', 'bad').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/token`)
+        .flush(problemDetail({ status: 500, code: undefined }), {
+          status: 500,
+          statusText: 'Internal Server Error',
+        });
+
+      expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
+    });
+
+    it('falls back to UNKNOWN when the code string is not in the known union', () => {
+      const service = createService();
+      let error: AuthError | undefined;
+      service.login('jane@mail.com', 'bad').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/token`)
+        .flush(problemDetail({ status: 418, code: 'SOME_FUTURE_CODE_THIS_BUILD_DOES_NOT_KNOW' }), {
+          status: 418,
+          statusText: "I'm a teapot",
+        });
+
+      expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
     });
   });
 

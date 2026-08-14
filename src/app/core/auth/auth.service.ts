@@ -13,9 +13,13 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 
 import { environment } from '@environments/environment';
+import { assertNever } from '@shared/utils/assert-never';
 import {
+  AuthError,
+  AuthErrorCode,
   AuthUser,
   LoginRequest,
+  ProblemDetailBody,
   RefreshRequest,
   RegisterResponse,
   StoredSession,
@@ -68,21 +72,69 @@ function isTokenExpired(token: string): boolean {
   return Date.now() / 1000 >= exp - TOKEN_EXPIRY_SKEW_SECONDS;
 }
 
-function mapHttpError(error: HttpErrorResponse): Observable<never> {
+const KNOWN_AUTH_ERROR_CODES: ReadonlySet<AuthErrorCode> = new Set<AuthErrorCode>([
+  'INVALID_CREDENTIALS',
+  'INVALID_OR_EXPIRED_TOKEN',
+  'UNAUTHORIZED',
+  'RATE_LIMITED',
+  'EMAIL_EXISTS',
+  'EMAIL_NOT_CONFIRMED',
+  'OTP_REQUIRED',
+  'OTP_INVALID',
+]);
+
+function isKnownAuthErrorCode(code: string | undefined): code is AuthErrorCode {
+  return code != null && KNOWN_AUTH_ERROR_CODES.has(code as AuthErrorCode);
+}
+
+/**
+ * Parses the real `code` extension property off a `ProblemDetail` error body.
+ * Falls back to `UNKNOWN` — never crashes, never guesses from status/text — for
+ * a network-level error (no body), a malformed body, or a `code` string this
+ * frontend build doesn't recognize yet (forward-compat with future backend codes).
+ */
+function parseAuthErrorCode(error: HttpErrorResponse): AuthErrorCode {
   if (error.status === 0) {
-    return throwError(() => new Error('Servidor indisponível. Tente novamente.'));
+    return 'UNKNOWN';
   }
+  const code = (error.error as ProblemDetailBody | null)?.code;
+  return isKnownAuthErrorCode(code) ? code : 'UNKNOWN';
+}
 
-  if (error.status === 401) {
-    return throwError(() => new Error('Email ou senha inválidos.'));
+/**
+ * Human-readable message per code, used only for direct display (e.g. a
+ * template binding to `err.message`). No consumer may branch on this text —
+ * branch on `AuthError.code` instead. This exhaustive switch is intentionally
+ * message-only; it is not F-A2's copy-standardization pass (separate task).
+ */
+function messageForAuthErrorCode(code: AuthErrorCode): string {
+  switch (code) {
+    case 'INVALID_CREDENTIALS':
+      return 'Invalid email or password.';
+    case 'INVALID_OR_EXPIRED_TOKEN':
+      return 'Invalid or expired link or code.';
+    case 'UNAUTHORIZED':
+      return 'Session expired.';
+    case 'RATE_LIMITED':
+      return 'Too many attempts. Please try again later.';
+    case 'EMAIL_EXISTS':
+      return 'An account with this email already exists.';
+    case 'EMAIL_NOT_CONFIRMED':
+      return 'Email not confirmed yet.';
+    case 'OTP_REQUIRED':
+      return 'Verification code required.';
+    case 'OTP_INVALID':
+      return 'Invalid verification code.';
+    case 'UNKNOWN':
+      return 'Something went wrong. Please try again.';
+    default:
+      return assertNever(code);
   }
+}
 
-  const detail: string = (error.error as { detail?: string })?.detail ?? '';
-  if (error.status === 409 || detail.toLowerCase().includes('exists')) {
-    return throwError(() => new Error('Já existe uma conta com este e-mail.'));
-  }
-
-  return throwError(() => new Error('Ocorreu um erro. Tente novamente.'));
+function mapHttpError(error: HttpErrorResponse): Observable<never> {
+  const code = parseAuthErrorCode(error);
+  return throwError(() => new AuthError(code, messageForAuthErrorCode(code)));
 }
 
 @Injectable({ providedIn: 'root' })
@@ -154,7 +206,7 @@ export class AuthService {
     const session = readSession();
     if (!session?.refreshToken) {
       this.logout();
-      return throwError(() => new Error('Sessão expirada.'));
+      return throwError(() => new AuthError('UNAUTHORIZED', messageForAuthErrorCode('UNAUTHORIZED')));
     }
 
     const body: RefreshRequest = { refreshToken: session.refreshToken };
@@ -172,7 +224,7 @@ export class AuthService {
         }),
         catchError((error: HttpErrorResponse) => {
           this.logout();
-          return throwError(() => error);
+          return mapHttpError(error);
         }),
         finalize(() => {
           this.refreshInFlight$ = null;

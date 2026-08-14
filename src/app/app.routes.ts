@@ -4,10 +4,22 @@ import { authGuard } from '@core/auth/auth.guard';
 
 export const routes: Routes = [
   {
-    path: 'login',
+    path: '',
     loadComponent: () =>
-      import('@core/auth/login/login-page').then((c) => c.LoginPage),
-    title: 'Sign in | Budget Manager',
+      import('@core/auth/layout/auth-shell.component').then((c) => c.AuthShellComponent),
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: '/dashboard',
+      },
+      {
+        path: 'login',
+        loadComponent: () =>
+          import('@core/auth/login/login-page').then((c) => c.LoginPage),
+        title: 'Sign in | Budget Manager',
+      },
+    ],
   },
   {
     path: '',
