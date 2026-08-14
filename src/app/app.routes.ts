@@ -9,6 +9,11 @@ export const routes: Routes = [
       import('@core/auth/layout/auth-shell.component').then((c) => c.AuthShellComponent),
     children: [
       {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: '/dashboard',
+      },
+      {
         path: 'login',
         loadComponent: () =>
           import('@core/auth/login/login-page').then((c) => c.LoginPage),

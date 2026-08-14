@@ -206,7 +206,7 @@ export class AuthService {
     const session = readSession();
     if (!session?.refreshToken) {
       this.logout();
-      return throwError(() => new AuthError('UNAUTHORIZED', 'Session expired.'));
+      return throwError(() => new AuthError('UNAUTHORIZED', messageForAuthErrorCode('UNAUTHORIZED')));
     }
 
     const body: RefreshRequest = { refreshToken: session.refreshToken };
@@ -224,7 +224,7 @@ export class AuthService {
         }),
         catchError((error: HttpErrorResponse) => {
           this.logout();
-          return throwError(() => error);
+          return mapHttpError(error);
         }),
         finalize(() => {
           this.refreshInFlight$ = null;
