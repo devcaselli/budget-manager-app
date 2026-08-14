@@ -110,23 +110,23 @@ function parseAuthErrorCode(error: HttpErrorResponse): AuthErrorCode {
 function messageForAuthErrorCode(code: AuthErrorCode): string {
   switch (code) {
     case 'INVALID_CREDENTIALS':
-      return 'Email ou senha inválidos.';
+      return 'Invalid email or password.';
     case 'INVALID_OR_EXPIRED_TOKEN':
-      return 'Link ou código inválido ou expirado.';
+      return 'Invalid or expired link or code.';
     case 'UNAUTHORIZED':
-      return 'Sessão expirada.';
+      return 'Session expired.';
     case 'RATE_LIMITED':
-      return 'Muitas tentativas. Tente novamente mais tarde.';
+      return 'Too many attempts. Please try again later.';
     case 'EMAIL_EXISTS':
-      return 'Já existe uma conta com este e-mail.';
+      return 'An account with this email already exists.';
     case 'EMAIL_NOT_CONFIRMED':
-      return 'E-mail ainda não confirmado.';
+      return 'Email not confirmed yet.';
     case 'OTP_REQUIRED':
-      return 'Código de verificação necessário.';
+      return 'Verification code required.';
     case 'OTP_INVALID':
-      return 'Código de verificação inválido.';
+      return 'Invalid verification code.';
     case 'UNKNOWN':
-      return 'Ocorreu um erro. Tente novamente.';
+      return 'Something went wrong. Please try again.';
     default:
       return assertNever(code);
   }
@@ -206,7 +206,7 @@ export class AuthService {
     const session = readSession();
     if (!session?.refreshToken) {
       this.logout();
-      return throwError(() => new AuthError('UNAUTHORIZED', 'Sessão expirada.'));
+      return throwError(() => new AuthError('UNAUTHORIZED', 'Session expired.'));
     }
 
     const body: RefreshRequest = { refreshToken: session.refreshToken };

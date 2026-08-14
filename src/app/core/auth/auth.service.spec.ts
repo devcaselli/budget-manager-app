@@ -128,7 +128,7 @@ describe('AuthService', () => {
 
       expect(error).toBeInstanceOf(AuthError);
       expect(error?.code).toBe<AuthErrorCode>('INVALID_CREDENTIALS');
-      expect(error?.message).toBe('Email ou senha inválidos.');
+      expect(error?.message).toBe('Invalid email or password.');
     });
 
     it('maps a network failure (status 0) to an UNKNOWN AuthError', () => {
@@ -140,7 +140,7 @@ describe('AuthService', () => {
 
       expect(error).toBeInstanceOf(AuthError);
       expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
-      expect(error?.message).toBe('Ocorreu um erro. Tente novamente.');
+      expect(error?.message).toBe('Something went wrong. Please try again.');
     });
   });
 

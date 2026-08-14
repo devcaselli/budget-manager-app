@@ -23,7 +23,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = authService.getToken();
   if (!token) {
     router.navigate(['/login']);
-    return throwError(() => new Error('Sessão expirada.'));
+    return throwError(() => new Error('Session expired.'));
   }
 
   return next(withBearer(req, token)).pipe(
