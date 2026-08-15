@@ -792,6 +792,14 @@
   color: #1c1814;
   flex: 0 0 34px;
   line-height: 1;
+  // Belt-and-braces against the circle visually breaking: deriveInitials()
+  // already caps output at 1-2 graphemes, but this keeps the CONTAINER safe
+  // even if something unexpected ever slips through (e.g. a future caller
+  // reusing this class with a raw, un-derived string).
+  max-width: 34px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .ew-user-info {

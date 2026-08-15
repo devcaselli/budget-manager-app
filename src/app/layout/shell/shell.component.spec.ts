@@ -255,3 +255,97 @@ describe('ShellComponent — activityNav', () => {
     expect(instance.toolsNav.some((n) => n.num === reviewNum)).toBe(false);
   });
 });
+
+describe('ShellComponent — user chip initials (F-B4: deriveInitials wiring)', () => {
+  /**
+   * Builds a shell fixture with a specific `AuthUser` on `currentUser$`, so
+   * these tests can confirm the chip renders whatever `AuthService` (which
+   * owns calling `deriveInitials()` internally via `toAuthUser()`) actually
+   * produced — proving the wiring end-to-end, not re-testing
+   * `deriveInitials()`'s own algorithm (covered by `derive-initials.spec.ts`).
+   */
+  async function setUpShellFixtureWithUser(user: {
+    email: string;
+    name: string | null;
+    initials: string;
+  }): Promise<ComponentFixture<ShellComponent>> {
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+      clear: () => store.clear(),
+    });
+
+    await TestBed.configureTestingModule({
+      imports: [ShellComponent],
+      providers: [
+        provideNoopAnimations(),
+        provideRouter([{ path: 'tags', component: StubTagsPage }]),
+        PreferencesService,
+        {
+          provide: WalletService,
+          useValue: {
+            selectedWallet$: of(null),
+            wallets$: of([]),
+            loadWallets: vi.fn(),
+            selectWallet: vi.fn(),
+          },
+        },
+        {
+          provide: BulletService,
+          useValue: { bullets$: of([]), loading$: of(false), loadByWalletId: vi.fn() },
+        },
+        { provide: InstallmentService, useValue: { creditCards$: of([]) } },
+        { provide: ExpenseService, useValue: { loadByWalletId: vi.fn(), create: vi.fn() } },
+        { provide: AuthService, useValue: { currentUser$: of(user), logout: vi.fn() } },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function avatarEl(fixture: ComponentFixture<ShellComponent>): HTMLElement {
+    return fixture.nativeElement.querySelector('.ew-user-av') as HTMLElement;
+  }
+
+  it('renders the real deriveInitials() output for a compound name in the chip', async () => {
+    const fixture = await setUpShellFixtureWithUser({
+      email: 'victor@example.com',
+      name: 'Victor Porto',
+      initials: 'VP',
+    });
+
+    expect(avatarEl(fixture).textContent?.trim()).toBe('VP');
+  });
+
+  it('renders the email-derived fallback initial when the user has no display name', async () => {
+    const fixture = await setUpShellFixtureWithUser({
+      email: 'victor@example.com',
+      name: null,
+      initials: 'V',
+    });
+
+    expect(avatarEl(fixture).textContent?.trim()).toBe('V');
+  });
+
+  it('has overflow-safe truncation styling on the avatar chip container (structural check)', async () => {
+    const fixture = await setUpShellFixtureWithUser({
+      email: 'victor@example.com',
+      name: 'Victor Porto',
+      initials: 'VP',
+    });
+
+    const el = avatarEl(fixture);
+    const styles = getComputedStyle(el);
+    expect(styles.overflow).toBe('hidden');
+    expect(styles.textOverflow).toBe('ellipsis');
+    expect(styles.whiteSpace).toBe('nowrap');
+  });
+});

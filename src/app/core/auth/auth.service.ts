@@ -14,6 +14,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 
 import { environment } from '@environments/environment';
 import { assertNever } from '@shared/utils/assert-never';
+import { deriveInitials } from '@shared/utils/derive-initials';
 import {
   AuthError,
   AuthErrorCode,
@@ -35,29 +36,19 @@ const STORAGE_KEY_SESSION = 'bm_session';
 const TOKEN_EXPIRY_SKEW_SECONDS = 30;
 
 /**
- * Builds the initials chip value from a real (possibly absent) display name,
- * falling back to the email's first letter when there is no name on file.
- * This is intentionally minimal — F-B4 owns making initials-derivation more
- * robust (e.g. multi-word names); this task only needs it to not crash or
- * show garbage when `name` is `null`.
- */
-function deriveInitials(email: string, name: string | null): string {
-  const trimmedName = name?.trim();
-  if (trimmedName) {
-    return trimmedName.charAt(0).toUpperCase();
-  }
-  return email.charAt(0).toUpperCase();
-}
-
-/**
  * Builds an `AuthUser` from real backend data only — `name` is whatever the
  * backend's `TokenResponse.displayName` said (including `null`), never a
  * fabricated value. Replaces the old `deriveUser()`, which faked a display
  * name from the email's local-part; that fabrication is gone (F-B1).
+ *
+ * Initials are derived via the shared, grapheme-aware `deriveInitials()`
+ * (`shared/utils/derive-initials.ts`, F-B4) — robust to compound names,
+ * emoji/combining-mark grapheme clusters, and the empty/no-name state,
+ * falling back to the account email when there is no display name on file.
  */
 function toAuthUser(email: string, name: string | null): AuthUser {
   const normalizedName = name && name.trim().length > 0 ? name : null;
-  return { email, name: normalizedName, initials: deriveInitials(email, normalizedName) };
+  return { email, name: normalizedName, initials: deriveInitials(normalizedName, email) };
 }
 
 function readSession(): StoredSession | null {
