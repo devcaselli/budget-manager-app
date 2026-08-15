@@ -217,6 +217,18 @@ export class AuthService {
    * Exchanges the stored (rotated, single-use) refresh token for a new token
    * pair. Concurrent callers share one in-flight request via shareReplay so a
    * burst of 401s triggers a single /auth/refresh call.
+   *
+   * IMPORTANT — `displayName` on this response is ALWAYS `null`: the backend's
+   * `RefreshUseCase` deliberately omits the name claim/field on `/auth/refresh`
+   * (`TokenResponseDto`'s own contract states it's "always null on /auth/refresh
+   * responses" — the client already has the real name from the original
+   * `/auth/token` login response). Treating that `null` as authoritative here
+   * would silently blank the user's real display name on every automatic,
+   * user-invisible token refresh (triggered by `auth.interceptor.ts` on any
+   * 401). So — unlike `login()` and `updateProfile()`, where a `displayName`
+   * value (including a genuine `null` for "no name set") IS authoritative and
+   * must overwrite — this path treats `null` as "unchanged" and preserves
+   * whatever name the pre-refresh session already had.
    */
   refreshAccessToken(): Observable<string> {
     if (this.refreshInFlight$) {
@@ -235,7 +247,10 @@ export class AuthService {
       .post<TokenResponse>(`${this.authUrl}/refresh`, body)
       .pipe(
         map((response) => {
-          const name = response.displayName ?? null;
+          // See the method doc above — `response.displayName` is never a real
+          // value on this endpoint, so a `null` here means "unchanged," not
+          // "authoritative." Fall back to the session's existing name.
+          const name = response.displayName ?? session.name ?? null;
           writeSession({
             email: session.email,
             token: response.accessToken,

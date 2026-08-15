@@ -16,14 +16,28 @@ function makeToken(expSeconds: number): string {
   return `header.${payload}.signature`;
 }
 
-function tokenResponse(overrides: Partial<TokenResponse> = {}): TokenResponse {
+/**
+ * `displayName` is REQUIRED (not defaulted) so every call site must be
+ * explicit about what the backend actually sends. This matters because the
+ * real contract differs by endpoint: `/auth/token` (login) sends the real
+ * name, but `/auth/refresh` ALWAYS sends `displayName: null` — the backend's
+ * `RefreshUseCase` deliberately omits the name claim on refresh (the client
+ * already has it from the original login). A hardcoded default here (the
+ * previous shape of this helper) let a refresh-response mock silently encode
+ * a fictional contract, which is exactly how the CRITICAL "refresh blanks
+ * the display name" bug slipped past this suite undetected.
+ */
+function tokenResponse(
+  displayName: string | null,
+  overrides: Partial<Omit<TokenResponse, 'displayName'>> = {},
+): TokenResponse {
   return {
     accessToken: makeToken(Date.now() / 1000 + 3600),
     tokenType: 'Bearer',
     expiresIn: 3600,
     refreshToken: 'refresh-1',
     refreshExpiresIn: 86400,
-    displayName: 'Jane Doe',
+    displayName,
     ...overrides,
   };
 }
@@ -150,7 +164,7 @@ describe('AuthService', () => {
 
       const req = httpMock.expectOne(`${AUTH_URL}/token`);
       expect(req.request.method).toBe('POST');
-      req.flush(tokenResponse({ displayName: 'Jane Doe' }));
+      req.flush(tokenResponse('Jane Doe'));
 
       expect(user).not.toBeNull();
       expect(user!.name).toBe('Jane Doe');
@@ -167,7 +181,7 @@ describe('AuthService', () => {
 
       service.login('jane@mail.com', 'pw').subscribe();
 
-      httpMock.expectOne(`${AUTH_URL}/token`).flush(tokenResponse({ displayName: null }));
+      httpMock.expectOne(`${AUTH_URL}/token`).flush(tokenResponse(null));
 
       expect(user).not.toBeNull();
       expect(user!.name).toBeNull();
@@ -184,7 +198,7 @@ describe('AuthService', () => {
 
       service.login('jane@mail.com', 'pw').subscribe();
 
-      httpMock.expectOne(`${AUTH_URL}/token`).flush(tokenResponse({ displayName: '' }));
+      httpMock.expectOne(`${AUTH_URL}/token`).flush(tokenResponse(''));
 
       expect(user!.name).toBeNull();
     });
@@ -237,7 +251,7 @@ describe('AuthService', () => {
       registerReq.flush({ id: '1', email: 'jane@mail.com', createdAt: '2026-08-15T00:00:00Z' });
 
       const loginReq = httpMock.expectOne(`${AUTH_URL}/token`);
-      loginReq.flush(tokenResponse({ displayName: 'Jane Doe' }));
+      loginReq.flush(tokenResponse('Jane Doe'));
 
       expect(user).not.toBeNull();
       expect(user!.name).toBe('Jane Doe');
@@ -350,7 +364,8 @@ describe('AuthService', () => {
       const reqs = httpMock.match(`${AUTH_URL}/refresh`);
       expect(reqs).toHaveLength(1);
 
-      reqs[0].flush(tokenResponse({ accessToken: makeToken(Date.now() / 1000 + 7200) }));
+      // Real /auth/refresh contract: displayName is ALWAYS null on this endpoint.
+      reqs[0].flush(tokenResponse(null, { accessToken: makeToken(Date.now() / 1000 + 7200) }));
       expect(tokens).toHaveLength(2);
       expect(tokens[0]).toBe(tokens[1]);
     });
@@ -376,12 +391,18 @@ describe('AuthService', () => {
       expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     });
 
-    it('refreshes the persisted and in-memory displayName from the refresh response', () => {
+    it('preserves the pre-existing displayName across a refresh, since /auth/refresh always sends displayName: null (review CRITICAL)', () => {
+      // This is the REAL backend contract: RefreshUseCase deliberately omits the
+      // name claim on /auth/refresh (TokenResponseDto: "always null on
+      // /auth/refresh responses"). Treating that null as authoritative would
+      // silently blank the user's real name on every automatic token refresh —
+      // the exact bug this test guards against. The name must come from the
+      // pre-existing session, NEVER from the refresh response.
       seedSession({
         email: 'jane@mail.com',
         token: makeToken(Date.now() / 1000 + 3600),
         refreshToken: 'r-1',
-        name: null,
+        name: 'Jane Doe',
       });
       const service = createService();
 
@@ -391,13 +412,35 @@ describe('AuthService', () => {
       service.refreshAccessToken().subscribe();
       httpMock
         .expectOne(`${AUTH_URL}/refresh`)
-        .flush(tokenResponse({ accessToken: makeToken(Date.now() / 1000 + 7200), displayName: 'Jane Doe' }));
+        .flush(tokenResponse(null, { accessToken: makeToken(Date.now() / 1000 + 7200) }));
 
       expect(user).not.toBeNull();
       expect(user!.name).toBe('Jane Doe');
 
       const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
       expect(persisted.name).toBe('Jane Doe');
+    });
+
+    it('keeps the name null across a refresh when the pre-existing session had no name set', () => {
+      seedSession({
+        email: 'jane@mail.com',
+        token: makeToken(Date.now() / 1000 + 3600),
+        refreshToken: 'r-1',
+        name: null,
+      });
+      const service = createService();
+
+      let user: { name: string | null; initials: string } | null = null;
+      service.currentUser$.subscribe((u) => (user = u));
+
+      service.refreshAccessToken().subscribe();
+      httpMock
+        .expectOne(`${AUTH_URL}/refresh`)
+        .flush(tokenResponse(null, { accessToken: makeToken(Date.now() / 1000 + 7200) }));
+
+      expect(user).not.toBeNull();
+      expect(user!.name).toBeNull();
+      expect(user!.initials).toBe('J');
     });
   });
 
