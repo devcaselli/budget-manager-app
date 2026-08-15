@@ -401,6 +401,149 @@ describe('AuthService', () => {
     });
   });
 
+  describe('updateProfile (F-B3)', () => {
+    const USERS_URL = `${environment.apiUrl}/users`;
+
+    it('sends the trimmed-by-caller displayName as the request body', () => {
+      seedSession({ email: 'jane@mail.com', token: makeToken(Date.now() / 1000 + 3600), refreshToken: 'r-1' });
+      const service = createService();
+
+      service.updateProfile('New Name').subscribe();
+
+      const req = httpMock.expectOne(`${USERS_URL}/me`);
+      expect(req.request.method).toBe('PATCH');
+      expect(req.request.body).toEqual({ displayName: 'New Name' });
+      req.flush({ id: 'u-1', displayName: 'New Name' });
+    });
+
+    it('updates currentUserSubject (the same source the shell reads) with the fresh name on success', () => {
+      seedSession({
+        email: 'jane@mail.com',
+        token: makeToken(Date.now() / 1000 + 3600),
+        refreshToken: 'r-1',
+        name: 'Old Name',
+      });
+      const service = createService();
+
+      let user: { name: string | null } | null = null;
+      service.currentUser$.subscribe((u) => (user = u));
+      expect(user!.name).toBe('Old Name');
+
+      service.updateProfile('New Name').subscribe();
+      httpMock.expectOne(`${USERS_URL}/me`).flush({ id: 'u-1', displayName: 'New Name' });
+
+      expect(user!.name).toBe('New Name');
+    });
+
+    it('persists the fresh name to the stored session without touching the existing tokens', () => {
+      seedSession({
+        email: 'jane@mail.com',
+        token: makeToken(Date.now() / 1000 + 3600),
+        refreshToken: 'r-1',
+        name: 'Old Name',
+      });
+      const service = createService();
+
+      service.updateProfile('New Name').subscribe();
+      httpMock.expectOne(`${USERS_URL}/me`).flush({ id: 'u-1', displayName: 'New Name' });
+
+      const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(persisted.name).toBe('New Name');
+      expect(persisted.refreshToken).toBe('r-1');
+    });
+
+    it('does not touch currentUserSubject when the request fails', () => {
+      seedSession({
+        email: 'jane@mail.com',
+        token: makeToken(Date.now() / 1000 + 3600),
+        refreshToken: 'r-1',
+        name: 'Old Name',
+      });
+      const service = createService();
+
+      let user: { name: string | null } | null = null;
+      service.currentUser$.subscribe((u) => (user = u));
+
+      service.updateProfile('New Name').subscribe({ error: () => undefined });
+      httpMock
+        .expectOne(`${USERS_URL}/me`)
+        .flush(problemDetail({ status: 400 }), { status: 400, statusText: 'Bad Request' });
+
+      expect(user!.name).toBe('Old Name');
+    });
+
+    it('propagates a typed AuthError (not a raw HttpErrorResponse) on a 400 validation failure', () => {
+      seedSession({ email: 'jane@mail.com', token: makeToken(Date.now() / 1000 + 3600), refreshToken: 'r-1' });
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.updateProfile('N').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${USERS_URL}/me`)
+        .flush(problemDetail({ status: 400, code: undefined }), { status: 400, statusText: 'Bad Request' });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
+      expect(error?.message).toBe('Something went wrong. Please try again.');
+    });
+
+    it('propagates a typed AuthError on a 401 (interceptor territory in the real app, but the service must still type it)', () => {
+      seedSession({ email: 'jane@mail.com', token: makeToken(Date.now() / 1000 + 3600), refreshToken: 'r-1' });
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.updateProfile('New Name').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${USERS_URL}/me`)
+        .flush(problemDetail({ status: 401, code: 'UNAUTHORIZED' }), { status: 401, statusText: 'Unauthorized' });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('UNAUTHORIZED');
+    });
+
+    it('propagates a typed AuthError on a 404 (account no longer exists) without crashing', () => {
+      seedSession({ email: 'jane@mail.com', token: makeToken(Date.now() / 1000 + 3600), refreshToken: 'r-1' });
+      const service = createService();
+
+      let error: AuthError | undefined;
+      expect(() => {
+        service.updateProfile('New Name').subscribe({ error: (e: AuthError) => (error = e) });
+        httpMock
+          .expectOne(`${USERS_URL}/me`)
+          .flush(problemDetail({ status: 404, code: undefined }), { status: 404, statusText: 'Not Found' });
+      }).not.toThrow();
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
+    });
+
+    it('maps a network failure (status 0) to an UNKNOWN AuthError', () => {
+      seedSession({ email: 'jane@mail.com', token: makeToken(Date.now() / 1000 + 3600), refreshToken: 'r-1' });
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.updateProfile('New Name').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock.expectOne(`${USERS_URL}/me`).error(new ProgressEvent('error'), { status: 0 });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
+    });
+
+    it('errors with a typed AuthError and makes no HTTP call when there is no stored session', () => {
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.updateProfile('New Name').subscribe({ error: (e: AuthError) => (error = e) });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('UNAUTHORIZED');
+      httpMock.expectNone(`${USERS_URL}/me`);
+    });
+  });
+
   describe('logout', () => {
     it('clears the stored session and the current user', () => {
       seedSession({ email: 'jane@mail.com', token: makeToken(Date.now() / 1000 + 3600), refreshToken: 'r' });

@@ -85,6 +85,25 @@
   margin-top: 6px;
 }
 
+.set-field-err {
+  margin: 6px 0 0;
+  color: var(--ew-bad);
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.set-success {
+  padding: 10px 14px;
+  border: 1px solid var(--ew-teal);
+  border-radius: 8px;
+  color: var(--ew-teal);
+  font-family: var(--ew-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
 // ── Danger zone ───────────────────────────────────────────────────────────────
 .set-danger-panel {
   border-color: rgba(217, 122, 108, 0.3) !important;

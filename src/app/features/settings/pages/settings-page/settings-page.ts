@@ -8,8 +8,8 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { map } from 'rxjs';
 
+import { AuthError } from '@core/auth/auth.model';
 import { AuthService } from '@core/auth/auth.service';
 import { PreferencesService } from '@core/services/preferences.service';
 
@@ -43,10 +43,21 @@ export class SettingsPage {
   protected readonly userEmail = signal('');
 
   // ── Profile form ────────────────────────────────────────────────────────────
+  // `name` validators mirror the signup form's displayName field exactly (F-B2,
+  // login-page.ts) and the backend contract (PATCH /users/me, F-B3): min 2 /
+  // max 50 chars after trim, no letters-only restriction — real names have
+  // accents, hyphens, spaces, apostrophes.
   protected readonly profileForm = new FormGroup({
-    name: new FormControl('', { nonNullable: true }),
-    email: new FormControl('', { nonNullable: true, validators: [Validators.email] }),
+    name: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(2), Validators.maxLength(50)],
+    }),
+    email: new FormControl({ value: '', disabled: true }, { nonNullable: true, validators: [Validators.email] }),
   });
+
+  protected readonly profileSaving = signal(false);
+  protected readonly profileError = signal('');
+  protected readonly profileSaved = signal(false);
 
   // ── Password form ────────────────────────────────────────────────────────────
   protected readonly newPw = signal('');
@@ -100,13 +111,11 @@ export class SettingsPage {
 
   constructor() {
     this.authService.currentUser$
-      .pipe(
-        map((u) => u?.email ?? ''),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe((email) => {
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((user) => {
+        const email = user?.email ?? '';
         this.userEmail.set(email);
-        this.profileForm.patchValue({ email });
+        this.profileForm.patchValue({ email, name: user?.name ?? '' });
       });
 
     // Bridge password fields to signals for computed pwRules
@@ -125,7 +134,35 @@ export class SettingsPage {
 
   // ── Profile ─────────────────────────────────────────────────────────────────
   protected saveProfile(): void {
-    // TODO: wire to backend PATCH /users/me when available
+    if (this.profileForm.controls.name.invalid) {
+      this.profileError.set('Name must be between 2 and 50 characters.');
+      this.profileSaved.set(false);
+      return;
+    }
+
+    // Trimmed here only for UX — the backend trims server-side before
+    // validation, so this is not required for correctness, but it ensures
+    // the displayed value matches exactly what gets persisted.
+    const trimmedName = this.profileForm.controls.name.value.trim();
+
+    this.profileSaving.set(true);
+    this.profileError.set('');
+    this.profileSaved.set(false);
+
+    this.authService
+      .updateProfile(trimmedName)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.profileSaving.set(false);
+          this.profileSaved.set(true);
+          this.profileForm.controls.name.setValue(trimmedName);
+        },
+        error: (err: AuthError) => {
+          this.profileSaving.set(false);
+          this.profileError.set(err.message);
+        },
+      });
   }
 
   // ── Password ─────────────────────────────────────────────────────────────────

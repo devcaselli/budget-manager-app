@@ -25,6 +25,8 @@ import {
   RegisterResponse,
   StoredSession,
   TokenResponse,
+  UpdateProfileRequest,
+  UpdateProfileResponse,
 } from './auth.model';
 
 const STORAGE_KEY_SESSION = 'bm_session';
@@ -161,6 +163,7 @@ function mapHttpError(error: HttpErrorResponse): Observable<never> {
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly authUrl = `${environment.apiUrl}/auth`;
+  private readonly usersUrl = `${environment.apiUrl}/users`;
 
   private readonly currentUserSubject = new BehaviorSubject<AuthUser | null>(null);
   readonly currentUser$ = this.currentUserSubject.asObservable();
@@ -269,6 +272,43 @@ export class AuthService {
 
     return this.http.post<RegisterResponse>(`${this.authUrl}/register`, body).pipe(
       switchMap(() => this.login(email, password)),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
+  }
+
+  /**
+   * `PATCH /users/me` (F-B3). Updates the account's display name and, on
+   * success, pushes the fresh name into `currentUserSubject` — the same
+   * reactive source the shell reads for its name/initials chip — so the UI
+   * updates immediately, with no reload or re-login. Also rewrites the
+   * persisted `StoredSession.name` (mirroring `refreshAccessToken`'s own
+   * write-session-then-notify pattern) so a page reload doesn't show a stale
+   * name before the next token refresh.
+   *
+   * The backend trims server-side before validation, so `displayName` is not
+   * trimmed here before the request — the caller may trim for its own UX
+   * (e.g. to preview what will be persisted), but this method sends whatever
+   * it is given.
+   */
+  updateProfile(displayName: string): Observable<void> {
+    const session = readSession();
+    if (!session) {
+      return throwError(() => new AuthError('UNAUTHORIZED', messageForAuthErrorCode('UNAUTHORIZED')));
+    }
+
+    const body: UpdateProfileRequest = { displayName };
+
+    return this.http.patch<UpdateProfileResponse>(`${this.usersUrl}/me`, body).pipe(
+      map((response) => {
+        const name = response.displayName ?? null;
+        writeSession({
+          email: session.email,
+          token: session.token,
+          refreshToken: session.refreshToken,
+          name,
+        });
+        this.currentUserSubject.next(toAuthUser(session.email, name));
+      }),
       catchError((error: HttpErrorResponse) => mapHttpError(error)),
     );
   }

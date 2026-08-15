@@ -55,6 +55,27 @@ export interface RegisterResponse {
   readonly createdAt: string;
 }
 
+/**
+ * Request body for `PATCH /users/me` (F-B3). The backend trims server-side
+ * BEFORE validation, so the frontend does not need to trim before sending —
+ * trimming client-side is only done here for UX (showing the user what will
+ * actually be persisted), same bounds as `RegisterRequest.displayName`.
+ */
+export interface UpdateProfileRequest {
+  readonly displayName: string;
+}
+
+/**
+ * Response body for `PATCH /users/me` (F-B3). Used directly to refresh the
+ * in-memory session (`currentUserSubject`) — no full re-login or token
+ * refresh needed, this shape exists specifically to let callers update state
+ * immediately.
+ */
+export interface UpdateProfileResponse {
+  readonly id: string;
+  readonly displayName: string;
+}
+
 export interface StoredSession {
   readonly email: string;
   readonly token: string;

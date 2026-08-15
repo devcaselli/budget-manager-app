@@ -57,14 +57,36 @@
             <div class="ew-field">
               <label>Display name</label>
               <input class="ew-input" formControlName="name" placeholder="e.g. Lucas" />
+              @if (profileForm.controls.name.invalid && profileForm.controls.name.touched) {
+                <p class="set-field-err">Name must be between 2 and 50 characters.</p>
+              }
             </div>
             <div class="ew-field">
               <label>Email</label>
-              <input class="ew-input" formControlName="email" type="email" placeholder="you@domain.com" />
+              <input
+                class="ew-input"
+                formControlName="email"
+                type="email"
+                placeholder="you@domain.com"
+                readonly
+                title="Changing your email is not supported yet"
+              />
             </div>
+
+            @if (profileError()) {
+              <div class="ew-alert" role="alert">{{ profileError() }}</div>
+            }
+            @if (profileSaved()) {
+              <div class="set-success" role="status">Profile updated.</div>
+            }
+
             <div class="set-form-actions">
-              <button class="ew-btn ew-btn--primary" type="submit" disabled title="Backend not yet available">
-                Save changes
+              <button
+                class="ew-btn ew-btn--primary"
+                type="submit"
+                [disabled]="profileForm.controls.name.invalid || profileSaving()"
+              >
+                {{ profileSaving() ? 'Saving…' : 'Save changes' }}
               </button>
               <button class="ew-btn ew-btn--ghost" type="button" (click)="profileForm.reset()">
                 Cancel
