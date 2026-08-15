@@ -26,6 +26,14 @@ export const routes: Routes = [
         title: 'Check your email | Budget Manager',
       },
       {
+        path: 'forgot-password',
+        loadComponent: () =>
+          import('@core/auth/forgot-password/forgot-password-page').then(
+            (c) => c.ForgotPasswordPage,
+          ),
+        title: 'Forgot password | Budget Manager',
+      },
+      {
         path: 'confirm-email',
         loadComponent: () =>
           import('@core/auth/confirm-email/confirm-email-page').then((c) => c.ConfirmEmailPage),

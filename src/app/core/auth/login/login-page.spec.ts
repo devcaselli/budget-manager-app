@@ -71,6 +71,38 @@ describe('LoginPage', () => {
     });
   });
 
+  describe('"Forgot password?" link (F-C5)', () => {
+    beforeEach(async () => {
+      await setUp();
+    });
+
+    it('renders a "Forgot password?" link on the login form', () => {
+      const link = Array.from(root().querySelectorAll('a')).find(
+        (a) => a.textContent?.trim() === 'Forgot password?',
+      );
+      expect(link).toBeTruthy();
+    });
+
+    it('points the link at /forgot-password via routerLink', () => {
+      const link = Array.from(root().querySelectorAll('a')).find(
+        (a) => a.textContent?.trim() === 'Forgot password?',
+      ) as HTMLAnchorElement;
+
+      expect(link.getAttribute('href')).toBe('/forgot-password');
+    });
+
+    it('is not present on the signup form', () => {
+      const signupTab = root().querySelectorAll('.ew-auth-tabs [role="tab"]')[1] as HTMLElement;
+      signupTab.click();
+      fixture.detectChanges();
+
+      const link = Array.from(root().querySelectorAll('a')).find(
+        (a) => a.textContent?.trim() === 'Forgot password?',
+      );
+      expect(link).toBeFalsy();
+    });
+  });
+
   describe('redirect on init', () => {
     it('navigates to /dashboard when already authenticated', async () => {
       await setUp(true);
