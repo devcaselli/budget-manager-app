@@ -8,6 +8,23 @@ export interface AuthUser {
    */
   readonly name: string | null;
   readonly initials: string;
+  /**
+   * Sourced from `TokenResponse.emailVerified` (backend Tema B7, `f990424`).
+   * `true`/`false` on any fresh login or token refresh — the backend's
+   * `/auth/refresh` path deliberately re-fetches this live via
+   * `RefreshUseCase`'s `findById(userId)` call, unlike `displayName`, which
+   * is omitted (always `null`) on refresh. So, UNLIKE `name`, this field is
+   * always authoritative on both `login()` and `refreshAccessToken()` — no
+   * "preserve the prior value" fallback is needed or correct here.
+   *
+   * `null` only for a session predating this field entirely (a `StoredSession`
+   * blob written before F-C7, or in-memory state built before the very first
+   * login/refresh completes) — see `StoredSession.emailVerified` for the
+   * legacy-shape handling. Treated as "unverified" by the shell's banner
+   * (F-C7 decision): an unknown verification state must never silently
+   * suppress a legitimate soft-verification prompt.
+   */
+  readonly emailVerified: boolean | null;
 }
 
 export interface LoginRequest {
@@ -43,6 +60,20 @@ export interface TokenResponse {
    * call in the login flow, never from register's own response.
    */
   readonly displayName: string | null;
+  /**
+   * Confirmed shipped on the backend (Tema B, task B7, commit `f990424`) on
+   * both `POST /auth/token` AND `POST /auth/refresh` — unlike `displayName`,
+   * this field is a boolean primitive with a real default (`false`), so the
+   * backend never omits it. On `/auth/refresh` specifically, `RefreshUseCase`
+   * deliberately re-fetches this live via `UserRepository.findById(userId)`
+   * rather than trusting anything cached on the refresh token record — the
+   * backend's own reasoning: `emailVerified` gates password-reset and
+   * account-deletion, so a stale claim here is a security bug, not cosmetic
+   * drift the way a stale `displayName` would be. Always authoritative on
+   * both endpoints; never treat a value here as "unchanged, keep the prior
+   * session's value" the way `displayName` must be treated on refresh.
+   */
+  readonly emailVerified: boolean;
 }
 
 export interface RefreshRequest {
@@ -126,6 +157,19 @@ export interface StoredSession {
    * `readSession()` must treat that legacy shape the same as a fresh `null`.
    */
   readonly name?: string | null;
+  /**
+   * Persisted so the shell's "confirm your email" banner (F-C7) survives a
+   * page reload without waiting on a token refresh. Optional for the same
+   * legacy-shape reason as `name?`: a session blob written before F-C7
+   * deserializes with this property entirely absent (not `false`) from the
+   * parsed JSON. `readSession()` normalizes absent/`undefined` to `null`,
+   * and the shell treats `null` the same as `false` (show the banner) — see
+   * `AuthUser.emailVerified`'s doc for why that's the safe default here,
+   * which is the OPPOSITE safe-default direction from `name?`'s legacy-null
+   * handling (there, `null` means "show a harmless fallback"; here, `null`
+   * means "assume unverified" so a real prompt is never silently suppressed).
+   */
+  readonly emailVerified?: boolean | null;
 }
 
 /**

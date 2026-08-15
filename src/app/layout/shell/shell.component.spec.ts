@@ -2,13 +2,14 @@ import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 
 /** Stand-in for the real /tags page (Task 2, not yet implemented) — keeps router.navigate resolvable in tests. */
 @Component({ template: '' })
 class StubTagsPage {}
 
 import { AuthService } from '@core/auth/auth.service';
+import { AuthUser } from '@core/auth/auth.model';
 import { PreferencesService } from '@core/services/preferences.service';
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { ExpenseService } from '@features/expense/services/expense.service';
@@ -72,6 +73,7 @@ async function setUpShellFixture(): Promise<ComponentFixture<ShellComponent>> {
         useValue: {
           currentUser$: of(null),
           logout: vi.fn(),
+          resendConfirmation: vi.fn(),
         },
       },
     ],
@@ -268,6 +270,7 @@ describe('ShellComponent — user chip initials (F-B4: deriveInitials wiring)', 
     email: string;
     name: string | null;
     initials: string;
+    emailVerified?: boolean | null;
   }): Promise<ComponentFixture<ShellComponent>> {
     const store = new Map<string, string>();
     vi.stubGlobal('localStorage', {
@@ -298,7 +301,10 @@ describe('ShellComponent — user chip initials (F-B4: deriveInitials wiring)', 
         },
         { provide: InstallmentService, useValue: { creditCards$: of([]) } },
         { provide: ExpenseService, useValue: { loadByWalletId: vi.fn(), create: vi.fn() } },
-        { provide: AuthService, useValue: { currentUser$: of(user), logout: vi.fn() } },
+        {
+          provide: AuthService,
+          useValue: { currentUser$: of(user), logout: vi.fn(), resendConfirmation: vi.fn() },
+        },
       ],
     }).compileComponents();
 
@@ -347,5 +353,214 @@ describe('ShellComponent — user chip initials (F-B4: deriveInitials wiring)', 
     expect(styles.overflow).toBe('hidden');
     expect(styles.textOverflow).toBe('ellipsis');
     expect(styles.whiteSpace).toBe('nowrap');
+  });
+});
+
+describe('ShellComponent — email confirmation banner (F-C7)', () => {
+  /**
+   * Unlike `setUpShellFixtureWithUser` above (which uses a plain `of(user)`
+   * observable, fine for static-render checks), the reactive-disappearance
+   * test below needs to push a SECOND emission onto the same `currentUser$`
+   * the shell already subscribed to — exactly what a live token refresh
+   * would produce. A `BehaviorSubject` is required for that, so this helper
+   * returns it alongside the fixture instead of hiding it behind `of(...)`.
+   */
+  function makeUser(overrides: {
+    emailVerified: boolean | null | undefined;
+  }): AuthUser {
+    return {
+      email: 'victor@example.com',
+      name: 'Victor Porto',
+      initials: 'VP',
+      ...overrides,
+    } as AuthUser;
+  }
+
+  async function setUpShellFixtureWithReactiveUser(
+    user: AuthUser | null,
+  ): Promise<{
+    fixture: ComponentFixture<ShellComponent>;
+    currentUser$: BehaviorSubject<AuthUser | null>;
+    resendConfirmation: ReturnType<typeof vi.fn>;
+  }> {
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+      clear: () => store.clear(),
+    });
+
+    const currentUser$ = new BehaviorSubject<AuthUser | null>(user);
+    const resendConfirmation = vi.fn().mockReturnValue(of(undefined));
+
+    await TestBed.configureTestingModule({
+      imports: [ShellComponent],
+      providers: [
+        provideNoopAnimations(),
+        provideRouter([{ path: 'tags', component: StubTagsPage }]),
+        PreferencesService,
+        {
+          provide: WalletService,
+          useValue: {
+            selectedWallet$: of(null),
+            wallets$: of([]),
+            loadWallets: vi.fn(),
+            selectWallet: vi.fn(),
+          },
+        },
+        {
+          provide: BulletService,
+          useValue: { bullets$: of([]), loading$: of(false), loadByWalletId: vi.fn() },
+        },
+        { provide: InstallmentService, useValue: { creditCards$: of([]) } },
+        { provide: ExpenseService, useValue: { loadByWalletId: vi.fn(), create: vi.fn() } },
+        {
+          provide: AuthService,
+          useValue: { currentUser$, logout: vi.fn(), resendConfirmation },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    return { fixture, currentUser$, resendConfirmation };
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function banner(fixture: ComponentFixture<ShellComponent>): HTMLElement | null {
+    return fixture.nativeElement.querySelector('.ew-verify-banner');
+  }
+
+  function resendButton(fixture: ComponentFixture<ShellComponent>): HTMLButtonElement {
+    return fixture.nativeElement.querySelector('.ew-verify-banner-btn') as HTMLButtonElement;
+  }
+
+  it('renders the banner for an authenticated user with emailVerified: false', async () => {
+    const { fixture } = await setUpShellFixtureWithReactiveUser(
+      makeUser({ emailVerified: false }),
+    );
+
+    expect(banner(fixture)).toBeTruthy();
+  });
+
+  it('does NOT render the banner for an authenticated user with emailVerified: true', async () => {
+    const { fixture } = await setUpShellFixtureWithReactiveUser(
+      makeUser({ emailVerified: true }),
+    );
+
+    expect(banner(fixture)).toBeFalsy();
+  });
+
+  it('renders the banner when emailVerified is null (legacy/unknown session — safe default is "show")', async () => {
+    const { fixture } = await setUpShellFixtureWithReactiveUser(
+      makeUser({ emailVerified: null }),
+    );
+
+    expect(banner(fixture)).toBeTruthy();
+  });
+
+  it('renders the banner when emailVerified is undefined (field entirely absent)', async () => {
+    const { fixture } = await setUpShellFixtureWithReactiveUser(
+      makeUser({ emailVerified: undefined }),
+    );
+
+    expect(banner(fixture)).toBeTruthy();
+  });
+
+  it('does NOT render the banner for an unauthenticated user (currentUser$ null)', async () => {
+    const { fixture } = await setUpShellFixtureWithReactiveUser(null);
+
+    expect(banner(fixture)).toBeFalsy();
+  });
+
+  it('resend button calls AuthService.resendConfirmation() with the current user email', async () => {
+    const { fixture, resendConfirmation } = await setUpShellFixtureWithReactiveUser(
+      makeUser({ emailVerified: false }),
+    );
+
+    resendButton(fixture).dispatchEvent(new MouseEvent('click'));
+    fixture.detectChanges();
+
+    expect(resendConfirmation).toHaveBeenCalledExactlyOnceWith('victor@example.com');
+  });
+
+  describe('resend cooldown (fake timers)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('disables the resend button and shows a countdown after a successful resend, then re-enables at 0', async () => {
+      const { fixture } = await setUpShellFixtureWithReactiveUser(
+        makeUser({ emailVerified: false }),
+      );
+
+      resendButton(fixture).dispatchEvent(new MouseEvent('click'));
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      expect(resendButton(fixture).disabled).toBe(true);
+      expect(resendButton(fixture).textContent).toContain('Resend in 60s');
+
+      await vi.advanceTimersByTimeAsync(59_000);
+      fixture.detectChanges();
+      expect(resendButton(fixture).disabled).toBe(true);
+      expect(resendButton(fixture).textContent).toContain('Resend in 1s');
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      fixture.detectChanges();
+      expect(resendButton(fixture).disabled).toBe(false);
+      expect(resendButton(fixture).textContent).toContain('Resend confirmation email');
+    });
+
+    it('does not stack multiple intervals across repeated resend clicks (takeWhile self-terminates)', async () => {
+      const { fixture, resendConfirmation } = await setUpShellFixtureWithReactiveUser(
+        makeUser({ emailVerified: false }),
+      );
+
+      resendButton(fixture).dispatchEvent(new MouseEvent('click'));
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+
+      // Button is disabled during cooldown — a second click attempt is a no-op
+      // at the component level (canResendConfirmation guards it), proving the
+      // only path to a second `interval` subscription is a second full
+      // cooldown cycle, not concurrent stacking.
+      expect(resendConfirmation).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      fixture.detectChanges();
+      expect(resendButton(fixture).disabled).toBe(false);
+    });
+  });
+
+  it('reactively hides the banner when emailVerified flips to true via a live currentUser$ update (e.g. token refresh), no reload needed', async () => {
+    const { fixture, currentUser$ } = await setUpShellFixtureWithReactiveUser(
+      makeUser({ emailVerified: false }),
+    );
+
+    expect(banner(fixture)).toBeTruthy();
+
+    // Simulates what AuthService.refreshAccessToken() produces: a fresh
+    // AuthUser pushed onto the SAME shared currentUser$ BehaviorSubject the
+    // shell already subscribed to on construction — not a new fixture/component.
+    currentUser$.next({
+      email: 'victor@example.com',
+      name: 'Victor Porto',
+      initials: 'VP',
+      emailVerified: true,
+    });
+    fixture.detectChanges();
+
+    expect(banner(fixture)).toBeFalsy();
   });
 });

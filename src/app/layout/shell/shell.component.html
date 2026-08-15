@@ -155,6 +155,34 @@
       </button>
     </header>
 
+    <!-- Email confirmation banner — informational only, never blocking (soft-verification epic decision) -->
+    @if (showEmailVerificationBanner()) {
+      <div class="ew-verify-banner" role="status" aria-live="polite">
+        <span class="ew-verify-banner-msg">
+          @if (resendMessage()) {
+            {{ resendMessage() }}
+          } @else {
+            Please confirm your email address.
+          }
+        </span>
+
+        <button
+          type="button"
+          class="ew-verify-banner-btn"
+          [disabled]="!canResendConfirmation"
+          (click)="onResendConfirmation()"
+        >
+          @if (resendCooldownSeconds() > 0) {
+            Resend in {{ resendCooldownSeconds() }}s
+          } @else if (resendPending()) {
+            Sending…
+          } @else {
+            Resend confirmation email
+          }
+        </button>
+      </div>
+    }
+
     <!-- Page content -->
     <main class="ew-content" [class.ew-content--centered]="prefs.centeredLayout()" role="main">
       <router-outlet />

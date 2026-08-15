@@ -17,7 +17,13 @@ describe('SettingsPage', () => {
   };
 
   function makeUser(overrides: Partial<AuthUser> = {}): AuthUser {
-    return { email: 'jane@mail.com', name: 'Jane Doe', initials: 'J', ...overrides };
+    return {
+      email: 'jane@mail.com',
+      name: 'Jane Doe',
+      initials: 'J',
+      emailVerified: true,
+      ...overrides,
+    };
   }
 
   async function setUp(user: AuthUser | null = makeUser()): Promise<void> {
