@@ -39,6 +39,12 @@ export const routes: Routes = [
           import('@core/auth/confirm-email/confirm-email-page').then((c) => c.ConfirmEmailPage),
         title: 'Confirm your email | Budget Manager',
       },
+      {
+        path: 'reset-password',
+        loadComponent: () =>
+          import('@core/auth/reset-password/reset-password-page').then((c) => c.ResetPasswordPage),
+        title: 'Reset password | Budget Manager',
+      },
     ],
   },
   {

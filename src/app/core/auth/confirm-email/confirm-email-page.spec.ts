@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 
 import { AuthService } from '@core/auth/auth.service';
@@ -32,11 +32,12 @@ describe('ConfirmEmailPage', () => {
   }
 
   /**
-   * Builds the component with a given `token` query param (or `null` for
-   * "no token in the URL at all") pre-seeded on the `ActivatedRoute`
-   * snapshot — the same synchronous read the component's constructor
-   * performs. `confirmEmail`/`resendConfirmation` default to never-resolving
-   * mocks so a test can control exactly when they settle.
+   * Builds the component with a given `token` (or `null` for "no token in
+   * the URL at all"), set directly via the component's `@Input()` — the same
+   * value `withComponentInputBinding()` would bind from the `token` query
+   * param in the real router (F-C6). `confirmEmail`/`resendConfirmation`
+   * default to never-resolving mocks so a test can control exactly when they
+   * settle.
    */
   async function setUp(
     token: string | null,
@@ -47,24 +48,16 @@ describe('ConfirmEmailPage', () => {
 
     await TestBed.configureTestingModule({
       imports: [ConfirmEmailPage],
-      providers: [
-        provideRouter([]),
-        { provide: AuthService, useValue: authService },
-        {
-          provide: ActivatedRoute,
-          useValue: {
-            snapshot: {
-              queryParamMap: convertToParamMap(token ? { token } : {}),
-            },
-          },
-        },
-      ],
+      providers: [provideRouter([]), { provide: AuthService, useValue: authService }],
     }).compileComponents();
 
     router = TestBed.inject(Router);
     vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
     fixture = TestBed.createComponent(ConfirmEmailPage);
+    if (token) {
+      fixture.componentRef.setInput('token', token);
+    }
     fixture.detectChanges();
   }
 

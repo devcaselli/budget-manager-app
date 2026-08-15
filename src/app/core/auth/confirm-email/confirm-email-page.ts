@@ -1,7 +1,15 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  inject,
+  input,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Router } from '@angular/router';
 
 import { AuthService } from '@core/auth/auth.service';
 
@@ -21,14 +29,24 @@ type ConfirmEmailState =
 /**
  * Public landing route `/confirm-email?token=...` — the exact URL shape the
  * backend's confirmation email links to (`${appBaseUrl}/confirm-email?token=
- * ${plaintextToken}`, Tema B backend B4). Reads `token` synchronously off the
- * route snapshot rather than enabling `withComponentInputBinding()`: that flag
- * is a router-wide config change earmarked for F-C6 (plan doc decision 3,
- * "token via withComponentInputBinding — link confirmado, não código"), out of
- * scope here. A snapshot read is also the right tool for this screen anyway —
- * confirmation fires exactly once on load from whatever token was in the URL
- * at landing time; there's no scenario where this component needs to react to
- * the query param changing under it later.
+ * ${plaintextToken}`, Tema B backend B4).
+ *
+ * **Updated by F-C6**: `token` is now a plain `@Input()`, bound automatically
+ * by the router via `withComponentInputBinding()` (enabled globally in
+ * `app.config.ts` by F-C6 — see that file's doc comment for the full
+ * reasoning). Originally this screen read `ActivatedRoute.snapshot
+ * .queryParamMap` directly, because F-C4 predates F-C6 (the task the plan doc
+ * explicitly assigned to decide whether to enable that router-wide flag) and
+ * deliberately didn't reach outside its own scope to flip a global config.
+ * Now that F-C6 has enabled the flag for `ResetPasswordPage` (the epic's other
+ * "consume a token from the URL" screen), this component was retrofitted to
+ * the same mechanism — two nearly-identical screen shapes reading a URL token
+ * in two different ways was worth avoiding once one of them needed the flag
+ * anyway. Behavior is unchanged: confirmation still fires exactly once, via
+ * `ngOnInit` instead of the constructor (an `@Input()` isn't guaranteed set
+ * yet inside the constructor; `ngOnInit` is the correct lifecycle hook once
+ * inputs are involved) — there's still no scenario where this component needs
+ * to react to the query param changing under it later.
  *
  * Anti-enumeration discipline (Tema C, established by F-C1/F-C3): the backend
  * deliberately returns the same `INVALID_OR_EXPIRED_TOKEN` code whether the
@@ -52,11 +70,17 @@ type ConfirmEmailState =
   templateUrl: './confirm-email-page.html',
   styleUrl: './confirm-email-page.scss',
 })
-export class ConfirmEmailPage {
+export class ConfirmEmailPage implements OnInit {
   private readonly authService = inject(AuthService);
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+
+  /**
+   * Bound automatically from the `token` query param by
+   * `withComponentInputBinding()` (F-C6). `undefined` when the param is
+   * absent from the URL — the router does not pass an empty string.
+   */
+  readonly token = input<string>();
 
   protected readonly state = signal<ConfirmEmailState>({ kind: 'verifying' });
 
@@ -68,8 +92,8 @@ export class ConfirmEmailPage {
     email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
   });
 
-  constructor() {
-    const token = this.route.snapshot.queryParamMap.get('token');
+  ngOnInit(): void {
+    const token = this.token();
 
     if (!token) {
       // No token in the URL at all (someone navigates to /confirm-email
