@@ -18,6 +18,13 @@ export interface LoginRequest {
 export interface RegisterRequest {
   readonly email: string;
   readonly password: string;
+  /**
+   * Real display name, trimmed by the caller before submission.
+   * Backend contract (`RegisterRequestDto`, Tema A / A4): `@NotBlank`,
+   * `@Size(min=2, max=50)`, permissive pattern rejecting only control
+   * characters — accents, hyphens, spaces, apostrophes are all valid.
+   */
+  readonly displayName: string;
 }
 
 export interface TokenResponse {

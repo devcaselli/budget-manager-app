@@ -219,6 +219,48 @@ describe('AuthService', () => {
     });
   });
 
+  describe('register', () => {
+    it('sends displayName in the request body and logs in on success (F-B2)', () => {
+      const service = createService();
+      let user: { name: string | null } | null = null;
+      service.currentUser$.subscribe((u) => (user = u));
+
+      service.register('jane@mail.com', 'pw', 'Jane Doe').subscribe();
+
+      const registerReq = httpMock.expectOne(`${AUTH_URL}/register`);
+      expect(registerReq.request.method).toBe('POST');
+      expect(registerReq.request.body).toEqual({
+        email: 'jane@mail.com',
+        password: 'pw',
+        displayName: 'Jane Doe',
+      });
+      registerReq.flush({ id: '1', email: 'jane@mail.com', createdAt: '2026-08-15T00:00:00Z' });
+
+      const loginReq = httpMock.expectOne(`${AUTH_URL}/token`);
+      loginReq.flush(tokenResponse({ displayName: 'Jane Doe' }));
+
+      expect(user).not.toBeNull();
+      expect(user!.name).toBe('Jane Doe');
+    });
+
+    it('propagates a typed AuthError when register itself fails (e.g. RATE_LIMITED)', () => {
+      const service = createService();
+      let error: AuthError | undefined;
+      service.register('jane@mail.com', 'pw', 'Jane Doe').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/register`)
+        .flush(problemDetail({ status: 429, code: 'RATE_LIMITED' }), {
+          status: 429,
+          statusText: 'Too Many Requests',
+        });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('RATE_LIMITED');
+      httpMock.expectNone(`${AUTH_URL}/token`);
+    });
+  });
+
   describe('AuthErrorCode parsing (mapHttpError)', () => {
     it('parses INVALID_OR_EXPIRED_TOKEN from a 400 ProblemDetail', () => {
       const service = createService();

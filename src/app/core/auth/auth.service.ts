@@ -21,6 +21,7 @@ import {
   LoginRequest,
   ProblemDetailBody,
   RefreshRequest,
+  RegisterRequest,
   RegisterResponse,
   StoredSession,
   TokenResponse,
@@ -263,13 +264,13 @@ export class AuthService {
     return this.refreshInFlight$;
   }
 
-  register(email: string, password: string): Observable<void> {
-    return this.http
-      .post<RegisterResponse>(`${this.authUrl}/register`, { email, password })
-      .pipe(
-        switchMap(() => this.login(email, password)),
-        catchError((error: HttpErrorResponse) => mapHttpError(error)),
-      );
+  register(email: string, password: string, displayName: string): Observable<void> {
+    const body: RegisterRequest = { email, password, displayName };
+
+    return this.http.post<RegisterResponse>(`${this.authUrl}/register`, body).pipe(
+      switchMap(() => this.login(email, password)),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
   }
 
   logout(): void {
