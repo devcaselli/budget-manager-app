@@ -12,6 +12,7 @@ import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { AuthError } from '@core/auth/auth.model';
 import { AuthService } from '@core/auth/auth.service';
 import { PreferencesService } from '@core/services/preferences.service';
+import { trimmedLengthValidator } from '@shared/validators/trimmed-length.validator';
 
 type Tab = 'user' | 'security' | 'system';
 
@@ -47,17 +48,29 @@ export class SettingsPage {
   // login-page.ts) and the backend contract (PATCH /users/me, F-B3): min 2 /
   // max 50 chars after trim, no letters-only restriction — real names have
   // accents, hyphens, spaces, apostrophes.
+  //
+  // Uses the same shared `trimmedLengthValidator` as the signup form so
+  // whitespace-only (or under-minimum-after-trim) input is rejected live —
+  // `.invalid` reflects the trimmed reality that will actually be submitted,
+  // driving both the inline error message and the Save button's [disabled].
   protected readonly profileForm = new FormGroup({
     name: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(2), Validators.maxLength(50)],
+      validators: [trimmedLengthValidator(2, 50)],
     }),
-    email: new FormControl({ value: '', disabled: true }, { nonNullable: true, validators: [Validators.email] }),
+    // No validators: the control is permanently `disabled`, and `saveProfile()`
+    // reads `name` directly and builds `{ displayName }` explicitly rather than
+    // calling `getRawValue()` — email can never reach the request body, so an
+    // `Validators.email` here would be dead code regardless of disabled state.
+    email: new FormControl({ value: '', disabled: true }, { nonNullable: true }),
   });
 
   protected readonly profileSaving = signal(false);
   protected readonly profileError = signal('');
   protected readonly profileSaved = signal(false);
+
+  /** Last name loaded from the account, used to revert on Cancel (not a blank reset). */
+  private lastLoadedName = '';
 
   // ── Password form ────────────────────────────────────────────────────────────
   protected readonly newPw = signal('');
@@ -115,7 +128,8 @@ export class SettingsPage {
       .subscribe((user) => {
         const email = user?.email ?? '';
         this.userEmail.set(email);
-        this.profileForm.patchValue({ email, name: user?.name ?? '' });
+        this.lastLoadedName = user?.name ?? '';
+        this.profileForm.patchValue({ email, name: this.lastLoadedName });
       });
 
     // Bridge password fields to signals for computed pwRules
@@ -134,6 +148,9 @@ export class SettingsPage {
 
   // ── Profile ─────────────────────────────────────────────────────────────────
   protected saveProfile(): void {
+    // `trimmedLengthValidator` makes `.invalid` itself reflect the trimmed
+    // reality (whitespace-only and under-minimum-after-trim are both caught
+    // here, matching the signup form's guard and the backend's @NotBlank/@Size).
     if (this.profileForm.controls.name.invalid) {
       this.profileError.set('Name must be between 2 and 50 characters.');
       this.profileSaved.set(false);
@@ -163,6 +180,18 @@ export class SettingsPage {
           this.profileError.set(err.message);
         },
       });
+  }
+
+  /**
+   * Reverts the name field to the currently-saved account name — NOT a blank
+   * reset. `FormGroup.reset()` clears controls to their initial value (`''`),
+   * which is the opposite of what "Cancel" should do when a name is already
+   * on file.
+   */
+  protected cancelProfileEdit(): void {
+    this.profileForm.patchValue({ name: this.lastLoadedName });
+    this.profileError.set('');
+    this.profileSaved.set(false);
   }
 
   // ── Password ─────────────────────────────────────────────────────────────────
