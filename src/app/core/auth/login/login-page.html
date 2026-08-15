@@ -35,7 +35,7 @@
       />
     </div>
 
-    <div class="ew-auth-form-field" style="margin-bottom: 28px">
+    <div class="ew-auth-form-field" style="margin-bottom: 8px">
       <label for="login-password">Password</label>
       <input
         id="login-password"
@@ -46,6 +46,10 @@
         autocomplete="current-password"
       />
     </div>
+
+    <p class="ew-auth-hint" style="text-align: right; margin: 0 0 20px">
+      <a routerLink="/forgot-password">Forgot password?</a>
+    </p>
 
     <div class="ew-auth-err" role="alert" aria-live="polite">
       {{ loginError() }}

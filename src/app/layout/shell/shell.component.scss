@@ -256,6 +256,48 @@
   }
 }
 
+// ── Email confirmation banner (F-C7) ─────────────────────────────────────────
+.ew-verify-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 36px;
+  border-bottom: 1px solid var(--ew-line);
+  background: color-mix(in srgb, var(--ew-acc) 12%, transparent);
+  font-size: 13px;
+}
+
+.ew-verify-banner-msg {
+  color: var(--ew-ink-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.ew-verify-banner-btn {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  border-radius: 99px;
+  border: 1px solid var(--ew-acc);
+  background: transparent;
+  color: var(--ew-ink);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: var(--ew-acc);
+    color: #1c1814;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
 // ── Content area ──────────────────────────────────────────────────────────────
 .ew-content {
   padding: clamp(28px, 3.2vw, 56px) clamp(28px, 3.6vw, 72px) 80px;

@@ -46,12 +46,20 @@ describe('authInterceptor', () => {
     req.flush([]);
   });
 
-  it('does not attach a token to public auth paths', () => {
+  it.each([
+    '/api/auth/token',
+    '/api/auth/register',
+    '/api/auth/refresh',
+    '/api/auth/resend-verification',
+    '/api/auth/forgot-password',
+    '/api/auth/reset-password',
+    '/api/auth/verify-email',
+  ])('does not attach a token to public auth path %s', (url) => {
     auth.getToken.mockReturnValue('tok-1');
 
-    http.post('/api/auth/token', {}).subscribe();
+    http.post(url, {}).subscribe();
 
-    const req = httpMock.expectOne('/api/auth/token');
+    const req = httpMock.expectOne(url);
     expect(req.request.headers.has('Authorization')).toBe(false);
     expect(auth.getToken).not.toHaveBeenCalled();
     req.flush({});

@@ -1,0 +1,49 @@
+:host {
+  display: block;
+}
+
+.ew-confirm-email {
+  text-align: center;
+}
+
+.ew-confirm-email-icon {
+  font-size: 40px;
+  color: var(--ew-acc);
+  margin-bottom: 8px;
+}
+
+.ew-confirm-email-h {
+  font-family: var(--ew-serif);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--ew-ink);
+  margin: 0 0 16px;
+}
+
+.ew-confirm-email-p {
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ew-ink-2);
+  margin: 0 0 16px;
+}
+
+.ew-confirm-email-success {
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ew-teal);
+  margin-bottom: 16px;
+}
+
+// Same disabled treatment as CheckEmailPage (F-C3) — scoped here for the
+// same reason: the shared `.ew-auth-submit` has no disabled state defined.
+.ew-auth-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+
+  &:hover {
+    background: var(--ew-acc);
+  }
+}

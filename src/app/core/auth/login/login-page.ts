@@ -8,7 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { AuthService } from '@core/auth/auth.service';
@@ -24,7 +24,7 @@ interface PwRule {
   selector: 'app-login-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './login-page.html',
   styleUrl: './login-page.scss',
 })
@@ -146,7 +146,11 @@ export class LoginPage implements OnInit {
       .register(email, password, trimmedName)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.router.navigate(['/dashboard']),
+        // F-C3: land on "check your email" (dismissible, not a hard gate —
+        // login pre-confirmation is allowed) instead of going straight to
+        // the dashboard. Email is handed off via router state, not a query
+        // param — see CheckEmailPage's doc comment for why.
+        next: () => this.router.navigate(['/check-email'], { state: { email } }),
         error: (err: AuthError) => this.signupError.set(err.message),
       });
   }

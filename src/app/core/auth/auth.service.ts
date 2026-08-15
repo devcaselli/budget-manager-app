@@ -19,11 +19,15 @@ import {
   AuthError,
   AuthErrorCode,
   AuthUser,
+  ConfirmEmailRequest,
+  ConfirmPasswordResetRequest,
   LoginRequest,
   ProblemDetailBody,
   RefreshRequest,
   RegisterRequest,
   RegisterResponse,
+  RequestPasswordResetRequest,
+  ResendConfirmationRequest,
   StoredSession,
   TokenResponse,
   UpdateProfileRequest,
@@ -45,10 +49,21 @@ const TOKEN_EXPIRY_SKEW_SECONDS = 30;
  * (`shared/utils/derive-initials.ts`, F-B4) — robust to compound names,
  * emoji/combining-mark grapheme clusters, and the empty/no-name state,
  * falling back to the account email when there is no display name on file.
+ *
+ * `emailVerified` (F-C7) is passed through as-is — `null` means "unknown"
+ * (a legacy session predating this field), which callers/consumers (the
+ * shell's banner) must treat as "unverified" per this task's safe-default
+ * decision. Unlike `name`, there is no normalization step here: the backend
+ * never sends an empty-string equivalent for a boolean field.
  */
-function toAuthUser(email: string, name: string | null): AuthUser {
+function toAuthUser(email: string, name: string | null, emailVerified: boolean | null): AuthUser {
   const normalizedName = name && name.trim().length > 0 ? name : null;
-  return { email, name: normalizedName, initials: deriveInitials(normalizedName, email) };
+  return {
+    email,
+    name: normalizedName,
+    initials: deriveInitials(normalizedName, email),
+    emailVerified,
+  };
 }
 
 function readSession(): StoredSession | null {
@@ -174,11 +189,15 @@ export class AuthService {
       if (isTokenExpired(session.token)) {
         clearSession();
       } else {
-        // `session.name` is `undefined` for a legacy StoredSession blob written
-        // before this field existed (absent from the parsed JSON, not `null`) —
-        // normalize both to `null` here so a stale localStorage shape can never
-        // crash or leak an `undefined`/"undefined" name into the UI.
-        this.currentUserSubject.next(toAuthUser(session.email, session.name ?? null));
+        // `session.name`/`session.emailVerified` are `undefined` for a legacy
+        // StoredSession blob written before those fields existed (absent from
+        // the parsed JSON, not `null`) — normalize both to `null` here so a
+        // stale localStorage shape can never crash or leak an `undefined`
+        // value into the UI. The shell treats a `null` `emailVerified` as
+        // "unverified" (show the banner) — see `AuthUser.emailVerified`'s doc.
+        this.currentUserSubject.next(
+          toAuthUser(session.email, session.name ?? null, session.emailVerified ?? null),
+        );
       }
     }
   }
@@ -201,13 +220,15 @@ export class AuthService {
     return this.http.post<TokenResponse>(`${this.authUrl}/token`, body).pipe(
       map((response) => {
         const name = response.displayName ?? null;
+        const emailVerified = response.emailVerified;
         writeSession({
           email,
           token: response.accessToken,
           refreshToken: response.refreshToken,
           name,
+          emailVerified,
         });
-        this.currentUserSubject.next(toAuthUser(email, name));
+        this.currentUserSubject.next(toAuthUser(email, name, emailVerified));
       }),
       catchError((error: HttpErrorResponse) => mapHttpError(error)),
     );
@@ -229,6 +250,14 @@ export class AuthService {
    * value (including a genuine `null` for "no name set") IS authoritative and
    * must overwrite — this path treats `null` as "unchanged" and preserves
    * whatever name the pre-refresh session already had.
+   *
+   * `response.emailVerified` (F-C7) is the OPPOSITE case: the backend's
+   * `RefreshUseCase` deliberately re-fetches this live via
+   * `UserRepository.findById(userId)` on every refresh (Tema B7, confirmed
+   * in `backend-tasks.md` — `emailVerified` gates password-reset/account-
+   * deletion, so a stale claim would be a security bug, not cosmetic drift).
+   * It is always authoritative here, exactly like on `login()` — never
+   * fall back to the pre-refresh session's value the way `name` does.
    */
   refreshAccessToken(): Observable<string> {
     if (this.refreshInFlight$) {
@@ -251,13 +280,18 @@ export class AuthService {
           // value on this endpoint, so a `null` here means "unchanged," not
           // "authoritative." Fall back to the session's existing name.
           const name = response.displayName ?? session.name ?? null;
+          // Unlike `name`, `response.emailVerified` IS authoritative on
+          // refresh — the backend live-fetches it. Read it directly, never
+          // fall back to `session.emailVerified`.
+          const emailVerified = response.emailVerified;
           writeSession({
             email: session.email,
             token: response.accessToken,
             refreshToken: response.refreshToken,
             name,
+            emailVerified,
           });
-          this.currentUserSubject.next(toAuthUser(session.email, name));
+          this.currentUserSubject.next(toAuthUser(session.email, name, emailVerified));
           return response.accessToken;
         }),
         catchError((error: HttpErrorResponse) => {
@@ -307,14 +341,90 @@ export class AuthService {
     return this.http.patch<UpdateProfileResponse>(`${this.usersUrl}/me`, body).pipe(
       map((response) => {
         const name = response.displayName ?? null;
+        // `UpdateProfileResponse` carries no `emailVerified` field (this
+        // endpoint only updates the display name) — preserve whatever the
+        // pre-existing session already had, same "not authoritative here"
+        // treatment `name` gets on the refresh path, for the same reason:
+        // this response simply has nothing to say about verification state.
+        const emailVerified = session.emailVerified ?? null;
         writeSession({
           email: session.email,
           token: session.token,
           refreshToken: session.refreshToken,
           name,
+          emailVerified,
         });
-        this.currentUserSubject.next(toAuthUser(session.email, name));
+        this.currentUserSubject.next(toAuthUser(session.email, name, emailVerified));
       }),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
+  }
+
+  /**
+   * `POST /auth/resend-verification` (F-C1). ALWAYS 200 with a generic body,
+   * by deliberate backend anti-enumeration design — the outcome looks
+   * identical whether the email exists, is already verified, or genuinely
+   * triggers a resend. The response body carries no data this caller needs,
+   * so it is discarded (`map(() => undefined)`); the only realistic failure
+   * path is a network error or `RATE_LIMITED` (429). Callers must not
+   * attempt to infer account existence from this call succeeding or
+   * failing — the backend intentionally makes that impossible.
+   */
+  resendConfirmation(email: string): Observable<void> {
+    const body: ResendConfirmationRequest = { email };
+
+    return this.http.post<unknown>(`${this.authUrl}/resend-verification`, body).pipe(
+      map(() => undefined),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
+  }
+
+  /**
+   * `POST /auth/forgot-password` (F-C1). Same always-200 anti-enumeration
+   * contract as `resendConfirmation` — unknown email, unverified email, and
+   * a real reset-email-sent all look identical to the caller. Discards the
+   * generic response body; the only realistic failure path is a network
+   * error or `RATE_LIMITED` (429).
+   */
+  requestPasswordReset(email: string): Observable<void> {
+    const body: RequestPasswordResetRequest = { email };
+
+    return this.http.post<unknown>(`${this.authUrl}/forgot-password`, body).pipe(
+      map(() => undefined),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
+  }
+
+  /**
+   * `POST /auth/reset-password` (F-C1). Unlike the always-200 endpoints
+   * above, token validity genuinely varies per-request: an unknown, expired,
+   * consumed, or wrong-purpose token fails with 400 `INVALID_OR_EXPIRED_TOKEN`
+   * (the same union member `confirmEmail` uses — the backend deliberately
+   * uses one code for all 4 rejection causes across both endpoints). A
+   * password-policy violation fails with a standard 400 Bean Validation
+   * error, which falls back to `UNKNOWN` via `mapHttpError` same as any other
+   * unrecognized `code`.
+   */
+  confirmPasswordReset(token: string, newPassword: string): Observable<void> {
+    const body: ConfirmPasswordResetRequest = { token, newPassword };
+
+    return this.http.post<unknown>(`${this.authUrl}/reset-password`, body).pipe(
+      map(() => undefined),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
+  }
+
+  /**
+   * `POST /auth/verify-email` (F-C1). Success body is `{ emailVerified: true }`
+   * but carries no data this caller needs — discarded. Failure is 400
+   * `INVALID_OR_EXPIRED_TOKEN` for an unknown, expired, consumed, or
+   * wrong-purpose token (same union member as `confirmPasswordReset`).
+   */
+  confirmEmail(token: string): Observable<void> {
+    const body: ConfirmEmailRequest = { token };
+
+    return this.http.post<unknown>(`${this.authUrl}/verify-email`, body).pipe(
+      map(() => undefined),
       catchError((error: HttpErrorResponse) => mapHttpError(error)),
     );
   }

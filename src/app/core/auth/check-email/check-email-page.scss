@@ -1,0 +1,62 @@
+:host {
+  display: block;
+}
+
+.ew-check-email {
+  text-align: center;
+}
+
+.ew-check-email-icon {
+  font-size: 40px;
+  color: var(--ew-acc);
+  margin-bottom: 8px;
+}
+
+.ew-check-email-h {
+  font-family: var(--ew-serif);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--ew-ink);
+  margin: 0 0 16px;
+}
+
+.ew-check-email-p {
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ew-ink-2);
+  margin: 0 0 16px;
+
+  b {
+    color: var(--ew-ink);
+    font-weight: 600;
+  }
+}
+
+.ew-check-email-soft {
+  color: var(--ew-ink-3);
+  font-size: 13px;
+}
+
+.ew-check-email-success {
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ew-teal);
+  margin-bottom: 16px;
+}
+
+// `.ew-auth-submit` (global, styles.scss) has no disabled state defined —
+// login/signup submits are never disabled. This is the first auth submit
+// button that can be, so the disabled treatment is scoped here. No
+// `::ng-deep` needed — the button lives directly in this component's own
+// template, not inside a child component's encapsulated view.
+.ew-auth-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+
+  &:hover {
+    background: var(--ew-acc);
+  }
+}
