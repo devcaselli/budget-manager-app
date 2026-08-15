@@ -1,0 +1,63 @@
+<div class="ew-confirm-email">
+  @switch (state().kind) {
+    @case ('verifying') {
+      <div class="ew-confirm-email-icon" aria-hidden="true">⏳</div>
+      <h2 class="ew-confirm-email-h">Confirming your email…</h2>
+      <p class="ew-confirm-email-p">Hang on a moment while we verify your link.</p>
+    }
+
+    @case ('success') {
+      <div class="ew-confirm-email-icon" aria-hidden="true">✓</div>
+      <h2 class="ew-confirm-email-h">Email confirmed</h2>
+      <p class="ew-confirm-email-p">Your email address has been verified. You're all set.</p>
+
+      <button type="button" class="ew-auth-submit" (click)="onGoToLogin()">Continue to sign in</button>
+    }
+
+    @case ('invalid-or-expired') {
+      <div class="ew-confirm-email-icon" aria-hidden="true">⚠</div>
+      <h2 class="ew-confirm-email-h">This link isn't valid</h2>
+      <p class="ew-confirm-email-p">
+        This confirmation link is invalid or has expired. Enter your email below and we'll send a new one.
+      </p>
+
+      @if (resendMessage()) {
+        <div class="ew-confirm-email-success" role="status" aria-live="polite">
+          {{ resendMessage() }}
+        </div>
+      }
+
+      <form [formGroup]="resendForm" (ngSubmit)="onResendSubmit()" novalidate>
+        <div class="ew-auth-form-field" style="margin-bottom: 16px">
+          <label for="confirm-email-resend-email">Email</label>
+          <input
+            id="confirm-email-resend-email"
+            type="email"
+            class="ew-auth-input"
+            formControlName="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="ew-auth-submit"
+          [disabled]="resendForm.invalid || resendPending()"
+        >
+          @if (resendPending()) {
+            Sending…
+          } @else {
+            Resend confirmation email
+          }
+        </button>
+      </form>
+
+      <p class="ew-auth-hint">
+        <a (click)="onGoToLogin()" (keydown.enter)="onGoToLogin()" tabindex="0" role="button">
+          Back to sign in
+        </a>
+      </p>
+    }
+  }
+</div>
