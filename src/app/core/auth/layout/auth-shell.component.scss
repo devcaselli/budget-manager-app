@@ -1,0 +1,7 @@
+// All visual styles live in styles.scss as global .ew-auth-* classes.
+// This file is intentionally empty — AuthShellComponent renders the
+// full-screen overlay which uses only global EW tokens and the shared
+// .ew-auth-* ruleset (see login-page.scss for the identical precedent).
+:host {
+  display: block;
+}

@@ -4,10 +4,48 @@ import { authGuard } from '@core/auth/auth.guard';
 
 export const routes: Routes = [
   {
-    path: 'login',
+    path: '',
     loadComponent: () =>
-      import('@core/auth/login/login-page').then((c) => c.LoginPage),
-    title: 'Sign in | Budget Manager',
+      import('@core/auth/layout/auth-shell.component').then((c) => c.AuthShellComponent),
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: '/dashboard',
+      },
+      {
+        path: 'login',
+        loadComponent: () =>
+          import('@core/auth/login/login-page').then((c) => c.LoginPage),
+        title: 'Sign in | Budget Manager',
+      },
+      {
+        path: 'check-email',
+        loadComponent: () =>
+          import('@core/auth/check-email/check-email-page').then((c) => c.CheckEmailPage),
+        title: 'Check your email | Budget Manager',
+      },
+      {
+        path: 'forgot-password',
+        loadComponent: () =>
+          import('@core/auth/forgot-password/forgot-password-page').then(
+            (c) => c.ForgotPasswordPage,
+          ),
+        title: 'Forgot password | Budget Manager',
+      },
+      {
+        path: 'confirm-email',
+        loadComponent: () =>
+          import('@core/auth/confirm-email/confirm-email-page').then((c) => c.ConfirmEmailPage),
+        title: 'Confirm your email | Budget Manager',
+      },
+      {
+        path: 'reset-password',
+        loadComponent: () =>
+          import('@core/auth/reset-password/reset-password-page').then((c) => c.ResetPasswordPage),
+        title: 'Reset password | Budget Manager',
+      },
+    ],
   },
   {
     path: '',

@@ -9,7 +9,8 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import { filter, map, takeUntil } from 'rxjs';
+import { filter, interval, map, takeUntil } from 'rxjs';
+import { takeWhile } from 'rxjs/operators';
 
 import {
   ExpenseCreateDialogComponent,
@@ -39,6 +40,9 @@ interface TweaksPos {
 
 /** Horizontal gap (px) between the Tools nav trigger and its flyout submenu. */
 const TOOLS_SUBMENU_GAP_PX = 8;
+
+/** Same cooldown length as F-C3's `CheckEmailPage`/F-C4's `ConfirmEmailPage` resend actions. */
+const RESEND_COOLDOWN_SECONDS = 60;
 
 interface NavEntry {
   readonly label: string;
@@ -95,7 +99,45 @@ export class ShellComponent {
     this.authService.currentUser$.pipe(map((u) => u?.initials ?? '?')),
     { initialValue: '?' },
   );
-
+  /**
+   * Sourced from `AuthUser.emailVerified` (F-C7). Reactive over
+   * `currentUser$` (the same shared `BehaviorSubject` `userName`/`userEmail`/
+   * `userInitials` already read from) so the banner disappears immediately
+   * once a fresh login or token refresh reports `emailVerified: true` — no
+   * page reload needed, mirroring how F-B3's profile-name update already
+   * propagates through this exact subject.
+   *
+   * `null`/`undefined` (an unauthenticated `currentUser$` emission, or a
+   * legacy session predating this field) collapses to `false` here — i.e.
+   * treated the SAME as an explicit "not verified yet". This is the opposite
+   * safe-default direction from `userName`'s `?? ''` above: an unknown name
+   * degrades harmlessly to an empty chip, but an unknown verification state
+   * must never silently suppress a legitimate soft-verification prompt. See
+   * `AuthUser.emailVerified`'s doc in `auth.model.ts` for the full reasoning.
+   */
+  private readonly emailVerified = toSignal(
+    this.authService.currentUser$.pipe(map((u) => u?.emailVerified ?? false)),
+    { initialValue: false },
+  );
+  /**
+   * True only for an authenticated user whose `emailVerified` is `false` (or
+   * unknown, folded into `false` above). The shell itself is an
+   * authenticated-only route (guarded by `authGuard`), so `currentUser$`
+   * being non-null is implicit whenever this component is alive — still
+   * checked explicitly via `userEmail()` so the banner never renders during
+   * the brief window before the first `currentUser$` emission resolves.
+   *
+   * Purely informational per the epic's confirmed soft-verification design
+   * ("sem bloquear, só exibir") — this signal drives ONLY the banner's
+   * visibility. It must never be read by any guard/redirect logic.
+   */
+  protected readonly showEmailVerificationBanner = computed(
+    () => this.userEmail().length > 0 && !this.emailVerified(),
+  );
+  protected readonly resendCooldownSeconds = signal(0);
+  protected readonly resendPending = signal(false);
+  /** Same always-generic message contract as F-C3/F-C4's resend actions. */
+  protected readonly resendMessage = signal('');
 
   protected readonly currentRouteLabel = signal('Dashboard');
 
@@ -251,6 +293,65 @@ export class ShellComponent {
 
   protected toggleUserMenu(): void {
     this.userMenuOpen.update((v) => !v);
+  }
+
+  /** Whether the resend button is currently clickable — mirrors `CheckEmailPage.canResend`. */
+  protected get canResendConfirmation(): boolean {
+    return (
+      this.userEmail().length > 0 &&
+      this.resendCooldownSeconds() === 0 &&
+      !this.resendPending()
+    );
+  }
+
+  /**
+   * Reuses `AuthService.resendConfirmation()` (F-C1) — the 3rd consumer
+   * after `CheckEmailPage` (F-C3) and `ConfirmEmailPage` (F-C4). Same
+   * always-200 anti-enumeration contract: success and failure settle
+   * identically, in both copy and cooldown timing.
+   */
+  protected onResendConfirmation(): void {
+    const email = this.userEmail();
+    if (!this.canResendConfirmation || !email) {
+      return;
+    }
+
+    this.resendPending.set(true);
+    this.resendMessage.set('');
+
+    this.authService
+      .resendConfirmation(email)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.onResendConfirmationSettled(),
+        error: () => this.onResendConfirmationSettled(),
+      });
+  }
+
+  private onResendConfirmationSettled(): void {
+    this.resendPending.set(false);
+    this.resendMessage.set("If your account needs verification, we've sent a new email.");
+    this.startResendCooldown();
+  }
+
+  /**
+   * One tick per second, counting down to 0. Mirrors `CheckEmailPage`'s
+   * `startCooldown()` exactly (`signal` + `interval` + `takeUntilDestroyed` +
+   * `takeWhile`, self-terminating) — see that component's doc for why
+   * `takeWhile` matters (without it, repeated resend clicks would stack
+   * multiple never-ending `interval` subscriptions).
+   */
+  private startResendCooldown(): void {
+    this.resendCooldownSeconds.set(RESEND_COOLDOWN_SECONDS);
+
+    interval(1000)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        takeWhile(() => this.resendCooldownSeconds() > 0),
+      )
+      .subscribe(() => {
+        this.resendCooldownSeconds.set(Math.max(this.resendCooldownSeconds() - 1, 0));
+      });
   }
 
   protected logout(event: MouseEvent): void {

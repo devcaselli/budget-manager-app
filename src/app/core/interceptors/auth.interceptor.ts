@@ -5,7 +5,15 @@ import { catchError, switchMap, throwError } from 'rxjs';
 
 import { AuthService } from '@core/auth/auth.service';
 
-const PUBLIC_AUTH_PATHS = ['/auth/token', '/auth/register', '/auth/refresh'];
+const PUBLIC_AUTH_PATHS = [
+  '/auth/token',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/resend-verification',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/verify-email',
+];
 
 function withBearer<T>(req: HttpRequest<T>, token: string): HttpRequest<T> {
   return req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
@@ -23,7 +31,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = authService.getToken();
   if (!token) {
     router.navigate(['/login']);
-    return throwError(() => new Error('Sessão expirada.'));
+    return throwError(() => new Error('Session expired.'));
   }
 
   return next(withBearer(req, token)).pipe(

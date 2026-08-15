@@ -8,10 +8,12 @@ import {
   signal,
 } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { AuthService } from '@core/auth/auth.service';
+import { AuthError } from '@core/auth/auth.model';
+import { trimmedLengthValidator } from '@shared/validators/trimmed-length.validator';
 
 interface PwRule {
   readonly label: string;
@@ -22,7 +24,7 @@ interface PwRule {
   selector: 'app-login-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './login-page.html',
   styleUrl: './login-page.scss',
 })
@@ -40,6 +42,17 @@ export class LoginPage implements OnInit {
   });
 
   protected readonly signupForm = new FormGroup({
+    // Backend contract (RegisterRequestDto, Tema A/A4): @NotBlank, @Size(min=2, max=50),
+    // pattern rejects only control characters — no letters-only restriction, so real
+    // names with accents/hyphens/spaces/apostrophes must validate here too.
+    //
+    // Uses `trimmedLengthValidator` (not `Validators.required`/`minLength`/`maxLength`,
+    // which measure the raw untrimmed value) so whitespace-only or under-minimum-after-trim
+    // input is caught live — `.invalid` reflects the trimmed reality the backend will see.
+    displayName: new FormControl('', {
+      nonNullable: true,
+      validators: [trimmedLengthValidator(2, 50)],
+    }),
     email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
     password: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.minLength(8)] }),
     confirmPassword: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -103,12 +116,13 @@ export class LoginPage implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => this.router.navigate(['/dashboard']),
-        error: (err: Error) => this.loginError.set(err.message),
+        error: (err: AuthError) => this.loginError.set(err.message),
       });
   }
 
   protected onSignupSubmit(): void {
-    const { email, password, confirmPassword } = this.signupForm.getRawValue();
+    const { displayName, email, password, confirmPassword } = this.signupForm.getRawValue();
+    const trimmedName = displayName.trim();
 
     if (this.signupForm.invalid) {
       this.signupError.set('Please fill in all fields correctly.');
@@ -129,11 +143,15 @@ export class LoginPage implements OnInit {
     this.signupError.set('');
 
     this.authService
-      .register(email, password)
+      .register(email, password, trimmedName)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.router.navigate(['/dashboard']),
-        error: (err: Error) => this.signupError.set(err.message),
+        // F-C3: land on "check your email" (dismissible, not a hard gate —
+        // login pre-confirmation is allowed) instead of going straight to
+        // the dashboard. Email is handed off via router state, not a query
+        // param — see CheckEmailPage's doc comment for why.
+        next: () => this.router.navigate(['/check-email'], { state: { email } }),
+        error: (err: AuthError) => this.signupError.set(err.message),
       });
   }
 }
