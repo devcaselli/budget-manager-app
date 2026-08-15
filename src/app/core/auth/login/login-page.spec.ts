@@ -246,7 +246,7 @@ describe('LoginPage', () => {
       expect(authService.register).toHaveBeenCalledWith('user@example.com', 'Secretpw1!', 'Jean-Paul');
     });
 
-    it('calls AuthService.register with the trimmed name and navigates to /dashboard on success', () => {
+    it('calls AuthService.register with the trimmed name and navigates to /check-email on success (F-C3)', () => {
       authService.register.mockReturnValue(of(undefined));
 
       setInput('#signup-display-name', 'Ana Silva');
@@ -255,7 +255,12 @@ describe('LoginPage', () => {
       submit();
 
       expect(authService.register).toHaveBeenCalledWith('user@example.com', 'Secretpw1!', 'Ana Silva');
-      expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+      // F-C3: post-signup lands on the dismissible "check your email" screen,
+      // not directly on the dashboard — email handed off via router state,
+      // not a query param.
+      expect(router.navigate).toHaveBeenCalledWith(['/check-email'], {
+        state: { email: 'user@example.com' },
+      });
     });
 
     it('surfaces the AuthError message on register failure', () => {

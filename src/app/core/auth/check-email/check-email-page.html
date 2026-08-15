@@ -1,0 +1,44 @@
+<div class="ew-check-email">
+  <div class="ew-check-email-icon" aria-hidden="true">✉</div>
+
+  <h2 class="ew-check-email-h">Check your email</h2>
+
+  <p class="ew-check-email-p">
+    @if (email(); as e) {
+      We sent a confirmation link to <b>{{ e }}</b>. Click it to verify your account.
+    } @else {
+      We sent you a confirmation link. Click it to verify your account.
+    }
+  </p>
+
+  <p class="ew-check-email-p ew-check-email-soft">
+    You can keep using the app right away — confirming your email isn't required to sign in.
+  </p>
+
+  @if (resendMessage()) {
+    <div class="ew-check-email-success" role="status" aria-live="polite">
+      {{ resendMessage() }}
+    </div>
+  }
+
+  <button
+    type="button"
+    class="ew-auth-submit"
+    [disabled]="!canResend"
+    (click)="onResend()"
+  >
+    @if (cooldownSeconds() > 0) {
+      Resend in {{ cooldownSeconds() }}s
+    } @else if (resendPending()) {
+      Sending…
+    } @else {
+      Resend email
+    }
+  </button>
+
+  <p class="ew-auth-hint">
+    <a (click)="onContinue()" (keydown.enter)="onContinue()" tabindex="0" role="button">
+      Skip for now — continue to app
+    </a>
+  </p>
+</div>

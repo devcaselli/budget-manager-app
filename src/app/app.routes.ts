@@ -19,6 +19,12 @@ export const routes: Routes = [
           import('@core/auth/login/login-page').then((c) => c.LoginPage),
         title: 'Sign in | Budget Manager',
       },
+      {
+        path: 'check-email',
+        loadComponent: () =>
+          import('@core/auth/check-email/check-email-page').then((c) => c.CheckEmailPage),
+        title: 'Check your email | Budget Manager',
+      },
     ],
   },
   {

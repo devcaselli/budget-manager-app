@@ -146,7 +146,11 @@ export class LoginPage implements OnInit {
       .register(email, password, trimmedName)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.router.navigate(['/dashboard']),
+        // F-C3: land on "check your email" (dismissible, not a hard gate —
+        // login pre-confirmation is allowed) instead of going straight to
+        // the dashboard. Email is handed off via router state, not a query
+        // param — see CheckEmailPage's doc comment for why.
+        next: () => this.router.navigate(['/check-email'], { state: { email } }),
         error: (err: AuthError) => this.signupError.set(err.message),
       });
   }
