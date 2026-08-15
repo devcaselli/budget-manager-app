@@ -23,6 +23,7 @@ function tokenResponse(overrides: Partial<TokenResponse> = {}): TokenResponse {
     expiresIn: 3600,
     refreshToken: 'refresh-1',
     refreshExpiresIn: 86400,
+    displayName: 'Jane Doe',
     ...overrides,
   };
 }
@@ -96,22 +97,96 @@ describe('AuthService', () => {
       const service = createService();
       expect(service.hasValidSession()).toBe(false);
     });
+
+    it('restores a real persisted display name from a valid stored session', () => {
+      seedSession({
+        email: 'jane@mail.com',
+        token: makeToken(Date.now() / 1000 + 3600),
+        refreshToken: 'r',
+        name: 'Jane Doe',
+      });
+      const service = createService();
+
+      let user: { name: string | null } | null = null;
+      service.currentUser$.subscribe((u) => (user = u));
+
+      expect(user).not.toBeNull();
+      expect(user!.name).toBe('Jane Doe');
+    });
+
+    it('deserializes a legacy StoredSession with no `name` property at all without crashing', () => {
+      // Simulates a session written to localStorage before F-B1 added the
+      // `name` field — the property is entirely absent from the parsed JSON,
+      // not `null`. Must not crash and must not surface "undefined" as a name.
+      const legacyRaw = JSON.stringify({
+        email: 'jane@mail.com',
+        token: makeToken(Date.now() / 1000 + 3600),
+        refreshToken: 'r',
+      });
+      localStorage.setItem(STORAGE_KEY, legacyRaw);
+
+      let service!: AuthService;
+      expect(() => (service = createService())).not.toThrow();
+
+      expect(service.isAuthenticated()).toBe(true);
+
+      let user: { name: string | null; initials: string } | null = null;
+      service.currentUser$.subscribe((u) => (user = u));
+
+      expect(user).not.toBeNull();
+      expect(user!.name).toBeNull();
+      expect(user!.initials).not.toBe('undefined');
+      expect(user!.initials).toBe('J'); // falls back to the email's first letter
+    });
   });
 
   describe('login', () => {
-    it('stores the session and emits the derived user', () => {
+    it('stores the session and emits the user with the real backend displayName', () => {
       const service = createService();
-      let authed = false;
-      service.currentUser$.subscribe((u) => (authed = u !== null));
+      let user: { name: string | null } | null = null;
+      service.currentUser$.subscribe((u) => (user = u));
 
       service.login('jane@mail.com', 'pw').subscribe();
 
       const req = httpMock.expectOne(`${AUTH_URL}/token`);
       expect(req.request.method).toBe('POST');
-      req.flush(tokenResponse());
+      req.flush(tokenResponse({ displayName: 'Jane Doe' }));
 
-      expect(authed).toBe(true);
+      expect(user).not.toBeNull();
+      expect(user!.name).toBe('Jane Doe');
       expect(service.getToken()).not.toBeNull();
+
+      const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(persisted.name).toBe('Jane Doe');
+    });
+
+    it('treats a `displayName: null` response as "no display name set", not a crash or "undefined"', () => {
+      const service = createService();
+      let user: { name: string | null; initials: string } | null = null;
+      service.currentUser$.subscribe((u) => (user = u));
+
+      service.login('jane@mail.com', 'pw').subscribe();
+
+      httpMock.expectOne(`${AUTH_URL}/token`).flush(tokenResponse({ displayName: null }));
+
+      expect(user).not.toBeNull();
+      expect(user!.name).toBeNull();
+      expect(user!.initials).toBe('J');
+
+      const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(persisted.name).toBeNull();
+    });
+
+    it('treats a `displayName: ""` response identically to null', () => {
+      const service = createService();
+      let user: { name: string | null } | null = null;
+      service.currentUser$.subscribe((u) => (user = u));
+
+      service.login('jane@mail.com', 'pw').subscribe();
+
+      httpMock.expectOne(`${AUTH_URL}/token`).flush(tokenResponse({ displayName: '' }));
+
+      expect(user!.name).toBeNull();
     });
 
     it('maps a 401 INVALID_CREDENTIALS response to a typed AuthError', () => {
@@ -257,6 +332,30 @@ describe('AuthService', () => {
 
       expect(service.isAuthenticated()).toBe(false);
       expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    });
+
+    it('refreshes the persisted and in-memory displayName from the refresh response', () => {
+      seedSession({
+        email: 'jane@mail.com',
+        token: makeToken(Date.now() / 1000 + 3600),
+        refreshToken: 'r-1',
+        name: null,
+      });
+      const service = createService();
+
+      let user: { name: string | null } | null = null;
+      service.currentUser$.subscribe((u) => (user = u));
+
+      service.refreshAccessToken().subscribe();
+      httpMock
+        .expectOne(`${AUTH_URL}/refresh`)
+        .flush(tokenResponse({ accessToken: makeToken(Date.now() / 1000 + 7200), displayName: 'Jane Doe' }));
+
+      expect(user).not.toBeNull();
+      expect(user!.name).toBe('Jane Doe');
+
+      const persisted = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(persisted.name).toBe('Jane Doe');
     });
   });
 

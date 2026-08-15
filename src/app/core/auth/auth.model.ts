@@ -1,6 +1,12 @@
 export interface AuthUser {
   readonly email: string;
-  readonly name: string;
+  /**
+   * Real display name sourced from the backend's `TokenResponse.displayName`.
+   * `null` means the backend has no display name on file for this user yet
+   * (fresh account, or a legacy account predating this field) — never a
+   * fabricated placeholder. Consumers must handle `null` explicitly.
+   */
+  readonly name: string | null;
   readonly initials: string;
 }
 
@@ -20,6 +26,16 @@ export interface TokenResponse {
   readonly expiresIn: number;
   readonly refreshToken: string;
   readonly refreshExpiresIn: number;
+  /**
+   * Real display name, confirmed shipped on the backend (Tema A, task A5) on
+   * `POST /auth/token` and `POST /auth/refresh`. `null`/absent for a user
+   * with no display name on file yet (backend's own confirmed "legacy
+   * displayName: leave null, require completion on next login" decision).
+   * NOT present on `RegisterResponse` — deliberate anti-enumeration design;
+   * the frontend must source the real name from the follow-up `/auth/token`
+   * call in the login flow, never from register's own response.
+   */
+  readonly displayName: string | null;
 }
 
 export interface RefreshRequest {
@@ -36,6 +52,14 @@ export interface StoredSession {
   readonly email: string;
   readonly token: string;
   readonly refreshToken: string;
+  /**
+   * Persisted so a returning user's name survives a page reload without
+   * re-hitting the backend. Optional (not `readonly name: string | null`)
+   * because a session written to `localStorage` BEFORE this field existed
+   * deserializes with this property entirely absent from the parsed JSON —
+   * `readSession()` must treat that legacy shape the same as a fresh `null`.
+   */
+  readonly name?: string | null;
 }
 
 /**

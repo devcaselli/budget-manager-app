@@ -31,11 +31,30 @@ const STORAGE_KEY_SESSION = 'bm_session';
 /** Treat a token as expired this many seconds early to absorb clock skew. */
 const TOKEN_EXPIRY_SKEW_SECONDS = 30;
 
-function deriveUser(email: string): AuthUser {
-  const localPart = email.split('@')[0];
-  const name = localPart.charAt(0).toUpperCase() + localPart.slice(1);
-  const initials = localPart.charAt(0).toUpperCase();
-  return { email, name, initials };
+/**
+ * Builds the initials chip value from a real (possibly absent) display name,
+ * falling back to the email's first letter when there is no name on file.
+ * This is intentionally minimal — F-B4 owns making initials-derivation more
+ * robust (e.g. multi-word names); this task only needs it to not crash or
+ * show garbage when `name` is `null`.
+ */
+function deriveInitials(email: string, name: string | null): string {
+  const trimmedName = name?.trim();
+  if (trimmedName) {
+    return trimmedName.charAt(0).toUpperCase();
+  }
+  return email.charAt(0).toUpperCase();
+}
+
+/**
+ * Builds an `AuthUser` from real backend data only — `name` is whatever the
+ * backend's `TokenResponse.displayName` said (including `null`), never a
+ * fabricated value. Replaces the old `deriveUser()`, which faked a display
+ * name from the email's local-part; that fabrication is gone (F-B1).
+ */
+function toAuthUser(email: string, name: string | null): AuthUser {
+  const normalizedName = name && name.trim().length > 0 ? name : null;
+  return { email, name: normalizedName, initials: deriveInitials(email, normalizedName) };
 }
 
 function readSession(): StoredSession | null {
@@ -160,7 +179,11 @@ export class AuthService {
       if (isTokenExpired(session.token)) {
         clearSession();
       } else {
-        this.currentUserSubject.next(deriveUser(session.email));
+        // `session.name` is `undefined` for a legacy StoredSession blob written
+        // before this field existed (absent from the parsed JSON, not `null`) —
+        // normalize both to `null` here so a stale localStorage shape can never
+        // crash or leak an `undefined`/"undefined" name into the UI.
+        this.currentUserSubject.next(toAuthUser(session.email, session.name ?? null));
       }
     }
   }
@@ -182,12 +205,14 @@ export class AuthService {
 
     return this.http.post<TokenResponse>(`${this.authUrl}/token`, body).pipe(
       map((response) => {
+        const name = response.displayName ?? null;
         writeSession({
           email,
           token: response.accessToken,
           refreshToken: response.refreshToken,
+          name,
         });
-        this.currentUserSubject.next(deriveUser(email));
+        this.currentUserSubject.next(toAuthUser(email, name));
       }),
       catchError((error: HttpErrorResponse) => mapHttpError(error)),
     );
@@ -215,11 +240,14 @@ export class AuthService {
       .post<TokenResponse>(`${this.authUrl}/refresh`, body)
       .pipe(
         map((response) => {
+          const name = response.displayName ?? null;
           writeSession({
             email: session.email,
             token: response.accessToken,
             refreshToken: response.refreshToken,
+            name,
           });
+          this.currentUserSubject.next(toAuthUser(session.email, name));
           return response.accessToken;
         }),
         catchError((error: HttpErrorResponse) => {
