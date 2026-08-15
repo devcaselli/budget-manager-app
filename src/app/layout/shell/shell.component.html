@@ -101,7 +101,9 @@
     >
       <div class="ew-user-av">{{ userInitials() }}</div>
       <div class="ew-user-info">
-        <b>{{ userName() }}</b>
+        @if (userName()) {
+          <b>{{ userName() }}</b>
+        }
         <span>{{ userEmail() }}</span>
       </div>
       <button
