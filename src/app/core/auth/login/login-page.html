@@ -66,6 +66,18 @@
 @if (activeTab() === 'signup') {
   <form [formGroup]="signupForm" (ngSubmit)="onSignupSubmit()" novalidate>
     <div class="ew-auth-form-field" style="margin-bottom: 28px">
+      <label for="signup-display-name">Name</label>
+      <input
+        id="signup-display-name"
+        type="text"
+        class="ew-auth-input"
+        formControlName="displayName"
+        placeholder="your name"
+        autocomplete="name"
+      />
+    </div>
+
+    <div class="ew-auth-form-field" style="margin-bottom: 28px">
       <label for="signup-email">Email</label>
       <input
         id="signup-email"

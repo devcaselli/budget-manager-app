@@ -140,4 +140,137 @@ describe('LoginPage', () => {
       );
     });
   });
+
+  describe('signup submit — display name field (F-B2)', () => {
+    function switchToSignup(): void {
+      const signupTab = root().querySelectorAll('.ew-auth-tabs [role="tab"]')[1] as HTMLElement;
+      signupTab.click();
+      fixture.detectChanges();
+    }
+
+    function setInput(selector: string, value: string): void {
+      const input = root().querySelector(selector) as HTMLInputElement;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+    }
+
+    function fillValidPasswordFields(): void {
+      setInput('#signup-password', 'Secretpw1!');
+      setInput('#signup-confirm', 'Secretpw1!');
+    }
+
+    function submit(): void {
+      const form = root().querySelector('form') as HTMLFormElement;
+      form.dispatchEvent(new Event('submit'));
+      fixture.detectChanges();
+    }
+
+    beforeEach(async () => {
+      await setUp();
+      switchToSignup();
+    });
+
+    it('renders the display name field as the first field, above email', () => {
+      const nameField = root().querySelector('#signup-display-name');
+      expect(nameField).toBeTruthy();
+
+      const fields = Array.from(root().querySelectorAll('input[formControlName]'));
+      const fieldIds = fields.map((el) => el.id);
+      expect(fieldIds.indexOf('signup-display-name')).toBeLessThan(fieldIds.indexOf('signup-email'));
+    });
+
+    it('blocks submit and shows a page-level error when the name is blank', () => {
+      setInput('#signup-email', 'user@example.com');
+      fillValidPasswordFields();
+      submit();
+
+      expect(authService.register).not.toHaveBeenCalled();
+      expect(root().querySelector('.ew-auth-err')?.textContent).toContain(
+        'Please fill in all fields correctly.',
+      );
+    });
+
+    it('blocks submit when the name is only whitespace (trims to blank)', () => {
+      setInput('#signup-display-name', '   ');
+      setInput('#signup-email', 'user@example.com');
+      fillValidPasswordFields();
+      submit();
+
+      expect(authService.register).not.toHaveBeenCalled();
+      expect(root().querySelector('.ew-auth-err')?.textContent).toContain(
+        'Please fill in all fields correctly.',
+      );
+    });
+
+    it('rejects a too-short name (1 char, below the backend min of 2)', () => {
+      setInput('#signup-display-name', 'A');
+      setInput('#signup-email', 'user@example.com');
+      fillValidPasswordFields();
+      submit();
+
+      expect(authService.register).not.toHaveBeenCalled();
+    });
+
+    it('rejects a too-long name (51 chars, above the backend max of 50)', () => {
+      setInput('#signup-display-name', 'A'.repeat(51));
+      setInput('#signup-email', 'user@example.com');
+      fillValidPasswordFields();
+      submit();
+
+      expect(authService.register).not.toHaveBeenCalled();
+    });
+
+    it('accepts a name with accents, hyphens, spaces, and an apostrophe (no letters-only regex)', () => {
+      authService.register.mockReturnValue(of(undefined));
+
+      setInput('#signup-display-name', "José D'Ávila-Núñez Österberg");
+      setInput('#signup-email', 'user@example.com');
+      fillValidPasswordFields();
+      submit();
+
+      expect(authService.register).toHaveBeenCalledWith(
+        'user@example.com',
+        'Secretpw1!',
+        "José D'Ávila-Núñez Österberg",
+      );
+    });
+
+    it('trims leading/trailing whitespace from the name before submitting', () => {
+      authService.register.mockReturnValue(of(undefined));
+
+      setInput('#signup-display-name', '  Jean-Paul  ');
+      setInput('#signup-email', 'user@example.com');
+      fillValidPasswordFields();
+      submit();
+
+      expect(authService.register).toHaveBeenCalledWith('user@example.com', 'Secretpw1!', 'Jean-Paul');
+    });
+
+    it('calls AuthService.register with the trimmed name and navigates to /dashboard on success', () => {
+      authService.register.mockReturnValue(of(undefined));
+
+      setInput('#signup-display-name', 'Ana Silva');
+      setInput('#signup-email', 'user@example.com');
+      fillValidPasswordFields();
+      submit();
+
+      expect(authService.register).toHaveBeenCalledWith('user@example.com', 'Secretpw1!', 'Ana Silva');
+      expect(router.navigate).toHaveBeenCalledWith(['/dashboard']);
+    });
+
+    it('surfaces the AuthError message on register failure', () => {
+      authService.register.mockReturnValue(
+        throwError(() => new AuthError('RATE_LIMITED', 'Too many attempts. Please try again later.')),
+      );
+
+      setInput('#signup-display-name', 'Ana Silva');
+      setInput('#signup-email', 'user@example.com');
+      fillValidPasswordFields();
+      submit();
+
+      expect(root().querySelector('.ew-auth-err')?.textContent).toContain(
+        'Too many attempts. Please try again later.',
+      );
+    });
+  });
 });

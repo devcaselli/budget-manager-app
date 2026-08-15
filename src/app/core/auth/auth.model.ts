@@ -1,6 +1,12 @@
 export interface AuthUser {
   readonly email: string;
-  readonly name: string;
+  /**
+   * Real display name sourced from the backend's `TokenResponse.displayName`.
+   * `null` means the backend has no display name on file for this user yet
+   * (fresh account, or a legacy account predating this field) — never a
+   * fabricated placeholder. Consumers must handle `null` explicitly.
+   */
+  readonly name: string | null;
   readonly initials: string;
 }
 
@@ -12,6 +18,13 @@ export interface LoginRequest {
 export interface RegisterRequest {
   readonly email: string;
   readonly password: string;
+  /**
+   * Real display name, trimmed by the caller before submission.
+   * Backend contract (`RegisterRequestDto`, Tema A / A4): `@NotBlank`,
+   * `@Size(min=2, max=50)`, permissive pattern rejecting only control
+   * characters — accents, hyphens, spaces, apostrophes are all valid.
+   */
+  readonly displayName: string;
 }
 
 export interface TokenResponse {
@@ -20,6 +33,16 @@ export interface TokenResponse {
   readonly expiresIn: number;
   readonly refreshToken: string;
   readonly refreshExpiresIn: number;
+  /**
+   * Real display name, confirmed shipped on the backend (Tema A, task A5) on
+   * `POST /auth/token` and `POST /auth/refresh`. `null`/absent for a user
+   * with no display name on file yet (backend's own confirmed "legacy
+   * displayName: leave null, require completion on next login" decision).
+   * NOT present on `RegisterResponse` — deliberate anti-enumeration design;
+   * the frontend must source the real name from the follow-up `/auth/token`
+   * call in the login flow, never from register's own response.
+   */
+  readonly displayName: string | null;
 }
 
 export interface RefreshRequest {
@@ -32,10 +55,39 @@ export interface RegisterResponse {
   readonly createdAt: string;
 }
 
+/**
+ * Request body for `PATCH /users/me` (F-B3). The backend trims server-side
+ * BEFORE validation, so the frontend does not need to trim before sending —
+ * trimming client-side is only done here for UX (showing the user what will
+ * actually be persisted), same bounds as `RegisterRequest.displayName`.
+ */
+export interface UpdateProfileRequest {
+  readonly displayName: string;
+}
+
+/**
+ * Response body for `PATCH /users/me` (F-B3). Used directly to refresh the
+ * in-memory session (`currentUserSubject`) — no full re-login or token
+ * refresh needed, this shape exists specifically to let callers update state
+ * immediately.
+ */
+export interface UpdateProfileResponse {
+  readonly id: string;
+  readonly displayName: string;
+}
+
 export interface StoredSession {
   readonly email: string;
   readonly token: string;
   readonly refreshToken: string;
+  /**
+   * Persisted so a returning user's name survives a page reload without
+   * re-hitting the backend. Optional (not `readonly name: string | null`)
+   * because a session written to `localStorage` BEFORE this field existed
+   * deserializes with this property entirely absent from the parsed JSON —
+   * `readSession()` must treat that legacy shape the same as a fresh `null`.
+   */
+  readonly name?: string | null;
 }
 
 /**

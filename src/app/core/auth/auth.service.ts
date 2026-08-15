@@ -14,6 +14,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 
 import { environment } from '@environments/environment';
 import { assertNever } from '@shared/utils/assert-never';
+import { deriveInitials } from '@shared/utils/derive-initials';
 import {
   AuthError,
   AuthErrorCode,
@@ -21,9 +22,12 @@ import {
   LoginRequest,
   ProblemDetailBody,
   RefreshRequest,
+  RegisterRequest,
   RegisterResponse,
   StoredSession,
   TokenResponse,
+  UpdateProfileRequest,
+  UpdateProfileResponse,
 } from './auth.model';
 
 const STORAGE_KEY_SESSION = 'bm_session';
@@ -31,11 +35,20 @@ const STORAGE_KEY_SESSION = 'bm_session';
 /** Treat a token as expired this many seconds early to absorb clock skew. */
 const TOKEN_EXPIRY_SKEW_SECONDS = 30;
 
-function deriveUser(email: string): AuthUser {
-  const localPart = email.split('@')[0];
-  const name = localPart.charAt(0).toUpperCase() + localPart.slice(1);
-  const initials = localPart.charAt(0).toUpperCase();
-  return { email, name, initials };
+/**
+ * Builds an `AuthUser` from real backend data only — `name` is whatever the
+ * backend's `TokenResponse.displayName` said (including `null`), never a
+ * fabricated value. Replaces the old `deriveUser()`, which faked a display
+ * name from the email's local-part; that fabrication is gone (F-B1).
+ *
+ * Initials are derived via the shared, grapheme-aware `deriveInitials()`
+ * (`shared/utils/derive-initials.ts`, F-B4) — robust to compound names,
+ * emoji/combining-mark grapheme clusters, and the empty/no-name state,
+ * falling back to the account email when there is no display name on file.
+ */
+function toAuthUser(email: string, name: string | null): AuthUser {
+  const normalizedName = name && name.trim().length > 0 ? name : null;
+  return { email, name: normalizedName, initials: deriveInitials(normalizedName, email) };
 }
 
 function readSession(): StoredSession | null {
@@ -141,6 +154,7 @@ function mapHttpError(error: HttpErrorResponse): Observable<never> {
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly authUrl = `${environment.apiUrl}/auth`;
+  private readonly usersUrl = `${environment.apiUrl}/users`;
 
   private readonly currentUserSubject = new BehaviorSubject<AuthUser | null>(null);
   readonly currentUser$ = this.currentUserSubject.asObservable();
@@ -160,7 +174,11 @@ export class AuthService {
       if (isTokenExpired(session.token)) {
         clearSession();
       } else {
-        this.currentUserSubject.next(deriveUser(session.email));
+        // `session.name` is `undefined` for a legacy StoredSession blob written
+        // before this field existed (absent from the parsed JSON, not `null`) —
+        // normalize both to `null` here so a stale localStorage shape can never
+        // crash or leak an `undefined`/"undefined" name into the UI.
+        this.currentUserSubject.next(toAuthUser(session.email, session.name ?? null));
       }
     }
   }
@@ -182,12 +200,14 @@ export class AuthService {
 
     return this.http.post<TokenResponse>(`${this.authUrl}/token`, body).pipe(
       map((response) => {
+        const name = response.displayName ?? null;
         writeSession({
           email,
           token: response.accessToken,
           refreshToken: response.refreshToken,
+          name,
         });
-        this.currentUserSubject.next(deriveUser(email));
+        this.currentUserSubject.next(toAuthUser(email, name));
       }),
       catchError((error: HttpErrorResponse) => mapHttpError(error)),
     );
@@ -197,6 +217,18 @@ export class AuthService {
    * Exchanges the stored (rotated, single-use) refresh token for a new token
    * pair. Concurrent callers share one in-flight request via shareReplay so a
    * burst of 401s triggers a single /auth/refresh call.
+   *
+   * IMPORTANT — `displayName` on this response is ALWAYS `null`: the backend's
+   * `RefreshUseCase` deliberately omits the name claim/field on `/auth/refresh`
+   * (`TokenResponseDto`'s own contract states it's "always null on /auth/refresh
+   * responses" — the client already has the real name from the original
+   * `/auth/token` login response). Treating that `null` as authoritative here
+   * would silently blank the user's real display name on every automatic,
+   * user-invisible token refresh (triggered by `auth.interceptor.ts` on any
+   * 401). So — unlike `login()` and `updateProfile()`, where a `displayName`
+   * value (including a genuine `null` for "no name set") IS authoritative and
+   * must overwrite — this path treats `null` as "unchanged" and preserves
+   * whatever name the pre-refresh session already had.
    */
   refreshAccessToken(): Observable<string> {
     if (this.refreshInFlight$) {
@@ -215,11 +247,17 @@ export class AuthService {
       .post<TokenResponse>(`${this.authUrl}/refresh`, body)
       .pipe(
         map((response) => {
+          // See the method doc above — `response.displayName` is never a real
+          // value on this endpoint, so a `null` here means "unchanged," not
+          // "authoritative." Fall back to the session's existing name.
+          const name = response.displayName ?? session.name ?? null;
           writeSession({
             email: session.email,
             token: response.accessToken,
             refreshToken: response.refreshToken,
+            name,
           });
+          this.currentUserSubject.next(toAuthUser(session.email, name));
           return response.accessToken;
         }),
         catchError((error: HttpErrorResponse) => {
@@ -235,13 +273,50 @@ export class AuthService {
     return this.refreshInFlight$;
   }
 
-  register(email: string, password: string): Observable<void> {
-    return this.http
-      .post<RegisterResponse>(`${this.authUrl}/register`, { email, password })
-      .pipe(
-        switchMap(() => this.login(email, password)),
-        catchError((error: HttpErrorResponse) => mapHttpError(error)),
-      );
+  register(email: string, password: string, displayName: string): Observable<void> {
+    const body: RegisterRequest = { email, password, displayName };
+
+    return this.http.post<RegisterResponse>(`${this.authUrl}/register`, body).pipe(
+      switchMap(() => this.login(email, password)),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
+  }
+
+  /**
+   * `PATCH /users/me` (F-B3). Updates the account's display name and, on
+   * success, pushes the fresh name into `currentUserSubject` — the same
+   * reactive source the shell reads for its name/initials chip — so the UI
+   * updates immediately, with no reload or re-login. Also rewrites the
+   * persisted `StoredSession.name` (mirroring `refreshAccessToken`'s own
+   * write-session-then-notify pattern) so a page reload doesn't show a stale
+   * name before the next token refresh.
+   *
+   * The backend trims server-side before validation, so `displayName` is not
+   * trimmed here before the request — the caller may trim for its own UX
+   * (e.g. to preview what will be persisted), but this method sends whatever
+   * it is given.
+   */
+  updateProfile(displayName: string): Observable<void> {
+    const session = readSession();
+    if (!session) {
+      return throwError(() => new AuthError('UNAUTHORIZED', messageForAuthErrorCode('UNAUTHORIZED')));
+    }
+
+    const body: UpdateProfileRequest = { displayName };
+
+    return this.http.patch<UpdateProfileResponse>(`${this.usersUrl}/me`, body).pipe(
+      map((response) => {
+        const name = response.displayName ?? null;
+        writeSession({
+          email: session.email,
+          token: session.token,
+          refreshToken: session.refreshToken,
+          name,
+        });
+        this.currentUserSubject.next(toAuthUser(session.email, name));
+      }),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
   }
 
   logout(): void {
