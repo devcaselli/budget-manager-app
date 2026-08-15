@@ -587,6 +587,234 @@ describe('AuthService', () => {
     });
   });
 
+  describe('resendConfirmation (F-C1)', () => {
+    it('sends the email and resolves as Observable<void>, discarding the generic response body', () => {
+      const service = createService();
+
+      let completed = false;
+      let value: void | undefined;
+      service.resendConfirmation('jane@mail.com').subscribe({
+        next: (v) => (value = v),
+        complete: () => (completed = true),
+      });
+
+      const req = httpMock.expectOne(`${AUTH_URL}/resend-verification`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ email: 'jane@mail.com' });
+      req.flush({ message: 'If that email exists, a verification link was sent.' });
+
+      expect(completed).toBe(true);
+      expect(value).toBeUndefined();
+    });
+
+    it('maps a 429 RATE_LIMITED response to a typed AuthError', () => {
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.resendConfirmation('jane@mail.com').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/resend-verification`)
+        .flush(problemDetail({ status: 429, code: 'RATE_LIMITED' }), {
+          status: 429,
+          statusText: 'Too Many Requests',
+        });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('RATE_LIMITED');
+    });
+
+    it('maps a network failure (status 0) to an UNKNOWN AuthError', () => {
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.resendConfirmation('jane@mail.com').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock.expectOne(`${AUTH_URL}/resend-verification`).error(new ProgressEvent('error'), { status: 0 });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
+    });
+  });
+
+  describe('requestPasswordReset (F-C1)', () => {
+    it('sends the email and resolves as Observable<void>, discarding the generic response body', () => {
+      const service = createService();
+
+      let completed = false;
+      let value: void | undefined;
+      service.requestPasswordReset('jane@mail.com').subscribe({
+        next: (v) => (value = v),
+        complete: () => (completed = true),
+      });
+
+      const req = httpMock.expectOne(`${AUTH_URL}/forgot-password`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ email: 'jane@mail.com' });
+      req.flush({ message: 'If that email exists, a reset link was sent.' });
+
+      expect(completed).toBe(true);
+      expect(value).toBeUndefined();
+    });
+
+    it('maps a 429 RATE_LIMITED response to a typed AuthError', () => {
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.requestPasswordReset('jane@mail.com').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/forgot-password`)
+        .flush(problemDetail({ status: 429, code: 'RATE_LIMITED' }), {
+          status: 429,
+          statusText: 'Too Many Requests',
+        });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('RATE_LIMITED');
+    });
+
+    it('maps a network failure (status 0) to an UNKNOWN AuthError', () => {
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.requestPasswordReset('jane@mail.com').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock.expectOne(`${AUTH_URL}/forgot-password`).error(new ProgressEvent('error'), { status: 0 });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
+    });
+  });
+
+  describe('confirmPasswordReset (F-C1)', () => {
+    it('sends the token and newPassword and resolves as Observable<void>, discarding the response body', () => {
+      const service = createService();
+
+      let completed = false;
+      let value: void | undefined;
+      service.confirmPasswordReset('plaintext-token', 'NewPassw0rd').subscribe({
+        next: (v) => (value = v),
+        complete: () => (completed = true),
+      });
+
+      const req = httpMock.expectOne(`${AUTH_URL}/reset-password`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ token: 'plaintext-token', newPassword: 'NewPassw0rd' });
+      req.flush({ message: 'Password reset successfully.' });
+
+      expect(completed).toBe(true);
+      expect(value).toBeUndefined();
+    });
+
+    it('maps a 400 INVALID_OR_EXPIRED_TOKEN response to exactly that typed AuthError code (end-to-end plumbing)', () => {
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service
+        .confirmPasswordReset('expired-token', 'NewPassw0rd')
+        .subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/reset-password`)
+        .flush(problemDetail({ status: 400, code: 'INVALID_OR_EXPIRED_TOKEN' }), {
+          status: 400,
+          statusText: 'Bad Request',
+        });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('INVALID_OR_EXPIRED_TOKEN');
+      expect(error?.code).not.toBe('UNKNOWN');
+      expect(error?.message).toBe('Invalid or expired link or code.');
+    });
+
+    it('falls back to UNKNOWN AuthError on a 400 password-policy Bean Validation failure (no code property)', () => {
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.confirmPasswordReset('token', 'short').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/reset-password`)
+        .flush(problemDetail({ status: 400, code: undefined, detail: 'newPassword: size must be between 12 and 128' }), {
+          status: 400,
+          statusText: 'Bad Request',
+        });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
+    });
+
+    it('maps a 429 RATE_LIMITED response to a typed AuthError', () => {
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.confirmPasswordReset('token', 'NewPassw0rd').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/reset-password`)
+        .flush(problemDetail({ status: 429, code: 'RATE_LIMITED' }), {
+          status: 429,
+          statusText: 'Too Many Requests',
+        });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('RATE_LIMITED');
+    });
+  });
+
+  describe('confirmEmail (F-C1)', () => {
+    it('sends the token and resolves as Observable<void>, discarding the { emailVerified: true } response body', () => {
+      const service = createService();
+
+      let completed = false;
+      let value: void | undefined;
+      service.confirmEmail('plaintext-token').subscribe({
+        next: (v) => (value = v),
+        complete: () => (completed = true),
+      });
+
+      const req = httpMock.expectOne(`${AUTH_URL}/verify-email`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ token: 'plaintext-token' });
+      req.flush({ emailVerified: true });
+
+      expect(completed).toBe(true);
+      expect(value).toBeUndefined();
+    });
+
+    it('maps a 400 INVALID_OR_EXPIRED_TOKEN response to exactly that typed AuthError code (end-to-end plumbing)', () => {
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.confirmEmail('expired-token').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock
+        .expectOne(`${AUTH_URL}/verify-email`)
+        .flush(problemDetail({ status: 400, code: 'INVALID_OR_EXPIRED_TOKEN' }), {
+          status: 400,
+          statusText: 'Bad Request',
+        });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('INVALID_OR_EXPIRED_TOKEN');
+      expect(error?.code).not.toBe('UNKNOWN');
+      expect(error?.message).toBe('Invalid or expired link or code.');
+    });
+
+    it('maps a network failure (status 0) to an UNKNOWN AuthError', () => {
+      const service = createService();
+
+      let error: AuthError | undefined;
+      service.confirmEmail('token').subscribe({ error: (e: AuthError) => (error = e) });
+
+      httpMock.expectOne(`${AUTH_URL}/verify-email`).error(new ProgressEvent('error'), { status: 0 });
+
+      expect(error).toBeInstanceOf(AuthError);
+      expect(error?.code).toBe<AuthErrorCode>('UNKNOWN');
+    });
+  });
+
   describe('logout', () => {
     it('clears the stored session and the current user', () => {
       seedSession({ email: 'jane@mail.com', token: makeToken(Date.now() / 1000 + 3600), refreshToken: 'r' });

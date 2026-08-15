@@ -76,6 +76,44 @@ export interface UpdateProfileResponse {
   readonly displayName: string;
 }
 
+/**
+ * Request body for `POST /auth/resend-verification` (F-C1). Backend response
+ * is a generic, always-200 anti-enumeration body carrying no data the caller
+ * needs — this is the only interface required for the request side.
+ */
+export interface ResendConfirmationRequest {
+  readonly email: string;
+}
+
+/**
+ * Request body for `POST /auth/forgot-password` (F-C1). Same always-200
+ * anti-enumeration contract as `ResendConfirmationRequest` — the response
+ * body carries no data the caller needs.
+ */
+export interface RequestPasswordResetRequest {
+  readonly email: string;
+}
+
+/**
+ * Request body for `POST /auth/reset-password` (F-C1). `token` is the
+ * plaintext token from the reset-password email link. Same password bounds
+ * as `RegisterRequest.displayName`'s sibling field on registration (min 12 /
+ * max 128 / at least 1 letter + 1 digit) — enforced server-side; this
+ * interface does not itself validate.
+ */
+export interface ConfirmPasswordResetRequest {
+  readonly token: string;
+  readonly newPassword: string;
+}
+
+/**
+ * Request body for `POST /auth/verify-email` (F-C1). `token` is the
+ * plaintext token from the confirmation email link.
+ */
+export interface ConfirmEmailRequest {
+  readonly token: string;
+}
+
 export interface StoredSession {
   readonly email: string;
   readonly token: string;

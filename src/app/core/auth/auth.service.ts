@@ -19,11 +19,15 @@ import {
   AuthError,
   AuthErrorCode,
   AuthUser,
+  ConfirmEmailRequest,
+  ConfirmPasswordResetRequest,
   LoginRequest,
   ProblemDetailBody,
   RefreshRequest,
   RegisterRequest,
   RegisterResponse,
+  RequestPasswordResetRequest,
+  ResendConfirmationRequest,
   StoredSession,
   TokenResponse,
   UpdateProfileRequest,
@@ -315,6 +319,75 @@ export class AuthService {
         });
         this.currentUserSubject.next(toAuthUser(session.email, name));
       }),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
+  }
+
+  /**
+   * `POST /auth/resend-verification` (F-C1). ALWAYS 200 with a generic body,
+   * by deliberate backend anti-enumeration design — the outcome looks
+   * identical whether the email exists, is already verified, or genuinely
+   * triggers a resend. The response body carries no data this caller needs,
+   * so it is discarded (`map(() => undefined)`); the only realistic failure
+   * path is a network error or `RATE_LIMITED` (429). Callers must not
+   * attempt to infer account existence from this call succeeding or
+   * failing — the backend intentionally makes that impossible.
+   */
+  resendConfirmation(email: string): Observable<void> {
+    const body: ResendConfirmationRequest = { email };
+
+    return this.http.post<unknown>(`${this.authUrl}/resend-verification`, body).pipe(
+      map(() => undefined),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
+  }
+
+  /**
+   * `POST /auth/forgot-password` (F-C1). Same always-200 anti-enumeration
+   * contract as `resendConfirmation` — unknown email, unverified email, and
+   * a real reset-email-sent all look identical to the caller. Discards the
+   * generic response body; the only realistic failure path is a network
+   * error or `RATE_LIMITED` (429).
+   */
+  requestPasswordReset(email: string): Observable<void> {
+    const body: RequestPasswordResetRequest = { email };
+
+    return this.http.post<unknown>(`${this.authUrl}/forgot-password`, body).pipe(
+      map(() => undefined),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
+  }
+
+  /**
+   * `POST /auth/reset-password` (F-C1). Unlike the always-200 endpoints
+   * above, token validity genuinely varies per-request: an unknown, expired,
+   * consumed, or wrong-purpose token fails with 400 `INVALID_OR_EXPIRED_TOKEN`
+   * (the same union member `confirmEmail` uses — the backend deliberately
+   * uses one code for all 4 rejection causes across both endpoints). A
+   * password-policy violation fails with a standard 400 Bean Validation
+   * error, which falls back to `UNKNOWN` via `mapHttpError` same as any other
+   * unrecognized `code`.
+   */
+  confirmPasswordReset(token: string, newPassword: string): Observable<void> {
+    const body: ConfirmPasswordResetRequest = { token, newPassword };
+
+    return this.http.post<unknown>(`${this.authUrl}/reset-password`, body).pipe(
+      map(() => undefined),
+      catchError((error: HttpErrorResponse) => mapHttpError(error)),
+    );
+  }
+
+  /**
+   * `POST /auth/verify-email` (F-C1). Success body is `{ emailVerified: true }`
+   * but carries no data this caller needs — discarded. Failure is 400
+   * `INVALID_OR_EXPIRED_TOKEN` for an unknown, expired, consumed, or
+   * wrong-purpose token (same union member as `confirmPasswordReset`).
+   */
+  confirmEmail(token: string): Observable<void> {
+    const body: ConfirmEmailRequest = { token };
+
+    return this.http.post<unknown>(`${this.authUrl}/verify-email`, body).pipe(
+      map(() => undefined),
       catchError((error: HttpErrorResponse) => mapHttpError(error)),
     );
   }
