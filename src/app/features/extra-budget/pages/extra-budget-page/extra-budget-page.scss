@@ -8,6 +8,21 @@
   font-variant-numeric: tabular-nums;
 }
 
+// Subordinate to the description it sits next to — smaller, muted, never competing with the
+// amount column for attention (RBM-F8).
+.ebp-source-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--ew-line);
+  border-radius: 999px;
+  background: var(--ew-panel-2);
+  color: var(--ew-ink-3);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 .ebp-row-actions {
   text-align: right;
 }

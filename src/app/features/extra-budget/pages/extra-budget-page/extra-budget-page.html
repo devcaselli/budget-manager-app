@@ -44,17 +44,24 @@
             <tbody>
               @for (extraBudget of activeExtraBudgets(); track extraBudget.id) {
                 <tr>
-                  <td>{{ extraBudget.description }}</td>
+                  <td>
+                    {{ extraBudget.description }}
+                    @if (extraBudget.isMigration) {
+                      <span class="ebp-source-badge">via Reserved Budget</span>
+                    }
+                  </td>
                   <td>{{ extraBudget.allocationLabel }}</td>
                   <td class="ebp-amount ew-blur">{{ extraBudget.amount | brlCurrency }}</td>
                   <td class="ebp-row-actions">
                     <button
                       class="ebp-icon-btn ebp-icon-btn--danger"
                       type="button"
-                      [disabled]="deletingExtraBudgetId() === extraBudget.id"
-                      (click)="revertExtraBudget(extraBudget.id)"
+                      [disabled]="deletingExtraBudgetId() === extraBudget.id || extraBudget.isMigration"
+                      (click)="revertExtraBudget(extraBudget)"
                       aria-label="Revert extra budget"
-                      title="Revert extra budget"
+                      [title]="extraBudget.isMigration
+                        ? 'Undo this from the Reserved Budget card or from the bullet\'s detail view'
+                        : 'Revert extra budget'"
                     >
                       <mat-icon aria-hidden="true">
                         {{ deletingExtraBudgetId() === extraBudget.id ? 'hourglass_empty' : 'undo' }}

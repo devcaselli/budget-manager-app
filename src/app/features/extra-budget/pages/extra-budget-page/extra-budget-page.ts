@@ -30,6 +30,10 @@ interface ExtraBudgetListItem {
   readonly description: string;
   readonly amount: number;
   readonly allocationLabel: string;
+  /** True when this extra budget materializes a reserved-budget migration (RBM-F8). A legacy
+   * record with `sourceType` absent (predates the backend field, or the backend hasn't shipped
+   * it — see the model's docstring) is treated as `MANUAL`, i.e. `false` here. */
+  readonly isMigration: boolean;
 }
 
 @Component({
@@ -104,6 +108,9 @@ export class ExtraBudgetPage {
             return `${label} (${this.formatCurrency(Number(allocation.amount))})`;
           })
           .join(' · '),
+        // Absent property (not just null) normalizes to MANUAL — same "missing means default"
+        // rule as StoredSession.name in Sword & Shield F-B1.
+        isMigration: (extraBudget.sourceType ?? 'MANUAL') === 'RESERVED_BUDGET_MIGRATION',
       }));
   });
 
@@ -185,9 +192,16 @@ export class ExtraBudgetPage {
       });
   }
 
-  protected revertExtraBudget(id: string): void {
+  // Migration-sourced rows are read-only here (RBM-F8): this screen shows only the material
+  // effect on the bullet, not the reserved budget it came from, so it can't describe what a
+  // revert confirmation would actually undo. Reversal lives on the RB card and the bullet's
+  // Omega Viewer detail (both know both sides of the movement). The UI already disables the
+  // button for these rows — this guard is the code-level barrier, not just the template's.
+  protected revertExtraBudget(item: ExtraBudgetListItem): void {
+    if (item.isMigration) return;
+
     this.extraBudgetService
-      .delete(id)
+      .delete(item.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => this.reloadWalletContext(),
