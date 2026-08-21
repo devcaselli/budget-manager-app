@@ -50,3 +50,36 @@
     cursor: not-allowed;
   }
 }
+
+// RBM-F15 — subordinate to the bullet name, never competing with the balance figures (the
+// page's primary information). Icon + count, never color alone as the signal.
+.bullet-migration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink-3);
+  vertical-align: middle;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  span {
+    font-family: var(--ew-mono);
+    font-size: 10px;
+  }
+
+  &:hover {
+    color: var(--ew-acc);
+    border-color: var(--ew-acc);
+    background-color: var(--ew-acc-soft);
+  }
+}

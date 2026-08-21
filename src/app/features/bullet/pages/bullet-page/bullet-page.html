@@ -38,6 +38,26 @@
             <div class="ew-alloc">
               <div class="ew-alloc-name">
                 {{ bullet.description }}
+                @if (bullet.migrationCount > 0) {
+                  <button
+                    class="bullet-migration-badge"
+                    type="button"
+                    [attr.aria-label]="
+                      'View ' + bullet.migrationCount + ' reserved budget migration(s) for ' + bullet.description
+                    "
+                    [title]="
+                      bullet.migrationCount > 1
+                        ? 'Opens the first migration — see the rest from the Reserved Budget card'
+                        : 'View reserved budget migration'
+                    "
+                    (click)="openMigrationViewer(bullet)"
+                  >
+                    <mat-icon aria-hidden="true">swap_horiz</mat-icon>
+                    @if (bullet.migrationCount > 1) {
+                      <span>{{ bullet.migrationCount }}</span>
+                    }
+                  </button>
+                }
                 <small>category · primary</small>
               </div>
               <div class="ew-alloc-bar">
