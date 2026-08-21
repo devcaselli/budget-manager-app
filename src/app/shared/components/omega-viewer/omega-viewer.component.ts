@@ -224,12 +224,6 @@ export class OmegaViewerComponent {
    * the migration on screen is in flight. */
   protected readonly revertingMigration = signal(false);
   protected readonly revertMigrationError = signal<string | null>(null);
-  /** RBM-F16: set right before `retry()` refetches after a successful migration revert — the
-   * migration ITSELF ceased to exist, so the refetch is expected to 404 (unlike every other
-   * `retry()` call site, where a fetch error is really an error). The `detailState` effect below
-   * reads this once, right after the refetch settles, and closes the dialog when both are true
-   * instead of falling into the generic error UI — see `revertMigration()`'s own doc comment. */
-  private readonly expectMigrationGoneAfterRetry = signal(false);
   /** User-facing message for the most recent failed save attempt, `null` when there is none
    * to show. Rendered inside `ViewerEditFormComponent` (still-open modal) rather than
    * relying on `ExpenseService.error$` — that stream surfaces in `ExpensePage`, which sits
@@ -497,22 +491,6 @@ export class OmegaViewerComponent {
       // on this exact turn (view not rendered), so retry on the next microtask too — cheap,
       // and guarantees focus lands once the heading is actually in the DOM.
       queueMicrotask(() => untracked(() => this.titleRef()?.nativeElement.focus()));
-    });
-
-    // RBM-F16: closes the viewer instead of showing the generic error+Retry state when a
-    // refetch 404s specifically because the migration on screen was just reverted away by
-    // this same shell — see `revertMigration()`'s doc comment for why a generic "couldn't
-    // load, try again" is actively wrong here (the item wasn't lost by accident, it was
-    // deliberately deleted by the user's own confirmed action one line above).
-    // `expectMigrationGoneAfterRetry` is read/cleared inside the effect, not the HTTP pipe
-    // itself, so an UNRELATED error status still falls through to the normal error UI.
-    effect(() => {
-      const state = this.detailState();
-      if (state.status !== 'error' || !this.expectMigrationGoneAfterRetry()) {
-        return;
-      }
-      this.expectMigrationGoneAfterRetry.set(false);
-      this.dialogRef.close({ mutated: this.mutated() });
     });
   }
 
@@ -831,13 +809,19 @@ export class OmegaViewerComponent {
    * `ExtraBudgetService.delete()` call (RBM-F16 rule 1; the coordination test in RBM-F17 pins
    * exactly this).
    *
-   * On success: `mutated.set(true)` (so the bullet page reloads on close, same convention as
-   * every other mutation in this shell) and `retry()` to refetch the current item. Unlike
-   * `revertPayment()`, a successful migration revert makes the migration itself CEASE TO EXIST
-   * — the refetch will 404. That is handled explicitly in `detailState`'s own `catchError`
-   * (see `wasRevertedAway`), which closes the dialog instead of falling into the generic error
-   * state — showing "Não foi possível carregar os detalhes" with a Retry button on an item that
-   * was deliberately just deleted would be actively wrong, not just unpolished.
+   * On success: closes the dialog directly with `mutated: true` (so the bullet page reloads on
+   * open, same convention as every other mutation in this shell) — NO refetch round-trip.
+   *
+   * Post-epic code review MAJOR 3: this used to call `retry()` (push a new ref, let the
+   * `switchMap` refetch) and rely on a dedicated `effect()` to notice the refetch's inevitable
+   * 404 (the migration itself ceased to exist) and close the dialog from there. That effect both
+   * read AND wrote its own gating signal (`expectMigrationGoneAfterRetry`) in the same body — the
+   * exact anti-pattern `untracked()`/`allowSignalWrites` exist to discourage — and the gate was
+   * far wider than intended: it stayed armed from this success callback until ANY error state
+   * arrived, so an unrelated transient refetch failure (a network blip) was silently
+   * reinterpreted as "the migration was deleted" and closed the dialog as if it were a success.
+   * Closing directly here removes the round-trip (and the race) entirely: the DELETE already
+   * told us the migration is gone, there is nothing left to confirm by refetching.
    *
    * On 409 `MigrationNotReversibleException` (the bullet already spent the amount): surfaces
    * `revertMigrationError` inside the still-open modal — never silently dropped, same
@@ -853,8 +837,7 @@ export class OmegaViewerComponent {
         next: () => {
           this.revertingMigration.set(false);
           this.mutated.set(true);
-          this.expectMigrationGoneAfterRetry.set(true);
-          this.retry();
+          this.dialogRef.close({ mutated: true });
         },
         error: (error: unknown) => {
           this.revertingMigration.set(false);

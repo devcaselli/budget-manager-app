@@ -8,7 +8,7 @@ import { ApplicationRef } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { Observable, of, Subject } from 'rxjs';
+import { of, Subject } from 'rxjs';
 
 import {
   OmegaViewerDetail,
@@ -2953,8 +2953,16 @@ describe('OmegaViewerComponent — reserved budget migration revert (RBM-F16)', 
     expect(config.data.dateLabel).toBe('Aug 2026');
   });
 
-  it('on success, mutated is set and the viewer closes instead of showing a generic error (404-after-revert)', async () => {
+  // Post-epic code review MAJOR 3: revertMigration() used to call retry() and rely on a
+  // dedicated effect (reading AND writing its own gating signal in the same body) to notice the
+  // inevitable 404 from refetching a migration that no longer exists, and close from there. That
+  // effect's gate was armed from success until ANY error state arrived, so an unrelated transient
+  // refetch failure would be silently treated as "the migration was deleted" too. The fix closes
+  // the dialog directly from the DELETE's own success callback — no refetch round-trip, so there
+  // is nothing left to misinterpret.
+  it('on success, mutated is set and the viewer closes immediately — no refetch round-trip', async () => {
     await setup(buildMigrationDetail());
+    const callsBeforeRevert = loadSpy.mock.calls.length;
 
     const root = fixture.nativeElement as HTMLElement;
     root.querySelector<HTMLButtonElement>('.ovw__migration-revert button')?.click();
@@ -2964,16 +2972,14 @@ describe('OmegaViewerComponent — reserved budget migration revert (RBM-F16)', 
       (r) => r.url === '/api/reserved-budgets/rb-1/migrations/eb-1' && r.method === 'DELETE',
     );
     deleteReq.flush({});
-
-    // The refetch triggered by retry() is expected to 404 — the migration itself is gone.
-    loadSpy.mockReturnValueOnce(
-      new Observable((subscriber) => subscriber.error(new Error('404'))),
-    );
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(dialogRef.close).toHaveBeenCalledWith({ mutated: true });
+    // The old flow called OmegaViewerService.load() a second time (retry()'s refetch) here —
+    // closing directly means load() is never called again after the initial one from setup().
+    expect(loadSpy.mock.calls.length).toBe(callsBeforeRevert);
   });
 
   it('on 409 MigrationNotReversibleException, shows an inline error and keeps the modal open (mutated stays false)', async () => {
