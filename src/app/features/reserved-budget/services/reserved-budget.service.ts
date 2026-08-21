@@ -5,6 +5,7 @@ import {
   catchError,
   EMPTY,
   finalize,
+  map,
   Observable,
   ReplaySubject,
   Subject,
@@ -17,6 +18,7 @@ import { fetchAllPages } from '@core/state/fetch-all-pages';
 import { LoadingCounter } from '@core/state/loading-counter';
 
 import {
+  CreateReservedBudgetMigrationRequest,
   CreateReservedBudgetRequest,
   LinkReservedBudgetSourceRequest,
   PagedReservedBudgetResponse,
@@ -38,6 +40,7 @@ export class ReservedBudgetService {
   private readonly updatingSubject = new BehaviorSubject<string | null>(null);
   private readonly linkingSubject = new BehaviorSubject<string | null>(null);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
+  private readonly migratingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
   private readonly loadReservedBudgetsTrigger$ = new Subject<string>();
   // Month (YYYY-MM) of the last load; reused by internal reloads (e.g. after delete).
@@ -49,6 +52,7 @@ export class ReservedBudgetService {
   readonly updating$ = this.updatingSubject.asObservable();
   readonly linking$ = this.linkingSubject.asObservable();
   readonly deleting$ = this.deletingSubject.asObservable();
+  readonly migrating$ = this.migratingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
 
   constructor() {
@@ -236,6 +240,81 @@ export class ReservedBudgetService {
       });
 
     return deletedReservedBudgetSubject.asObservable();
+  }
+
+  /**
+   * Creates a migration (moves money from this reserved budget into a bullet).
+   * `POST /reserved-budgets/{id}/migrations` returns the full `ReservedBudgetResponseDto`
+   * (201), but the return type here is deliberately `Observable<void>` — the body is
+   * discarded on purpose, not an oversight. Same root cause as `reloadForViewedMonth()`
+   * (`reserved-budget-page.ts`): the backend resolves the response against the *real-world*
+   * current month, which may not be the month the wallet is currently viewing, so upserting
+   * it would silently corrupt the on-screen figures. Migration is worse than link/unlink in
+   * this respect because Bullet and ExtraBudget also change as a side effect and neither is
+   * present in this response body at all — only a full reload (RBM-F6) can bring all three
+   * stores back in sync. Do NOT add an `upsertReservedBudget()` call here.
+   */
+  createMigration(
+    reservedBudgetId: string,
+    input: CreateReservedBudgetMigrationRequest,
+  ): Observable<void> {
+    const migratedSubject = new ReplaySubject<void>(1);
+
+    this.migratingSubject.next(reservedBudgetId);
+    this.errorSubject.next(null);
+
+    this.http
+      .post<ReservedBudget>(`${this.reservedBudgetsUrl}/${reservedBudgetId}/migrations`, input)
+      .pipe(
+        map(() => undefined),
+        tap({
+          error: () => this.errorSubject.next('Não foi possível criar a migration.'),
+        }),
+        finalize(() => this.migratingSubject.next(null)),
+      )
+      .subscribe({
+        next: () => {
+          migratedSubject.next();
+          migratedSubject.complete();
+        },
+        error: (error: unknown) => migratedSubject.error(error),
+      });
+
+    return migratedSubject.asObservable();
+  }
+
+  /**
+   * Undoes a migration. The 2nd argument is the `extraBudgetId` — the `ExtraBudget` created by
+   * the migration is what materializes it, and there is no separate migration id.
+   * `DELETE /reserved-budgets/{id}/migrations/{extraBudgetId}` also returns the full RB (200),
+   * discarded for the same reason documented on `createMigration` above — do NOT upsert it.
+   */
+  deleteMigration(reservedBudgetId: string, extraBudgetId: string): Observable<void> {
+    const undoneSubject = new ReplaySubject<void>(1);
+
+    this.migratingSubject.next(reservedBudgetId);
+    this.errorSubject.next(null);
+
+    this.http
+      .delete<ReservedBudget>(
+        `${this.reservedBudgetsUrl}/${reservedBudgetId}/migrations/${extraBudgetId}`,
+      )
+      .pipe(
+        map(() => undefined),
+        tap({
+          error: () => this.errorSubject.next('Não foi possível desfazer a migration.'),
+        }),
+        finalize(() => this.migratingSubject.next(null)),
+      )
+      .subscribe({
+        next: () => {
+          undoneSubject.next();
+          undoneSubject.complete();
+        },
+        error: (error: unknown) => undoneSubject.error(error),
+      });
+
+    return undoneSubject.asObservable();
   }
 
   /**
