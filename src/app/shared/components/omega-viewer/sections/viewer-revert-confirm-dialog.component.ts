@@ -10,6 +10,11 @@ import { MatIconModule } from '@angular/material/icon';
  * already-formatted date label (`OmegaViewerPaymentRow.dateLabel`), not a raw ISO string. */
 export interface ViewerRevertConfirmDialogData {
   readonly dateLabel: string;
+  /** Overrides the default payment-revert body text when the reverted action isn't a payment
+   * (e.g. a reserved-budget migration, which moves an amount between two places rather than
+   * creating a reversal payment) — RBM-F7. Existing callers omit this and keep the default
+   * copy untouched. */
+  readonly bodyOverride?: string;
 }
 
 /**
@@ -21,6 +26,11 @@ export interface ViewerRevertConfirmDialogData {
  * convention (see that component's doc comment) is bespoke-per-feature confirm dialogs rather
  * than a shared generic one — reverting a payment is a materially different, irreversible
  * ledger action with its own message, not a discard.
+ *
+ * RBM-F7: also reused outside the Omega Viewer, by `ReservedBudgetPage` to confirm undoing a
+ * migration — via `data.bodyOverride`, which replaces the payment-specific body paragraph with
+ * a caller-supplied message. The header/date-subtitle/actions stay the generic "confirm a
+ * revert" chrome; only the body text is caller-specific.
  */
 @Component({
   selector: 'app-viewer-revert-confirm-dialog',

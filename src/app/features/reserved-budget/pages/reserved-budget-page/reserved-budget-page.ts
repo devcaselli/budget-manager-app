@@ -47,6 +47,10 @@ import { BulletService } from '@features/bullet/services/bullet.service';
 import { ExtraBudgetService } from '@features/extra-budget/services/extra-budget.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { formatBrl } from '@shared/utils/currency';
+import {
+  ViewerRevertConfirmDialogComponent,
+  ViewerRevertConfirmDialogData,
+} from '@shared/components/omega-viewer/sections/viewer-revert-confirm-dialog.component';
 
 interface ReservedBudgetVersionView {
   readonly effectiveMonth: string;
@@ -378,14 +382,31 @@ export class ReservedBudgetPage {
       });
   }
 
-  // No confirmation dialog yet — RBM-F7 inserts one before this call goes live. Left calling the
-  // service directly (undecorated) is the explicit fallback the task text allows when F4 and F7
-  // are implemented in separate passes.
+  // Confirmed via the shared viewer-revert-confirm-dialog (RBM-F7) rather than deleteMigration()
+  // called straight from the chip — undoing a migration moves real money, and it's the only one
+  // of this card's 4 actions that does. The dialog's bodyOverride spells out both sides of the
+  // movement (amount, source bullet, destination reserve, month) instead of the generic
+  // payment-revert copy — the reader isn't reverting a payment, they're moving money back.
   protected undoMigration(item: ReservedBudgetListItem, migration: ReservedBudgetMigrationView): void {
-    this.reservedBudgetService
-      .deleteMigration(item.id, migration.extraBudgetId)
+    const monthLabel = this.formatMonth(this.selectedWallet()?.effectiveMonth ?? item.startMonthValue);
+    const data: ViewerRevertConfirmDialogData = {
+      dateLabel: monthLabel,
+      bodyOverride:
+        `Undo this migration? ${migration.amount} will leave the bullet ` +
+        `"${migration.bulletLabel}" and return to the reserved budget "${item.description}" ` +
+        `for ${monthLabel}.`,
+    };
+
+    this.dialog
+      .open<ViewerRevertConfirmDialogComponent, ViewerRevertConfirmDialogData, boolean>(
+        ViewerRevertConfirmDialogComponent,
+        { width: '30rem', maxWidth: 'calc(100vw - 2rem)', data },
+      )
+      .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: () => this.reloadAfterMigration(), error: () => undefined });
+      .subscribe((confirmed) => {
+        if (confirmed) this.confirmUndoMigration(item.id, migration.extraBudgetId);
+      });
   }
 
   protected unlinkSource(item: ReservedBudgetListItem, link: ReservedBudgetLinkView): void {
@@ -416,6 +437,17 @@ export class ReservedBudgetPage {
         bulletId: result.bulletId,
         amount: result.amount,
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: () => this.reloadAfterMigration(), error: () => undefined });
+  }
+
+  // Same reload as createMigration's success path — same 3 stores change either way. Reused as
+  // the one definition of "how to reload after a migration write" (RBM-F7); RBM-F16's Omega
+  // Viewer undo entry point is expected to call reservedBudgetService.deleteMigration() and
+  // apply the same reload rather than inventing its own.
+  private confirmUndoMigration(reservedBudgetId: string, extraBudgetId: string): void {
+    this.reservedBudgetService
+      .deleteMigration(reservedBudgetId, extraBudgetId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ next: () => this.reloadAfterMigration(), error: () => undefined });
   }

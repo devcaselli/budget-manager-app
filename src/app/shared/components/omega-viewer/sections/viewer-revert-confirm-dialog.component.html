@@ -10,9 +10,13 @@
 
 <mat-dialog-content class="vrc-body">
   <p class="vrc-message">
-    Esta ação cria um pagamento de reversão para o pagamento de {{ data.dateLabel }}. O
-    pagamento original passará a ser marcado como revertido e não poderá ser revertido
-    novamente.
+    @if (data.bodyOverride) {
+      {{ data.bodyOverride }}
+    } @else {
+      Esta ação cria um pagamento de reversão para o pagamento de {{ data.dateLabel }}. O
+      pagamento original passará a ser marcado como revertido e não poderá ser revertido
+      novamente.
+    }
   </p>
 </mat-dialog-content>
 
