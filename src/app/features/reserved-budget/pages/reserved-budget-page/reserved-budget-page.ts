@@ -31,11 +31,13 @@ import {
   ReservedBudget,
   ReservedBudgetLink,
   ReservedBudgetLinkSourceType,
+  ReservedBudgetMigration,
   UpdateReservedBudgetRequest,
 } from '../../models/reserved-budget';
 import { ReservedBudgetService } from '../../services/reserved-budget.service';
 import { SubscriptionService } from '@features/subscription/services/subscription.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
+import { BulletService } from '@features/bullet/services/bullet.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { formatBrl } from '@shared/utils/currency';
 
@@ -51,6 +53,21 @@ interface ReservedBudgetLinkView {
   readonly label: string;
 }
 
+/**
+ * View model for one migration chip. Consumed by both the card (RBM-F4) and — per the 3rd-round
+ * note in the plan doc — `blockingMigrations` of the delete-modality dialog (RBM-F13) and its
+ * chained undo-and-end/skip shortcut (RBM-F12a), which need `extraBudgetId` (for the DELETE),
+ * `bulletLabel`/`amount` (for the confirmation text) and `amountValue` (for the summary total).
+ * None of these 5 fields may be dropped as "unused by the card" without checking those callers.
+ */
+interface ReservedBudgetMigrationView {
+  readonly extraBudgetId: string;
+  readonly bulletId: string;
+  readonly bulletLabel: string;
+  readonly amount: string;
+  readonly amountValue: number;
+}
+
 interface ReservedBudgetListItem {
   readonly id: string;
   readonly description: string;
@@ -63,12 +80,19 @@ interface ReservedBudgetListItem {
   readonly versionCount: number;
   readonly versions: readonly ReservedBudgetVersionView[];
   readonly links: readonly ReservedBudgetLinkView[];
+  readonly migrations: readonly ReservedBudgetMigrationView[];
   /** True when the backend supplied consumed/remaining for this row (false on the plain list). */
   readonly hasConsumption: boolean;
   readonly consumed: string | null;
   readonly remaining: string | null;
+  /** Raw `remainingAmount` for the viewed month; `null` when `hasConsumption` is false. Used as
+   * the migration cap (RBM-F3/F5/F6) instead of reparsing the formatted `remaining` string. */
+  readonly remainingValue: number | null;
   /** 0–100; consumed share of the ceiling. 0 when consumption data is absent. */
   readonly consumedProgress: number;
+  /** True when this reserve can be migrated from: consumption data is present (implies the
+   * viewed month, not just "now"), remaining balance is positive, and a wallet is selected. */
+  readonly canMigrate: boolean;
 }
 
 @Component({
@@ -85,6 +109,7 @@ export class ReservedBudgetPage {
   private readonly reservedBudgetService = inject(ReservedBudgetService);
   private readonly subscriptionService = inject(SubscriptionService);
   private readonly installmentService = inject(InstallmentService);
+  private readonly bulletService = inject(BulletService);
   private readonly walletService = inject(WalletService);
 
   private readonly reservedBudgets = toSignal(this.reservedBudgetService.reservedBudgets$, {
@@ -114,6 +139,9 @@ export class ReservedBudgetPage {
     initialValue: null,
   });
   protected readonly linkingReservedBudgetId = toSignal(this.reservedBudgetService.linking$, {
+    initialValue: null,
+  });
+  protected readonly migratingReservedBudgetId = toSignal(this.reservedBudgetService.migrating$, {
     initialValue: null,
   });
   protected readonly deletingReservedBudgetId = toSignal(this.reservedBudgetService.deleting$, {
@@ -194,6 +222,10 @@ export class ReservedBudgetPage {
     effect(() => {
       const wallet = this.selectedWallet();
       this.installmentService.loadByWalletId(wallet?.id ?? null);
+      // Bullets aren't needed to resolve migration labels (bulletDescription already arrives
+      // resolved from the backend, RBM-F1) — they're loaded here for the migration dialog's
+      // bullet picker and each option's `remaining` figure (RBM-F5).
+      this.bulletService.loadByWalletId(wallet?.id ?? null);
       this.reservedBudgetService.loadReservedBudgets(wallet?.effectiveMonth);
     });
   }
@@ -294,6 +326,16 @@ export class ReservedBudgetPage {
       });
   }
 
+  // No confirmation dialog yet — RBM-F7 inserts one before this call goes live. Left calling the
+  // service directly (undecorated) is the explicit fallback the task text allows when F4 and F7
+  // are implemented in separate passes.
+  protected undoMigration(item: ReservedBudgetListItem, migration: ReservedBudgetMigrationView): void {
+    this.reservedBudgetService
+      .deleteMigration(item.id, migration.extraBudgetId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: () => this.reloadForViewedMonth(), error: () => undefined });
+  }
+
   protected unlinkSource(item: ReservedBudgetListItem, link: ReservedBudgetLinkView): void {
     this.reservedBudgetService
       .unlink(item.id, link.sourceType, link.sourceId)
@@ -337,6 +379,12 @@ export class ReservedBudgetPage {
     const currentVersion = versions[0];
     const amountValue = Number(currentVersion?.amount ?? 0);
     const consumption = this.toConsumptionView(budget);
+    // hasConsumption implies the list is scoped to the viewed month (activeAt listing) — no
+    // separate "not the current month" check is needed on top of it (decision #2).
+    const canMigrate =
+      consumption.hasConsumption &&
+      (consumption.remainingValue ?? 0) > 0 &&
+      this.selectedWallet() !== null;
 
     return {
       id: budget.id,
@@ -353,7 +401,11 @@ export class ReservedBudgetPage {
         amount: this.formatCurrency(Number(version.amount), budget.currency),
       })),
       links: budget.links.map((link) => this.toLinkView(link)),
+      migrations: (budget.migrations ?? []).map((migration) =>
+        this.toMigrationView(migration, budget.currency),
+      ),
       ...consumption,
+      canMigrate,
     };
   }
 
@@ -363,22 +415,31 @@ export class ReservedBudgetPage {
     hasConsumption: boolean;
     consumed: string | null;
     remaining: string | null;
+    remainingValue: number | null;
     consumedProgress: number;
   } {
     const consumed = budget.consumedAmount;
     const remaining = budget.remainingAmount;
     if (consumed == null || remaining == null) {
-      return { hasConsumption: false, consumed: null, remaining: null, consumedProgress: 0 };
+      return {
+        hasConsumption: false,
+        consumed: null,
+        remaining: null,
+        remainingValue: null,
+        consumedProgress: 0,
+      };
     }
 
     const consumedValue = Number(consumed);
-    const ceiling = consumedValue + Number(remaining);
+    const remainingValue = Number(remaining);
+    const ceiling = consumedValue + remainingValue;
     const progress = ceiling > 0 ? Math.min((consumedValue / ceiling) * 100, 100) : 0;
 
     return {
       hasConsumption: true,
       consumed: this.formatCurrency(consumedValue, budget.currency),
-      remaining: this.formatCurrency(Number(remaining), budget.currency),
+      remaining: this.formatCurrency(remainingValue, budget.currency),
+      remainingValue,
       consumedProgress: progress,
     };
   }
@@ -389,6 +450,22 @@ export class ReservedBudgetPage {
       sourceId: link.sourceId,
       fromMonth: this.formatMonth(link.fromMonth),
       label: this.sourceLabels().get(link.sourceId) ?? link.sourceId,
+    };
+  }
+
+  // bulletDescription arrives already resolved from the backend (RBM-F1) — no Map/lookup by id
+  // needed here, unlike sourceLabels() above. Falling back to the raw bulletId mirrors the same
+  // fallback grammar as toLinkView() so the UI never shows `undefined`.
+  private toMigrationView(
+    migration: ReservedBudgetMigration,
+    currency: string,
+  ): ReservedBudgetMigrationView {
+    return {
+      extraBudgetId: migration.extraBudgetId,
+      bulletId: migration.bulletId,
+      bulletLabel: migration.bulletDescription || migration.bulletId,
+      amount: this.formatCurrency(migration.amount, currency),
+      amountValue: migration.amount,
     };
   }
 

@@ -65,6 +65,49 @@
   }
 }
 
+.rb-migrations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.rb-migration-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 8px;
+  border: 1px solid var(--ew-acc-soft);
+  border-radius: 999px;
+  background: var(--ew-panel-2);
+  font-size: 11px;
+  color: var(--ew-ink-2);
+}
+
+.rb-migration-chip-label {
+  font-family: var(--ew-mono);
+}
+
+.rb-migration-chip-remove {
+  border: none;
+  background: none;
+  color: var(--ew-ink-3);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.15s;
+
+  &:hover:not(:disabled) {
+    color: var(--ew-bad);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
 .rb-consumption {
   margin-top: 8px;
   max-width: 280px;

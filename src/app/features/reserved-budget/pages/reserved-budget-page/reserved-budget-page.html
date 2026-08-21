@@ -79,6 +79,23 @@
                     }
                   </div>
                 }
+                @if (budget.migrations.length > 0) {
+                  <div class="rb-migrations">
+                    @for (migration of budget.migrations; track migration.extraBudgetId) {
+                      <span class="rb-migration-chip">
+                        <span class="rb-migration-chip-label">{{ migration.bulletLabel }} · {{ migration.amount }}</span>
+                        <button
+                          class="rb-migration-chip-remove"
+                          type="button"
+                          title="Undo migration"
+                          aria-label="Undo migration"
+                          [disabled]="migratingReservedBudgetId() === budget.id"
+                          (click)="undoMigration(budget, migration)"
+                        >×</button>
+                      </span>
+                    }
+                  </div>
+                }
                 @if (budget.hasConsumption) {
                   <div class="rb-consumption">
                     <div class="rb-consumption-bar">
@@ -99,6 +116,13 @@
                 <span>{{ budget.hasConsumption ? 'remaining' : 'per month' }}</span>
               </div>
               <div class="rb-actions">
+                <button
+                  class="rb-action-btn"
+                  type="button"
+                  title="Migrate to bullet"
+                  aria-label="Migrate to bullet"
+                  [disabled]="!budget.canMigrate || migratingReservedBudgetId() === budget.id"
+                >⇄</button>
                 <button
                   class="rb-action-btn"
                   type="button"
