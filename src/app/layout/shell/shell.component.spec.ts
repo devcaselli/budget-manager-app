@@ -272,7 +272,7 @@ describe('ShellComponent — activityNav', () => {
     vi.unstubAllGlobals();
   });
 
-  it('includes a "Review imports" entry pointing at /review-imports, positioned right after "Connected accounts" and before "Settings"', () => {
+  it('includes a "Review imports" entry pointing at /review-imports, positioned right after "Payments" and before "Settings"', () => {
     const nav = (fixture.componentInstance as unknown as {
       activityNav: readonly { label: string; route: string; num: string }[];
     }).activityNav;
@@ -281,10 +281,10 @@ describe('ShellComponent — activityNav', () => {
     expect(reviewEntry).toBeTruthy();
     expect(reviewEntry?.label).toBe('Review imports');
 
-    const connectedIdx = nav.findIndex((n) => n.route === '/connected-accounts');
+    const paymentsIdx = nav.findIndex((n) => n.route === '/payments');
     const reviewIdx = nav.findIndex((n) => n.route === '/review-imports');
     const settingsIdx = nav.findIndex((n) => n.route === '/settings');
-    expect(reviewIdx).toBe(connectedIdx + 1);
+    expect(reviewIdx).toBe(paymentsIdx + 1);
     expect(settingsIdx).toBe(reviewIdx + 1);
   });
 

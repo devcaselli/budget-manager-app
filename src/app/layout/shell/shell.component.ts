@@ -161,14 +161,12 @@ export class ShellComponent {
     { label: 'Credit cards',  route: '/credit-cards',  num: '09' },
     { label: 'Subscriptions', route: '/subscriptions', num: '10' },
     { label: 'Payments',      route: '/payments',      num: '11' },
-    { label: 'Connect bank',  route: '/connect-bank',  num: '12' },
-    { label: 'Connected accounts', route: '/connected-accounts', num: '13' },
-    { label: 'Review imports', route: '/review-imports', num: '14' },
-    { label: 'Settings',      route: '/settings',      num: '15' },
+    { label: 'Review imports', route: '/review-imports', num: '12' },
+    { label: 'Settings',      route: '/settings',      num: '13' },
   ];
 
   protected readonly toolsNav: readonly NavEntry[] = [
-    { label: 'Tags', route: '/tags', num: '16' },
+    { label: 'Tags', route: '/tags', num: '14' },
   ];
 
   protected readonly toolsMenuOpen = signal(false);
