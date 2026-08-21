@@ -41,6 +41,10 @@ interface TweaksPos {
 /** Horizontal gap (px) between the Tools nav trigger and its flyout submenu. */
 const TOOLS_SUBMENU_GAP_PX = 8;
 
+/** Approximate rendered footprint (px) of the `.ew-tweaks` panel, used to keep it within viewport bounds. */
+const TWEAKS_PANEL_WIDTH_PX = 230;
+const TWEAKS_PANEL_HEIGHT_PX = 100;
+
 /** Same cooldown length as F-C3's `CheckEmailPage`/F-C4's `ConfirmEmailPage` resend actions. */
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -421,8 +425,8 @@ export class ShellComponent {
     this.tweaksDragging.set(true);
 
     const onMove = (e: MouseEvent) => {
-      const x = Math.max(0, Math.min(window.innerWidth - 230, e.clientX - startX));
-      const y = Math.max(0, Math.min(window.innerHeight - 100, e.clientY - startY));
+      const x = Math.max(0, Math.min(window.innerWidth - TWEAKS_PANEL_WIDTH_PX, e.clientX - startX));
+      const y = Math.max(0, Math.min(window.innerHeight - TWEAKS_PANEL_HEIGHT_PX, e.clientY - startY));
       this.tweaksPos.set({ x, y });
     };
 
@@ -435,6 +439,16 @@ export class ShellComponent {
 
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+  }
+
+  /** Resets the Tweaks panel to a viewport-centered position, e.g. when it drifted off-screen after a resize. */
+  protected recenterTweaks(): void {
+    const centeredPos: TweaksPos = {
+      x: Math.max(0, (window.innerWidth - TWEAKS_PANEL_WIDTH_PX) / 2),
+      y: Math.max(0, (window.innerHeight - TWEAKS_PANEL_HEIGHT_PX) / 2),
+    };
+    this.tweaksPos.set(centeredPos);
+    localStorage.setItem('bm_tweaks_pos', JSON.stringify(centeredPos));
   }
 
   private createExpense(walletId: string, expense: ExpenseCreateDialogResult): void {

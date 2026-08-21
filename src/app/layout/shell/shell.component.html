@@ -145,6 +145,16 @@
         (click)="refresh()"
       >↻</button>
 
+      @if (prefs.showTweaks()) {
+        <button
+          class="ew-btn ew-btn--ghost"
+          type="button"
+          aria-label="Recenter tweaks panel"
+          title="Recenter tweaks panel"
+          (click)="recenterTweaks()"
+        >⌖</button>
+      }
+
       <button
         class="ew-btn ew-btn--primary"
         type="button"

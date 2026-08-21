@@ -202,6 +202,65 @@ describe('ShellComponent — Tools submenu', () => {
   });
 });
 
+describe('ShellComponent — recenter tweaks panel', () => {
+  let fixture: ComponentFixture<ShellComponent>;
+
+  beforeEach(async () => {
+    fixture = await setUpShellFixture();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function recenterButton(): HTMLButtonElement | null {
+    return fixture.nativeElement.querySelector(
+      'button[aria-label="Recenter tweaks panel"]',
+    );
+  }
+
+  it('renders the recenter button when the Tweaks panel is visible (default preference)', () => {
+    expect(recenterButton()).toBeTruthy();
+  });
+
+  it('does not render the recenter button when the Tweaks panel is hidden', () => {
+    const prefs = TestBed.inject(PreferencesService);
+    prefs.showTweaks.set(false);
+    fixture.detectChanges();
+
+    expect(recenterButton()).toBeFalsy();
+  });
+
+  it('calls recenterTweaks() when clicked', () => {
+    const spy = vi.spyOn(fixture.componentInstance as unknown as {
+      recenterTweaks: () => void;
+    }, 'recenterTweaks');
+
+    recenterButton()?.dispatchEvent(new MouseEvent('click'));
+    fixture.detectChanges();
+
+    expect(spy).toHaveBeenCalledOnce();
+  });
+
+  it('recenters tweaksPos to a viewport-bounded position and persists it to localStorage', () => {
+    const instance = fixture.componentInstance as unknown as {
+      tweaksPos: () => { x: number; y: number };
+      recenterTweaks: () => void;
+    };
+
+    instance.recenterTweaks();
+    const pos = instance.tweaksPos();
+
+    expect(pos.x).toBeGreaterThanOrEqual(0);
+    expect(pos.x).toBeLessThanOrEqual(window.innerWidth);
+    expect(pos.y).toBeGreaterThanOrEqual(0);
+    expect(pos.y).toBeLessThanOrEqual(window.innerHeight);
+
+    const stored = JSON.parse(localStorage.getItem('bm_tweaks_pos') ?? 'null');
+    expect(stored).toEqual(pos);
+  });
+});
+
 describe('ShellComponent — activityNav', () => {
   let fixture: ComponentFixture<ShellComponent>;
 
