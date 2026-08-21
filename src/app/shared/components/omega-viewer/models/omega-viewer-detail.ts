@@ -116,12 +116,15 @@ export interface OmegaViewerSubscriptionDetail extends OmegaViewerDetailBase {
 }
 
 /**
- * RBM-F14 — 4th kind, a reserved-budget-to-bullet migration. `revertable` is confirmed absent
- * from the real backend DTO/output (`ReservedBudgetMigrationViewerResponseDto`/
- * `ReservedBudgetMigrationViewerOutput`, RBM-F1 gate) — the documented fallback is to assume
- * `true` here and handle the 409 `MigrationNotReversibleException` specifically inside the
- * viewer (RBM-F16) when it turns out false. Worse UX than a real field, registered as a known
- * divergence rather than silently treated as if the field existed.
+ * RBM-F14 — 4th kind, a reserved-budget-to-bullet migration. The real DTO has no explicit
+ * `revertable` field, but it DOES have `reverted`/`revertedAt` (confirmed against
+ * `ReservedBudgetMigrationViewerResponseDto`, post-epic code review MAJOR 2) — `revertable` is
+ * derived from `!reverted` rather than hardcoded `true`. A migration that was already reverted
+ * (e.g. reopened from a stale link, or reverted from the OTHER entry point — `ReservedBudgetPage`'s
+ * card, RBM-F7 — while this viewer was closed) must not offer a revert action that would only ever
+ * 404/409. `reverted` is still tracked as `MigrationNotReversibleException` — the bullet already
+ * spent the migrated amount — is a second, independent way a live (not-yet-reverted) migration can
+ * become non-revertable, surfaced only by the 409 at request time, not by this field.
  */
 export interface OmegaViewerReservedBudgetMigrationDetail extends OmegaViewerDetailBase {
   readonly kind: 'RESERVED_BUDGET_MIGRATION';
@@ -135,8 +138,14 @@ export interface OmegaViewerReservedBudgetMigrationDetail extends OmegaViewerDet
   readonly currency: string;
   readonly effectiveMonth: string;
   readonly description: string | null;
-  /** Always `true` in this build — see the class doc above. */
+  /** `true` when the backend hasn't marked this migration `reverted` yet. Does NOT guarantee the
+   * revert will succeed — the bullet may have already spent the amount, surfaced only via the 409
+   * `MigrationNotReversibleException` at request time (RBM-F16), a separate cause from this flag. */
   readonly revertable: boolean;
+  /** `true` once this migration was undone (either from this viewer or from the RB card, RBM-F7).
+   * Drives the "already undone" branch distinctly from "bullet already spent it" in the viewer's
+   * ineligible-state copy — the two are genuinely different reasons and read as different messages. */
+  readonly reverted: boolean;
 }
 
 /** Discriminated union of the viewer's per-kind detail shapes, narrowable by `kind`. */

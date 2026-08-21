@@ -70,6 +70,7 @@ function buildReservedBudgetMigrationDetail(
     effectiveMonth: '2026-08',
     description: null,
     revertable: true,
+    reverted: false,
     links: [],
     audit: null,
     ...overrides,

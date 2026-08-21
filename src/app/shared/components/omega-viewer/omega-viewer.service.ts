@@ -190,14 +190,20 @@ export class OmegaViewerService {
       currency: dto.currency,
       effectiveMonth: dto.effectiveMonth,
       description: dto.description,
-      // Not present on the real DTO (RBM-F1 gate) — assume revertable and let the 409
-      // MigrationNotReversibleException handle the false case specifically inside the viewer
-      // (RBM-F16). See the domain type's own doc comment for the full rationale.
-      revertable: true,
+      // Post-epic code review MAJOR 2: the real DTO DOES carry `reverted`/`revertedAt` — derive
+      // `revertable` from `!dto.reverted` instead of hardcoding `true`. Reopening an
+      // already-reverted migration must not offer a revert action that only ever 404s/409s. The
+      // 409 MigrationNotReversibleException (bullet already spent it) remains a SEPARATE cause,
+      // still only surfaced at request time — see the domain type's own doc comment.
+      revertable: !dto.reverted,
+      reverted: dto.reverted,
       // The reserved budget the migration came from is not itself a viewer kind — only the
-      // migration is. No link is invented for it (same honesty as mapSubscription's empty
-      // links above, not an oversight).
-      links: [],
+      // migration is, so no link is invented FOR THE RESERVED BUDGET (same honesty as
+      // mapSubscription's empty links above). That is a different question from whether the
+      // DTO's own `refs` should be read at all — it should, exactly like mapExpense/
+      // mapInstallment above, since `refs` is the real cross-reference channel (e.g. the N>1
+      // migrations fallback documented on the bullet card, RBM-F15).
+      links: mapRefs(dto.refs),
       // The real DTO has no createdAt/updatedAt/deletedAt timestamps at all — audit stays
       // hidden entirely, same "null means hidden, not a placeholder" convention documented on
       // OmegaViewerAudit itself.

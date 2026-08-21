@@ -445,7 +445,7 @@ describe('OmegaViewerService', () => {
       expect(result?.ref).toEqual({ kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' });
     });
 
-    it('always reports revertable as true (the real DTO has no such field) — RBM-F1 fallback', () => {
+    it('reports revertable as true and reverted as false for a live migration — post-epic review MAJOR 2', () => {
       let result: OmegaViewerReservedBudgetMigrationDetail | undefined;
       service.load({ kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' }).subscribe((detail) => {
         result = detail as OmegaViewerReservedBudgetMigrationDetail;
@@ -453,12 +453,44 @@ describe('OmegaViewerService', () => {
 
       httpMock
         .expectOne('/api/viewer/reserved-budget-migrations/eb-1')
-        .flush(buildReservedBudgetMigrationDto());
+        .flush(buildReservedBudgetMigrationDto({ reverted: false }));
 
       expect(result?.revertable).toBe(true);
+      expect(result?.reverted).toBe(false);
     });
 
-    it('has an empty links array (the source reserved budget is not a viewer kind of its own)', () => {
+    it('reports revertable as false once the DTO marks the migration reverted — post-epic review MAJOR 2', () => {
+      let result: OmegaViewerReservedBudgetMigrationDetail | undefined;
+      service.load({ kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' }).subscribe((detail) => {
+        result = detail as OmegaViewerReservedBudgetMigrationDetail;
+      });
+
+      httpMock
+        .expectOne('/api/viewer/reserved-budget-migrations/eb-1')
+        .flush(buildReservedBudgetMigrationDto({ reverted: true, revertedAt: '2026-08-10T10:00:00Z' }));
+
+      expect(result?.revertable).toBe(false);
+      expect(result?.reverted).toBe(true);
+    });
+
+    it('maps refs into links, same as mapExpense/mapInstallment — post-epic review MAJOR 1', () => {
+      let result: OmegaViewerReservedBudgetMigrationDetail | undefined;
+      service.load({ kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' }).subscribe((detail) => {
+        result = detail as OmegaViewerReservedBudgetMigrationDetail;
+      });
+
+      httpMock.expectOne('/api/viewer/reserved-budget-migrations/eb-1').flush(
+        buildReservedBudgetMigrationDto({
+          refs: [{ type: 'RESERVED_BUDGET_MIGRATION', id: 'eb-2', label: 'Outra migration' }],
+        }),
+      );
+
+      expect(result?.links).toEqual([
+        { ref: { kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-2' }, label: 'Outra migration' },
+      ]);
+    });
+
+    it('has an empty links array when the DTO carries no refs', () => {
       let result: OmegaViewerReservedBudgetMigrationDetail | undefined;
       service.load({ kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' }).subscribe((detail) => {
         result = detail as OmegaViewerReservedBudgetMigrationDetail;

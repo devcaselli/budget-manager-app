@@ -347,10 +347,12 @@ export class OmegaViewerComponent {
 
   /** RBM-F16: `true` only for the migration kind AND `revertable === true` — same pattern this
    * class already uses for `showPaymentsSection` (a `computed()`, never an inline kind
-   * comparison in the template). `revertable` is currently always `true` in this build (RBM-F14
-   * — the real DTO has no such field), so the false branch below is exercised only via the 409
-   * `MigrationNotReversibleException` surfaced after a revert attempt, not via this computed
-   * directly, until the backend adds the field. */
+   * comparison in the template). Post-epic code review MAJOR 2: `revertable` is now derived from
+   * the real DTO's `reverted` flag (`!dto.reverted`, see `OmegaViewerService.mapReservedBudget-
+   * Migration`), so this can genuinely be `false` on load — reopening an already-reverted
+   * migration — in addition to the 409 `MigrationNotReversibleException` case (bullet already
+   * spent the amount) surfaced only after a revert attempt. The template distinguishes the two
+   * causes via `detail.reverted` — see `omega-viewer.component.html`'s ineligible branch. */
   protected readonly canRevertMigration = computed(() => {
     const detail = this.readyDetail();
     return detail?.kind === 'RESERVED_BUDGET_MIGRATION' && detail.revertable;

@@ -107,7 +107,11 @@
                     </button>
                   } @else {
                     <p class="ovw__migration-ineligible">
-                      Esta migration não pode ser desfeita — o bullet já gastou o valor.
+                      @if (detail.reverted) {
+                        Esta migration já foi desfeita anteriormente.
+                      } @else {
+                        Esta migration não pode ser desfeita — o bullet já gastou o valor.
+                      }
                     </p>
                   }
                 </div>

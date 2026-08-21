@@ -2153,6 +2153,7 @@ describe('OmegaViewerComponent — end-to-end integration + accessibility (F-17)
       effectiveMonth: '2026-08',
       description: null,
       revertable: true,
+      reverted: false,
       links: [],
       audit: null,
     };
@@ -2768,6 +2769,7 @@ describe('OmegaViewerComponent — reserved budget migration revert (RBM-F16)', 
       effectiveMonth: '2026-08',
       description: null,
       revertable: true,
+      reverted: false,
       links: [],
       audit: null,
       ...overrides,
@@ -2857,6 +2859,26 @@ describe('OmegaViewerComponent — reserved budget migration revert (RBM-F16)', 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('.ovw__migration-ineligible')).not.toBeNull();
     expect(root.querySelector('.ovw__migration-revert button')).toBeNull();
+  });
+
+  // Post-epic code review MAJOR 2: the ineligible copy must distinguish "already reverted" from
+  // "bullet already spent it" — the two are genuinely different reasons, not one generic message.
+  it('reverted: true renders "already undone" copy, not the "bullet spent it" copy', async () => {
+    await setup(buildMigrationDetail({ revertable: false, reverted: true }));
+
+    const root = fixture.nativeElement as HTMLElement;
+    const message = root.querySelector('.ovw__migration-ineligible')?.textContent ?? '';
+    expect(message).toContain('já foi desfeita');
+    expect(message).not.toContain('já gastou o valor');
+  });
+
+  it('reverted: false (bullet already spent it) renders the spend-based copy', async () => {
+    await setup(buildMigrationDetail({ revertable: false, reverted: false }));
+
+    const root = fixture.nativeElement as HTMLElement;
+    const message = root.querySelector('.ovw__migration-ineligible')?.textContent ?? '';
+    expect(message).toContain('já gastou o valor');
+    expect(message).not.toContain('já foi desfeita');
   });
 
   it('clicking Reverter opens the confirm dialog and does not call deleteMigration before confirmation', async () => {
