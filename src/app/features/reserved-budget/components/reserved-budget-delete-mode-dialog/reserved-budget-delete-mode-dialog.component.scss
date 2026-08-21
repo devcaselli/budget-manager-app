@@ -1,0 +1,261 @@
+.rbdm-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--ew-line);
+
+  &[mat-dialog-title] {
+    margin: 0;
+    padding: 26px 28px 18px;
+  }
+}
+
+.rbdm-title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ew-ink);
+
+  em {
+    font-style: italic;
+    color: var(--ew-acc);
+    font-weight: 300;
+  }
+}
+
+.rbdm-subtitle {
+  margin: 8px 0 0;
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  color: var(--ew-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.rbdm-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  display: grid;
+  place-items: center;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    color: var(--ew-ink);
+    border-color: var(--ew-ink-3);
+  }
+}
+
+.rbdm-body {
+  display: grid;
+  gap: 18px;
+  padding: 24px 28px;
+}
+
+// Bloco de bloqueio — vive ACIMA do fieldset (não por-opção), consequência direta da trava
+// simétrica: a condição não pertence a uma modalidade, pertence ao ato de deletar.
+.rbdm-block-reason {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--ew-bad);
+  background: color-mix(in srgb, var(--ew-bad) 10%, transparent);
+}
+
+.rbdm-block-headline {
+  margin: 0;
+  color: var(--ew-ink);
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.rbdm-block-list {
+  margin: 0;
+  padding: 0 0 0 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.rbdm-block-item {
+  color: var(--ew-ink-2);
+  font-family: var(--ew-mono);
+  font-size: 12px;
+}
+
+.rbdm-block-hint {
+  margin: 0;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rbdm-fieldset {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.rbdm-legend {
+  padding: 0 0 4px;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.rbdm-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--ew-line-2);
+  cursor: pointer;
+
+  &:has(input:checked) {
+    border-color: var(--ew-acc);
+    background: color-mix(in srgb, var(--ew-acc) 6%, transparent);
+  }
+
+  &:has(input:disabled) {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  input[type='radio'] {
+    margin-top: 3px;
+    accent-color: var(--ew-acc);
+  }
+}
+
+.rbdm-option-body {
+  display: grid;
+  gap: 2px;
+}
+
+.rbdm-option-title {
+  color: var(--ew-ink);
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rbdm-option-desc {
+  color: var(--ew-ink-3);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rbdm-shortcut {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.rbdm-shortcut-summary {
+  margin: 0;
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rbdm-shortcut-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 99px;
+  border: 1px solid var(--ew-acc);
+  color: var(--ew-acc);
+  background: transparent;
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  font-weight: 600;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ew-acc) 10%, transparent);
+  }
+
+  &:disabled {
+    border-color: var(--ew-line-2);
+    color: var(--ew-ink-3);
+    cursor: not-allowed;
+  }
+}
+
+.rbdm-actions {
+  gap: 10px;
+  padding: 18px 28px 24px;
+  border-top: 1px solid var(--ew-line);
+}
+
+.rbdm-cancel-btn,
+.rbdm-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rbdm-cancel-btn {
+  color: var(--ew-ink-2);
+  border: 1px solid transparent;
+
+  &:hover {
+    color: var(--ew-ink);
+    border-color: var(--ew-line-2);
+  }
+}
+
+.rbdm-confirm-btn {
+  background: var(--ew-bad);
+  color: #1c1814;
+  border: 1px solid var(--ew-bad);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  &:disabled {
+    background: var(--ew-line-2);
+    color: var(--ew-ink-3);
+    border-color: var(--ew-line-2);
+    cursor: not-allowed;
+  }
+}

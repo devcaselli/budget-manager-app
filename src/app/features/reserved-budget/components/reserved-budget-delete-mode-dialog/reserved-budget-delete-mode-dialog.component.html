@@ -1,0 +1,88 @@
+<div class="rbdm-head" mat-dialog-title>
+  <div>
+    <h2 class="rbdm-title">Remove <em>reserve?</em></h2>
+    <p class="rbdm-subtitle">{{ data.description }} · {{ data.effectiveMonthLabel }}</p>
+  </div>
+  <button class="rbdm-close" type="button" (click)="cancel()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="rbdm-body">
+  @if (deleteBlocked()) {
+    <div class="rbdm-block-reason" role="note" id="rbdm-block-reason">
+      <p class="rbdm-block-headline">
+        This reserve has money migrated out this month. Neither option can be applied until
+        that's undone — the migrated amount is currently held by a bullet.
+      </p>
+      <ul class="rbdm-block-list">
+        @for (migration of data.blockingMigrations; track migration.extraBudgetId) {
+          <li class="rbdm-block-item">{{ migration.bulletLabel }} · {{ migration.amount }}</li>
+        }
+      </ul>
+      <p class="rbdm-block-hint">
+        Undo it from this card, or from the bullet's detail view — or use the shortcut below.
+      </p>
+    </div>
+  }
+
+  <form class="ew-form" [formGroup]="form">
+    <fieldset
+      class="rbdm-fieldset"
+      [attr.aria-describedby]="deleteBlocked() ? 'rbdm-block-reason' : null"
+    >
+      <legend class="rbdm-legend">Choose how to remove it</legend>
+
+      <label class="rbdm-option">
+        <input type="radio" formControlName="mode" value="END" />
+        <span class="rbdm-option-body">
+          <span class="rbdm-option-title">End this reserve</span>
+          <span class="rbdm-option-desc">
+            Stops from {{ data.effectiveMonthLabel }} onward. Earlier months stay untouched, with
+            their history.
+          </span>
+        </span>
+      </label>
+
+      <label class="rbdm-option">
+        <input type="radio" formControlName="mode" value="SKIP_MONTH" />
+        <span class="rbdm-option-body">
+          <span class="rbdm-option-title">Skip {{ data.effectiveMonthLabel }}</span>
+          <span class="rbdm-option-desc">
+            Hides it for this month only. It comes back next month, unchanged.
+          </span>
+        </span>
+      </label>
+    </fieldset>
+
+    @if (deleteBlocked()) {
+      <div class="rbdm-shortcut">
+        @if (undoShortcutSummary(); as summary) {
+          <p class="rbdm-shortcut-summary">{{ summary }}</p>
+        }
+        <button
+          class="rbdm-shortcut-btn"
+          type="button"
+          [disabled]="undoShortcutDisabled()"
+          (click)="confirmWithUndo()"
+        >
+          <mat-icon aria-hidden="true">undo</mat-icon>
+          {{ undoShortcutLabel() }}
+        </button>
+      </div>
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions class="rbdm-actions" align="end">
+  <button class="rbdm-cancel-btn" type="button" (click)="cancel()">Cancel</button>
+  <button
+    class="rbdm-confirm-btn"
+    type="button"
+    [disabled]="form.invalid || deleteBlocked()"
+    (click)="confirm()"
+  >
+    <mat-icon aria-hidden="true">delete</mat-icon>
+    Remove reserve
+  </button>
+</mat-dialog-actions>

@@ -324,21 +324,33 @@ describe('ReservedBudgetService', () => {
     expect(emitted.at(-1)?.[0].remainingAmount).toBe(1880);
   });
 
-  it('should delete a reserved budget and remove it from reservedBudgets$', () => {
+  it('should delete a reserved budget via DELETE with mode and walletId as query params', () => {
+    service.delete(reservedBudget.id, 'END', 'wallet-1').subscribe();
+
+    const request = httpMock.expectOne(
+      (req) => req.url === '/api/reserved-budgets/reserved-budget-1' && req.method === 'DELETE',
+    );
+    expect(request.request.params.get('mode')).toBe('END');
+    expect(request.request.params.get('walletId')).toBe('wallet-1');
+    request.flush(null);
+  });
+
+  it('should NOT mutate reservedBudgets$ locally nor trigger a reload after delete', () => {
     const emitted: (readonly ReservedBudget[])[] = [];
 
     service.reservedBudgets$.subscribe((value) => emitted.push(value));
     service.loadReservedBudgets();
     expectActiveListRequest().flush(pagedResponse([reservedBudget]));
 
-    service.delete(reservedBudget.id).subscribe();
+    service.delete(reservedBudget.id, 'SKIP_MONTH', 'wallet-1').subscribe();
+    httpMock
+      .expectOne(
+        (req) => req.url === '/api/reserved-budgets/reserved-budget-1' && req.method === 'DELETE',
+      )
+      .flush(null);
 
-    const request = httpMock.expectOne('/api/reserved-budgets/reserved-budget-1');
-    expect(request.request.method).toBe('DELETE');
-    request.flush(null);
-    expectActiveListRequest().flush(pagedResponse([]));
-
-    expect(emitted.at(-1)).toEqual([]);
+    httpMock.expectNone((req) => req.url === '/api/reserved-budgets' && req.method === 'GET');
+    expect(emitted.at(-1)).toEqual([reservedBudget]);
   });
 
   it('should create a migration via POST /:id/migrations with the correct body', () => {

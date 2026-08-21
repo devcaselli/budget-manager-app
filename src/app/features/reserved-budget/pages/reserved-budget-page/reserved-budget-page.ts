@@ -15,12 +15,14 @@ import {
   Validators,
 } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, concatMap, from, toArray } from 'rxjs';
 
 import {
-  ReservedBudgetDeleteDialogComponent,
-  ReservedBudgetDeleteDialogData,
-} from '../../components/reserved-budget-delete-dialog/reserved-budget-delete-dialog.component';
+  ReservedBudgetDeleteBlockingMigration,
+  ReservedBudgetDeleteModeDialogComponent,
+  ReservedBudgetDeleteModeDialogData,
+  ReservedBudgetDeleteModeDialogResult,
+} from '../../components/reserved-budget-delete-mode-dialog/reserved-budget-delete-mode-dialog.component';
 import {
   ReservedBudgetLinkDialogComponent,
   ReservedBudgetLinkDialogData,
@@ -35,6 +37,7 @@ import {
 } from '../../components/reserved-budget-migration-dialog/reserved-budget-migration-dialog.component';
 import {
   ReservedBudget,
+  ReservedBudgetDeleteMode,
   ReservedBudgetLink,
   ReservedBudgetLinkSourceType,
   ReservedBudgetMigration,
@@ -307,17 +310,53 @@ export class ReservedBudgetPage {
   }
 
   protected deleteReservedBudget(item: ReservedBudgetListItem): void {
-    const data: ReservedBudgetDeleteDialogData = { description: item.description };
+    const wallet = this.selectedWallet();
+    // No target month, nothing to operate on — same guard shape as openMigrationDialog.
+    if (!wallet) return;
+
+    this.openDeleteModeDialog(item, wallet.id, wallet.effectiveMonth);
+  }
+
+  private openDeleteModeDialog(
+    item: ReservedBudgetListItem,
+    walletId: string,
+    effectiveMonth: string,
+  ): void {
+    const blockingMigrations: readonly ReservedBudgetDeleteBlockingMigration[] = item.migrations.map(
+      (migration) => ({
+        extraBudgetId: migration.extraBudgetId,
+        bulletLabel: migration.bulletLabel,
+        amount: migration.amount,
+        amountValue: migration.amountValue,
+      }),
+    );
+
+    const data: ReservedBudgetDeleteModeDialogData = {
+      description: item.description,
+      effectiveMonthLabel: this.formatMonth(effectiveMonth),
+      blockingMigrations,
+    };
 
     this.dialog
-      .open<ReservedBudgetDeleteDialogComponent, ReservedBudgetDeleteDialogData, boolean>(
-        ReservedBudgetDeleteDialogComponent,
-        { width: '30rem', maxWidth: 'calc(100vw - 2rem)', data },
-      )
+      .open<
+        ReservedBudgetDeleteModeDialogComponent,
+        ReservedBudgetDeleteModeDialogData,
+        ReservedBudgetDeleteModeDialogResult
+      >(ReservedBudgetDeleteModeDialogComponent, {
+        width: '32rem',
+        maxWidth: 'calc(100vw - 2rem)',
+        data,
+      })
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((confirmed) => {
-        if (confirmed) this.confirmDelete(item.id);
+      .subscribe((result) => {
+        if (!result) return;
+
+        if (result.undoBlockingMigrationsFirst) {
+          this.confirmDeleteWithUndo(item, result.mode, walletId, effectiveMonth);
+        } else {
+          this.confirmDelete(item.id, result.mode, walletId);
+        }
       });
   }
 
@@ -472,13 +511,86 @@ export class ReservedBudgetPage {
     this.extraBudgetService.loadByWalletId(wallet?.id ?? null);
   }
 
-  private confirmDelete(id: string): void {
+  // Normal path (no blocking migration). Reloads the viewed month only (P5, RBM-F13) — the
+  // reserve itself is the only thing that changed, unlike the chained-undo path below.
+  private confirmDelete(id: string, mode: ReservedBudgetDeleteMode, walletId: string): void {
     this.reservedBudgetService
-      .delete(id)
+      .delete(id, mode, walletId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
           if (this.editingReservedBudgetId() === id) this.resetForm();
+          this.reloadForViewedMonth();
+        },
+        error: () => undefined,
+      });
+  }
+
+  /**
+   * Chained "Undo and end/skip" shortcut (RBM-F12a). Sequential by design — concatMap, never
+   * forkJoin: a partial failure (bullet already spent one of the migrated amounts, 409
+   * MigrationNotReversibleException) must stop deterministically at the failing item rather than
+   * leaving a non-deterministic subset undone. Reuses reservedBudgetService.deleteMigration()
+   * (RBM-F2) and .delete() (this task) exclusively — zero new service method for the shortcut,
+   * per RBM-F13/RBM-F16 rule 1 (one write path for migration revert).
+   */
+  private confirmDeleteWithUndo(
+    item: ReservedBudgetListItem,
+    mode: ReservedBudgetDeleteMode,
+    walletId: string,
+    effectiveMonth: string,
+  ): void {
+    const migrations = item.migrations;
+
+    from(migrations)
+      .pipe(
+        concatMap((migration) =>
+          this.reservedBudgetService.deleteMigration(item.id, migration.extraBudgetId),
+        ),
+        toArray(),
+        concatMap(() => this.reservedBudgetService.delete(item.id, mode, walletId)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: () => {
+          // All migrations undone AND the reserve deleted/skipped — money moved in 3 stores plus
+          // the reserve itself. reloadAfterMigration() (RBM-F6), not reloadForViewedMonth() alone
+          // — copying confirmDelete's plain reload here would leave bullet/ExtraBudget stale.
+          if (this.editingReservedBudgetId() === item.id) this.resetForm();
+          this.reloadAfterMigration();
+        },
+        error: () => {
+          // Money already moved for whichever migrations succeeded before the failure (0..K-1) —
+          // that state change is real and must be reflected, even though the chain didn't finish.
+          // No compensating rollback (RBM-F12a): recreating an undone migration or recreating a
+          // deleted reserve would itself be an unsolicited money-moving write.
+          this.reloadAfterMigration();
+          this.reopenDeleteModeDialogAfterPartialFailure(item.id, walletId, effectiveMonth);
+        },
+      });
+  }
+
+  // Reopens the delete-mode dialog with the reserve's now-current state (fewer or zero blocking
+  // migrations) rather than mutating the closed dialog's data in place — keeps the dialog purely
+  // presentational (no public mutable API), per RBM-F12a's documented "close and reopen" choice.
+  // Fetches the fresh state directly via findActiveAt() instead of reading reservedBudgetItems():
+  // reloadAfterMigration() above only *triggers* the store reload (loadReservedBudgets() pushes
+  // onto a Subject consumed asynchronously by an HTTP switchMap) — reading the signal synchronously
+  // right after would still see the pre-chain list and reopen with stale blockingMigrations.
+  private reopenDeleteModeDialogAfterPartialFailure(
+    reservedBudgetId: string,
+    walletId: string,
+    effectiveMonth: string,
+  ): void {
+    this.reservedBudgetService
+      .findActiveAt(effectiveMonth)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (page) => {
+          const reservedBudget = page.content.find((rb) => rb.id === reservedBudgetId);
+          if (!reservedBudget) return;
+
+          this.openDeleteModeDialog(this.toListItem(reservedBudget), walletId, effectiveMonth);
         },
         error: () => undefined,
       });

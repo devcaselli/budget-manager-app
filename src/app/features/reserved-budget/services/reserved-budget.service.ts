@@ -23,6 +23,7 @@ import {
   LinkReservedBudgetSourceRequest,
   PagedReservedBudgetResponse,
   ReservedBudget,
+  ReservedBudgetDeleteMode,
   ReservedBudgetLinkSourceType,
   UpdateReservedBudgetRequest,
 } from '../models/reserved-budget';
@@ -210,23 +211,33 @@ export class ReservedBudgetService {
     return unlinkedReservedBudgetSubject.asObservable();
   }
 
-  delete(id: string): Observable<void> {
+  /**
+   * Soft-deletes a reserved budget under one of the two modalities (RBM-F13). `mode` is
+   * required, with no default — a silent default would make a forgotten call site end the
+   * reserve when the user asked to skip a single month, or vice versa. `walletId` is required by
+   * the backend too (confirmed in RBM-F1: `DELETE /reserved-budgets/{id}?mode=...&walletId=...`,
+   * 400 without it) — always pass `selectedWallet()?.id` from the caller, never `now()`-derived
+   * state.
+   */
+  delete(id: string, mode: ReservedBudgetDeleteMode, walletId: string): Observable<void> {
     const deletedReservedBudgetSubject = new ReplaySubject<void>(1);
+    const params = new HttpParams().set('mode', mode).set('walletId', walletId);
 
     this.deletingSubject.next(id);
     this.errorSubject.next(null);
 
+    // No local-store mutation and no loadReservedBudgets() call here (unlike the pre-RBM-F13
+    // version, which used to filter the deleted id out of reservedBudgetsSubject directly). That
+    // was correct for a hard delete but wrong for SKIP_MONTH — the reserve must reappear next
+    // month, so silently dropping it from the in-memory list forever is a bug, not an
+    // optimization. The 200 body (full RB with updated endMonth/skippedMonths) is discarded for
+    // the same reason createMigration/deleteMigration discard theirs — the caller reloads the
+    // viewed month explicitly (P5, RBM-F13: reloadForViewedMonth() on the normal path,
+    // reloadAfterMigration() on the chained-undo path).
     this.http
-      .delete<void>(`${this.reservedBudgetsUrl}/${id}`)
+      .delete<void>(`${this.reservedBudgetsUrl}/${id}`, { params })
       .pipe(
         tap({
-          next: () => {
-            const currentReservedBudgets = this.reservedBudgetsSubject.getValue();
-            this.reservedBudgetsSubject.next(
-              currentReservedBudgets.filter((reservedBudget) => reservedBudget.id !== id),
-            );
-            this.loadReservedBudgets();
-          },
           error: () => this.errorSubject.next('Não foi possível remover o reserved budget.'),
         }),
         finalize(() => this.deletingSubject.next(null)),
