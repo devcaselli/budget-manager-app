@@ -122,6 +122,7 @@
                   title="Migrate to bullet"
                   aria-label="Migrate to bullet"
                   [disabled]="!budget.canMigrate || migratingReservedBudgetId() === budget.id"
+                  (click)="openMigrationDialog(budget)"
                 >⇄</button>
                 <button
                   class="rb-action-btn"

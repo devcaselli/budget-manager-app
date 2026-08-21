@@ -28,6 +28,12 @@ import {
   ReservedBudgetLinkSourceOption,
 } from '../../components/reserved-budget-link-dialog/reserved-budget-link-dialog.component';
 import {
+  ReservedBudgetMigrationDialogBullet,
+  ReservedBudgetMigrationDialogComponent,
+  ReservedBudgetMigrationDialogData,
+  ReservedBudgetMigrationDialogResult,
+} from '../../components/reserved-budget-migration-dialog/reserved-budget-migration-dialog.component';
+import {
   ReservedBudget,
   ReservedBudgetLink,
   ReservedBudgetLinkSourceType,
@@ -38,6 +44,7 @@ import { ReservedBudgetService } from '../../services/reserved-budget.service';
 import { SubscriptionService } from '@features/subscription/services/subscription.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
 import { BulletService } from '@features/bullet/services/bullet.service';
+import { ExtraBudgetService } from '@features/extra-budget/services/extra-budget.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { formatBrl } from '@shared/utils/currency';
 
@@ -110,6 +117,7 @@ export class ReservedBudgetPage {
   private readonly subscriptionService = inject(SubscriptionService);
   private readonly installmentService = inject(InstallmentService);
   private readonly bulletService = inject(BulletService);
+  private readonly extraBudgetService = inject(ExtraBudgetService);
   private readonly walletService = inject(WalletService);
 
   private readonly reservedBudgets = toSignal(this.reservedBudgetService.reservedBudgets$, {
@@ -121,6 +129,7 @@ export class ReservedBudgetPage {
   private readonly installments = toSignal(this.installmentService.allInstallments$, {
     initialValue: [],
   });
+  private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
     initialValue: null,
   });
@@ -175,6 +184,17 @@ export class ReservedBudgetPage {
       id: inst.id,
       label: `${inst.description} · ${inst.installmentNumber}x`,
     })),
+  );
+
+  // Bullet picker options for the migration dialog (RBM-F5/F6) — `remaining` pre-formatted so
+  // the dialog's <option> never re-derives currency formatting for a value it only displays.
+  private readonly migrationBulletOptions = computed<readonly ReservedBudgetMigrationDialogBullet[]>(
+    () =>
+      this.bullets().map((bullet) => ({
+        id: bullet.id,
+        description: bullet.description,
+        remaining: this.formatCurrency(bullet.remaining, 'BRL'),
+      })),
   );
 
   private readonly sourceLabels = computed<ReadonlyMap<string, string>>(() => {
@@ -326,6 +346,38 @@ export class ReservedBudgetPage {
       });
   }
 
+  protected openMigrationDialog(item: ReservedBudgetListItem): void {
+    const wallet = this.selectedWallet();
+    // The button is already disabled without a wallet (RBM-F3's canMigrate), but the request
+    // must not depend on visual state alone — no non-null assertion.
+    if (!wallet) return;
+
+    const data: ReservedBudgetMigrationDialogData = {
+      reservedBudgetDescription: item.description,
+      availableValue: item.remainingValue ?? 0,
+      availableLabel: item.remaining ?? item.amount,
+      currency: item.currency,
+      effectiveMonthLabel: this.formatMonth(wallet.effectiveMonth),
+      bullets: this.migrationBulletOptions(),
+    };
+
+    this.dialog
+      .open<
+        ReservedBudgetMigrationDialogComponent,
+        ReservedBudgetMigrationDialogData,
+        ReservedBudgetMigrationDialogResult
+      >(ReservedBudgetMigrationDialogComponent, {
+        width: '32rem',
+        maxWidth: 'calc(100vw - 2rem)',
+        data,
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result) this.createMigration(item.id, result);
+      });
+  }
+
   // No confirmation dialog yet — RBM-F7 inserts one before this call goes live. Left calling the
   // service directly (undecorated) is the explicit fallback the task text allows when F4 and F7
   // are implemented in separate passes.
@@ -333,7 +385,7 @@ export class ReservedBudgetPage {
     this.reservedBudgetService
       .deleteMigration(item.id, migration.extraBudgetId)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: () => this.reloadForViewedMonth(), error: () => undefined });
+      .subscribe({ next: () => this.reloadAfterMigration(), error: () => undefined });
   }
 
   protected unlinkSource(item: ReservedBudgetListItem, link: ReservedBudgetLinkView): void {
@@ -354,10 +406,38 @@ export class ReservedBudgetPage {
       .subscribe({ next: () => this.reloadForViewedMonth(), error: () => undefined });
   }
 
+  private createMigration(id: string, result: ReservedBudgetMigrationDialogResult): void {
+    const wallet = this.selectedWallet();
+    if (!wallet) return;
+
+    this.reservedBudgetService
+      .createMigration(id, {
+        walletId: wallet.id,
+        bulletId: result.bulletId,
+        amount: result.amount,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: () => this.reloadAfterMigration(), error: () => undefined });
+  }
+
   // link/unlink responses carry current-month figures; reload so the list reflects the
   // wallet's viewed month instead.
   private reloadForViewedMonth(): void {
     this.reservedBudgetService.loadReservedBudgets(this.selectedWallet()?.effectiveMonth);
+  }
+
+  // Migration moves money across 3 stores (RB, Bullet, ExtraBudget) — mirrors the fan-out
+  // reload already used by reloadWalletContext() in extra-budget-page.ts/bullet-page.ts, plus
+  // the RB reload that fan-out doesn't cover (decision #7). walletService.loadWallets() is
+  // deliberately NOT included: migration moves money *between* two containers of the same
+  // wallet, so the wallet's own aggregate totals don't change. If integration testing ever
+  // shows a wallet-level aggregate reflecting migrations, add that load and document why here
+  // — don't add it preemptively "to be safe", which is how reload fan-outs turn into cascades.
+  private reloadAfterMigration(): void {
+    const wallet = this.selectedWallet();
+    this.reservedBudgetService.loadReservedBudgets(wallet?.effectiveMonth);
+    this.bulletService.loadByWalletId(wallet?.id ?? null);
+    this.extraBudgetService.loadByWalletId(wallet?.id ?? null);
   }
 
   private confirmDelete(id: string): void {
