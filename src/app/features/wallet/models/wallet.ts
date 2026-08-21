@@ -21,3 +21,9 @@ export interface CreateWalletRequest {
   readonly effectiveMonth: string;
   readonly state: WalletState;
 }
+
+export interface PatchWalletRequest {
+  readonly state?: WalletState;
+  readonly closed?: boolean;
+  readonly closedDate?: string | null;
+}

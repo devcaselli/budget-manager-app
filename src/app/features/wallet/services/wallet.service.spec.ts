@@ -354,4 +354,45 @@ describe('WalletService', () => {
 
     expect(emittedWallets.at(-1)).toEqual([createdWallet, currentWallet]);
   });
+
+  it('should send wallet to review via PATCH /api/wallets/:id', () => {
+    const wallet: Wallet = {
+      id: 'wallet-1',
+      description: 'Abril 2026',
+      budget: 5000,
+      remaining: 3200,
+      startDate: '2026-04-01',
+      closedDate: '2026-04-30T00:00:00.000Z',
+      closed: true,
+      effectiveMonth: '2026-04',
+      state: 'REVIEW',
+    };
+
+    service
+      .patch(wallet.id, { state: 'REVIEW', closed: true, closedDate: wallet.closedDate })
+      .subscribe((result) => expect(result).toEqual(wallet));
+
+    const request = httpMock.expectOne('/api/wallets/wallet-1');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({
+      state: 'REVIEW',
+      closed: true,
+      closedDate: wallet.closedDate,
+    });
+    request.flush(wallet);
+  });
+
+  it('should set error$ when patch fails', () => {
+    const errors: (string | null)[] = [];
+
+    service.error$.subscribe((value) => errors.push(value));
+    service.patch('wallet-1', { state: 'REVIEW', closed: true, closedDate: '2026-04-30' }).subscribe({
+      error: () => undefined,
+    });
+
+    const request = httpMock.expectOne('/api/wallets/wallet-1');
+    request.flush({ message: 'Internal server error' }, { status: 500, statusText: 'Server Error' });
+
+    expect(errors.at(-1)).toBe('Não foi possível atualizar a wallet.');
+  });
 });

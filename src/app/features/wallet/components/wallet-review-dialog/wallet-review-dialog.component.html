@@ -1,0 +1,25 @@
+<div class="wrd-head" mat-dialog-title>
+  <div>
+    <h2 class="wrd-title">Send to <em>review?</em></h2>
+    <p class="wrd-subtitle">This action cannot be undone</p>
+  </div>
+  <button class="wrd-close" type="button" mat-icon-button (click)="cancel()" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="wrd-body">
+  <p class="wrd-message">
+    You are about to send the wallet
+    <strong>{{ data.walletDescription }}</strong>
+    to review. It will become <strong>read-only</strong> and cannot be reopened afterward.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions class="wrd-actions" align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button class="wrd-confirm-btn" type="button" (click)="confirm()">
+    <mat-icon aria-hidden="true">lock_outline</mat-icon>
+    Send to review
+  </button>
+</mat-dialog-actions>

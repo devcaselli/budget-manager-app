@@ -1,12 +1,13 @@
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { By } from '@angular/platform-browser';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 
 import { WalletDetailComponent } from '../../components/wallet-detail/wallet-detail.component';
 import { WalletFormComponent } from '../../components/wallet-form/wallet-form.component';
 import { WalletListComponent } from '../../components/wallet-list/wallet-list.component';
-import { CreateWalletRequest, Wallet } from '../../models/wallet';
+import { CreateWalletRequest, PatchWalletRequest, Wallet } from '../../models/wallet';
 import { WalletService } from '../../services/wallet.service';
 import { WalletPage } from './wallet-page';
 
@@ -24,6 +25,7 @@ class WalletServiceMock {
   loadWallets = vi.fn<() => void>();
   selectWallet = vi.fn<(wallet: Wallet) => void>();
   create = vi.fn<(request: CreateWalletRequest) => Observable<Wallet>>();
+  patch = vi.fn<(id: string, request: PatchWalletRequest) => Observable<Wallet>>();
 }
 
 const wallet: Wallet = {
@@ -45,15 +47,18 @@ const walletDetails: Wallet = {
 
 describe('WalletPage', () => {
   let service: WalletServiceMock;
+  let dialog: { open: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     service = new WalletServiceMock();
+    dialog = { open: vi.fn() };
 
     await TestBed.configureTestingModule({
       imports: [WalletPage],
       providers: [
         provideNoopAnimations(),
         { provide: WalletService, useValue: service },
+        { provide: MatDialog, useValue: dialog },
       ],
     }).compileComponents();
   });
@@ -173,5 +178,69 @@ describe('WalletPage', () => {
 
     const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
     expect(alert.textContent).toContain('Não foi possível abrir a wallet.');
+  });
+
+  it('should open the review dialog and patch + reload wallets when confirmed', () => {
+    dialog.open.mockReturnValue({
+      afterClosed: () => of(true),
+    } as unknown as MatDialogRef<unknown, boolean>);
+    service.patch.mockReturnValue(of({ ...wallet, state: 'REVIEW', closed: true }));
+
+    const fixture = TestBed.createComponent(WalletPage);
+    service.walletsSubject.next([wallet]);
+    fixture.detectChanges();
+
+    const list = fixture.debugElement.query(By.directive(WalletListComponent))
+      .componentInstance as WalletListComponent;
+    list.walletReview.emit(wallet);
+
+    expect(dialog.open).toHaveBeenCalled();
+    expect(service.patch).toHaveBeenCalledWith(wallet.id, {
+      state: 'REVIEW',
+      closed: true,
+      closedDate: expect.any(String),
+    });
+    expect(service.loadWallets).toHaveBeenCalled();
+  });
+
+  it('should not patch the wallet when the review dialog is cancelled', () => {
+    dialog.open.mockReturnValue({
+      afterClosed: () => of(false),
+    } as unknown as MatDialogRef<unknown, boolean>);
+
+    const fixture = TestBed.createComponent(WalletPage);
+    service.walletsSubject.next([wallet]);
+    fixture.detectChanges();
+
+    const list = fixture.debugElement.query(By.directive(WalletListComponent))
+      .componentInstance as WalletListComponent;
+    list.walletReview.emit(wallet);
+
+    expect(dialog.open).toHaveBeenCalled();
+    expect(service.patch).not.toHaveBeenCalled();
+    expect(service.loadWallets).not.toHaveBeenCalled();
+  });
+
+  it('should expose an error state when sending a wallet to review fails', () => {
+    dialog.open.mockReturnValue({
+      afterClosed: () => of(true),
+    } as unknown as MatDialogRef<unknown, boolean>);
+    service.patch.mockImplementation(() => {
+      service.errorSubject.next('Não foi possível atualizar a wallet.');
+      return throwError(() => new Error('Server error'));
+    });
+
+    const fixture = TestBed.createComponent(WalletPage);
+    service.walletsSubject.next([wallet]);
+    fixture.detectChanges();
+
+    const list = fixture.debugElement.query(By.directive(WalletListComponent))
+      .componentInstance as WalletListComponent;
+    list.walletReview.emit(wallet);
+    fixture.detectChanges();
+
+    const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
+    expect(alert.textContent).toContain('Não foi possível atualizar a wallet.');
+    expect(service.loadWallets).not.toHaveBeenCalled();
   });
 });

@@ -16,7 +16,7 @@ import { environment } from '@environments/environment';
 import { LoadingCounter } from '@core/state/loading-counter';
 import { PreferencesService } from '@core/services/preferences.service';
 
-import { CreateWalletRequest, Wallet } from '../models/wallet';
+import { CreateWalletRequest, PatchWalletRequest, Wallet } from '../models/wallet';
 import { Payer } from '@features/payer/models/payer';
 
 @Injectable({
@@ -128,6 +128,33 @@ export class WalletService {
       });
 
     return createdWalletSubject.asObservable();
+  }
+
+  patch(
+    id: string,
+    request: PatchWalletRequest,
+    errorMessage = 'Não foi possível atualizar a wallet.',
+  ): Observable<Wallet> {
+    const subject = new ReplaySubject<Wallet>(1);
+
+    this.errorSubject.next(null);
+
+    this.http
+      .patch<Wallet>(`${this.walletsUrl}/${id}`, request)
+      .pipe(
+        tap({
+          error: () => this.errorSubject.next(errorMessage),
+        }),
+      )
+      .subscribe({
+        next: (updated) => {
+          subject.next(updated);
+          subject.complete();
+        },
+        error: (error: unknown) => subject.error(error),
+      });
+
+    return subject.asObservable();
   }
 
   loadWallets(): void {

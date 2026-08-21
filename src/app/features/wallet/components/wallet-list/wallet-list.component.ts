@@ -18,6 +18,7 @@ export class WalletListComponent {
   readonly isLoading = input(false);
   readonly walletSelect = output<Wallet>();
   readonly favoriteToggle = output<Wallet>();
+  readonly walletReview = output<Wallet>();
 
   protected isSelected(wallet: Wallet): boolean {
     return this.selectedWalletId() === wallet.id;
@@ -30,6 +31,15 @@ export class WalletListComponent {
   protected onFavoriteClick(event: Event, wallet: Wallet): void {
     event.stopPropagation();
     this.favoriteToggle.emit(wallet);
+  }
+
+  protected onReviewClick(event: Event, wallet: Wallet): void {
+    event.stopPropagation();
+    this.walletReview.emit(wallet);
+  }
+
+  protected canReview(wallet: Wallet): boolean {
+    return wallet.state === 'PRODUCTION';
   }
 
   protected walletStateClass(state: WalletState): string {

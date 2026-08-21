@@ -7,6 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { MatDialog } from '@angular/material/dialog';
 import { finalize } from 'rxjs';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
@@ -14,6 +15,10 @@ import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { WalletDetailComponent } from '../../components/wallet-detail/wallet-detail.component';
 import { WalletFormComponent } from '../../components/wallet-form/wallet-form.component';
 import { WalletListComponent } from '../../components/wallet-list/wallet-list.component';
+import {
+  WalletReviewDialogComponent,
+  WalletReviewDialogData,
+} from '../../components/wallet-review-dialog/wallet-review-dialog.component';
 import { CreateWalletRequest, Wallet } from '../../models/wallet';
 import { WalletService } from '../../services/wallet.service';
 import { PreferencesService } from '@core/services/preferences.service';
@@ -29,6 +34,7 @@ export class WalletPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly walletService = inject(WalletService);
   private readonly preferences = inject(PreferencesService);
+  private readonly dialog = inject(MatDialog);
 
   protected readonly favoriteWalletId = this.preferences.favoriteWalletId;
 
@@ -51,6 +57,33 @@ export class WalletPage {
 
   protected toggleFavorite(wallet: Wallet): void {
     this.preferences.toggleFavoriteWallet(wallet.id);
+  }
+
+  protected onReviewWallet(wallet: Wallet): void {
+    const data: WalletReviewDialogData = { walletDescription: wallet.description ?? 'Unnamed' };
+
+    this.dialog
+      .open<WalletReviewDialogComponent, WalletReviewDialogData, boolean>(
+        WalletReviewDialogComponent,
+        { width: '28rem', maxWidth: 'calc(100vw - 2rem)', data },
+      )
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((confirmed) => {
+        if (confirmed) this.sendToReview(wallet.id);
+      });
+  }
+
+  private sendToReview(id: string): void {
+    const closedDate = new Date().toISOString();
+
+    this.walletService
+      .patch(id, { state: 'REVIEW', closed: true, closedDate })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.walletService.loadWallets(),
+        error: () => undefined,
+      });
   }
 
   protected createWallet(request: CreateWalletRequest): void {

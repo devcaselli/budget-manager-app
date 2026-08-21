@@ -47,6 +47,14 @@
             <span class="ew-pill" [class]="walletStateClass(wallet.state)">
               {{ wallet.state }}
             </span>
+            @if (canReview(wallet)) {
+              <button
+                type="button"
+                class="wl-review-btn"
+                title="Send to review (read-only, cannot be reopened)"
+                (click)="onReviewClick($event, wallet)"
+              >Send to review</button>
+            }
           </td>
           <td class="ew-blur">{{ wallet.budget | brlCurrency }}</td>
           <td class="ew-blur">{{ wallet.remaining | brlCurrency }}</td>
