@@ -15,7 +15,8 @@ import {
   Validators,
 } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
-import { BehaviorSubject, concatMap, from, toArray } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { BehaviorSubject, catchError, concatMap, finalize, from, throwError, toArray } from 'rxjs';
 
 import {
   ReservedBudgetDeleteBlockingMigration,
@@ -36,6 +37,7 @@ import {
   ReservedBudgetMigrationDialogResult,
 } from '../../components/reserved-budget-migration-dialog/reserved-budget-migration-dialog.component';
 import {
+  isMigrationNotReversibleProblem,
   ReservedBudget,
   ReservedBudgetDeleteMode,
   ReservedBudgetLink,
@@ -167,6 +169,33 @@ export class ReservedBudgetPage {
     initialValue: null,
   });
   protected readonly editingReservedBudgetId = toSignal(this.editingReservedBudgetId$, {
+    initialValue: null,
+  });
+
+  /**
+   * Post-epic code review MAJOR 5: `migratingReservedBudgetId`/`deletingReservedBudgetId` above
+   * are last-writer-wins signals off `ReservedBudgetService` — during `confirmDeleteWithUndo()`'s
+   * `concatMap` chain (N migration-undo DELETEs, then the reserve's own DELETE) they flip through
+   * `id` → `null` → `id` between EACH request, so the card's disabled state visibly blinks
+   * on/off instead of staying steadily disabled for the whole chain — reads as instability, not
+   * progress. This is a separate, page-local signal set BEFORE the chain starts and cleared in
+   * `finalize()`, driving one disabled/busy state across the ENTIRE chain regardless of which
+   * individual request is in flight at any given moment.
+   */
+  private readonly chainedDeleteBusyId$ = new BehaviorSubject<string | null>(null);
+  protected readonly chainedDeleteBusyId = toSignal(this.chainedDeleteBusyId$, {
+    initialValue: null,
+  });
+
+  /**
+   * Post-epic code review MAJOR 4: fallback surface for `reopenDeleteModeDialogAfterPartialFailure()`
+   * when the reserve it tried to reopen the dialog for no longer exists in `page.content` (e.g. a
+   * prior chain attempt already fully succeeded, and this is a stale retry racing behind it) — that
+   * branch used to `return` with zero user-visible feedback. Rendered as a page-level alert, same
+   * spot `errorMessage()` already renders, since there's no dialog left to show it in.
+   */
+  private readonly chainedDeleteFailureMessage$ = new BehaviorSubject<string | null>(null);
+  protected readonly chainedDeleteFailureMessage = toSignal(this.chainedDeleteFailureMessage$, {
     initialValue: null,
   });
 
@@ -321,6 +350,7 @@ export class ReservedBudgetPage {
     item: ReservedBudgetListItem,
     walletId: string,
     effectiveMonth: string,
+    errorMessage?: string,
   ): void {
     const blockingMigrations: readonly ReservedBudgetDeleteBlockingMigration[] = item.migrations.map(
       (migration) => ({
@@ -335,6 +365,7 @@ export class ReservedBudgetPage {
       description: item.description,
       effectiveMonthLabel: this.formatMonth(effectiveMonth),
       blockingMigrations,
+      errorMessage,
     };
 
     this.dialog
@@ -533,6 +564,11 @@ export class ReservedBudgetPage {
    * leaving a non-deterministic subset undone. Reuses reservedBudgetService.deleteMigration()
    * (RBM-F2) and .delete() (this task) exclusively — zero new service method for the shortcut,
    * per RBM-F13/RBM-F16 rule 1 (one write path for migration revert).
+   *
+   * Post-epic code review MAJOR 5: `chainedDeleteBusyId$` is set BEFORE the chain starts and
+   * cleared in `finalize()` — drives one steady disabled/busy state on the card for the whole
+   * chain (see that signal's own doc comment), instead of the per-request
+   * `migratingReservedBudgetId`/`deletingReservedBudgetId` flicker this used to produce.
    */
   private confirmDeleteWithUndo(
     item: ReservedBudgetListItem,
@@ -541,15 +577,24 @@ export class ReservedBudgetPage {
     effectiveMonth: string,
   ): void {
     const migrations = item.migrations;
+    this.chainedDeleteBusyId$.next(item.id);
 
     from(migrations)
       .pipe(
         concatMap((migration) =>
-          this.reservedBudgetService.deleteMigration(item.id, migration.extraBudgetId),
+          this.reservedBudgetService.deleteMigration(item.id, migration.extraBudgetId).pipe(
+            // Post-epic code review MAJOR 4: tag a failure with which migration it happened on
+            // (the plain service error has no bulletLabel — only bulletId, which isn't what the
+            // required copy shows) so the subscribe's error handler can build the exact spec
+            // RBM-F12a message ("...to {bulletLabel}...") without re-deriving it from status
+            // codes alone.
+            catchError((error: unknown) => throwError(() => ({ error, migration }))),
+          ),
         ),
         toArray(),
         concatMap(() => this.reservedBudgetService.delete(item.id, mode, walletId)),
         takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.chainedDeleteBusyId$.next(null)),
       )
       .subscribe({
         next: () => {
@@ -559,15 +604,41 @@ export class ReservedBudgetPage {
           if (this.editingReservedBudgetId() === item.id) this.resetForm();
           this.reloadAfterMigration();
         },
-        error: () => {
+        error: (failure: unknown) => {
           // Money already moved for whichever migrations succeeded before the failure (0..K-1) —
           // that state change is real and must be reflected, even though the chain didn't finish.
           // No compensating rollback (RBM-F12a): recreating an undone migration or recreating a
           // deleted reserve would itself be an unsolicited money-moving write.
           this.reloadAfterMigration();
-          this.reopenDeleteModeDialogAfterPartialFailure(item.id, walletId, effectiveMonth);
+          this.reopenDeleteModeDialogAfterPartialFailure(
+            item.id,
+            walletId,
+            effectiveMonth,
+            this.describeChainedDeleteFailure(failure),
+          );
         },
       });
+  }
+
+  /**
+   * Post-epic code review MAJOR 4: builds the spec RBM-F12a copy — "Couldn't undo the migration
+   * to {bulletLabel} — the bullet has already spent the amount" — for the 409
+   * MigrationNotReversibleException case, with a generic fallback for anything else (the reserve's
+   * own DELETE failing, a network error, etc.), so the reopened dialog is never blank about why
+   * the shortcut stopped.
+   */
+  private describeChainedDeleteFailure(failure: unknown): string {
+    const tagged = failure as { error?: unknown; migration?: ReservedBudgetMigrationView } | null;
+    const error = tagged?.error ?? failure;
+    const bulletLabel = tagged?.migration?.bulletLabel;
+
+    if (error instanceof HttpErrorResponse && error.status === 409 && bulletLabel) {
+      const body: unknown = error.error;
+      if (isMigrationNotReversibleProblem(body)) {
+        return `Couldn't undo the migration to ${bulletLabel} — the bullet has already spent the amount.`;
+      }
+    }
+    return 'Não foi possível concluir a remoção — algumas migrations podem já ter sido desfeitas. Tente novamente.';
   }
 
   // Reopens the delete-mode dialog with the reserve's now-current state (fewer or zero blocking
@@ -577,10 +648,16 @@ export class ReservedBudgetPage {
   // reloadAfterMigration() above only *triggers* the store reload (loadReservedBudgets() pushes
   // onto a Subject consumed asynchronously by an HTTP switchMap) — reading the signal synchronously
   // right after would still see the pre-chain list and reopen with stale blockingMigrations.
+  //
+  // Post-epic code review MAJOR 4: the `!reservedBudget` branch (reached after a fully-successful
+  // chain — e.g. a prior attempt's END already removed it — followed by a stale retry) used to
+  // `return` silently, leaving the user with no dialog and no feedback at all. It now surfaces the
+  // same errorMessage on the page itself, since there's no reserve left to reopen a dialog for.
   private reopenDeleteModeDialogAfterPartialFailure(
     reservedBudgetId: string,
     walletId: string,
     effectiveMonth: string,
+    errorMessage: string,
   ): void {
     this.reservedBudgetService
       .findActiveAt(effectiveMonth)
@@ -588,11 +665,19 @@ export class ReservedBudgetPage {
       .subscribe({
         next: (page) => {
           const reservedBudget = page.content.find((rb) => rb.id === reservedBudgetId);
-          if (!reservedBudget) return;
+          if (!reservedBudget) {
+            this.chainedDeleteFailureMessage$.next(errorMessage);
+            return;
+          }
 
-          this.openDeleteModeDialog(this.toListItem(reservedBudget), walletId, effectiveMonth);
+          this.openDeleteModeDialog(
+            this.toListItem(reservedBudget),
+            walletId,
+            effectiveMonth,
+            errorMessage,
+          );
         },
-        error: () => undefined,
+        error: () => this.chainedDeleteFailureMessage$.next(errorMessage),
       });
   }
 

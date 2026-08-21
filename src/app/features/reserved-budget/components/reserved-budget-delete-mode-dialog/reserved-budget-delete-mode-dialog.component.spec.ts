@@ -29,13 +29,17 @@ describe('ReservedBudgetDeleteModeDialogComponent', () => {
     };
   }
 
-  function configure(blockingMigrations: readonly ReservedBudgetDeleteBlockingMigration[]): void {
+  function configure(
+    blockingMigrations: readonly ReservedBudgetDeleteBlockingMigration[],
+    errorMessage?: string,
+  ): void {
     dialogRef = { close: vi.fn() };
     matDialogOpenSpy = vi.fn();
     const data: ReservedBudgetDeleteModeDialogData = {
       description: 'Vacation fund',
       effectiveMonthLabel: 'Aug 2026',
       blockingMigrations,
+      errorMessage,
     };
 
     TestBed.configureTestingModule({
@@ -253,5 +257,29 @@ describe('ReservedBudgetDeleteModeDialogComponent', () => {
     component['cancel']();
 
     expect(dialogRef.close).toHaveBeenCalledWith();
+  });
+
+  // Post-epic code review MAJOR 4: the dialog must render `data.errorMessage` when this component
+  // is reopened after a chained undo-and-end/skip partial failure — previously nothing rendered it
+  // at all, so the required RBM-F12a copy never reached the user even when the page did compute it.
+  describe('errorMessage (reopened after a chained-undo partial failure, RBM-F12a/MAJOR 4)', () => {
+    it('renders the error message when present', () => {
+      configure(
+        [migration()],
+        "Couldn't undo the migration to Groceries — the bullet has already spent the amount.",
+      );
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('#rbdm-error-reason')?.textContent).toContain(
+        "Couldn't undo the migration to Groceries",
+      );
+    });
+
+    it('renders nothing extra when errorMessage is absent (normal open)', () => {
+      configure([migration()]);
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('#rbdm-error-reason')).toBeNull();
+    });
   });
 });

@@ -9,6 +9,11 @@
 </div>
 
 <mat-dialog-content class="rbdm-body">
+  @if (data.errorMessage; as errorMessage) {
+    <div class="ew-alert" role="alert" id="rbdm-error-reason">
+      <span>{{ errorMessage }}</span>
+    </div>
+  }
   @if (deleteBlocked()) {
     <div class="rbdm-block-reason" role="note" id="rbdm-block-reason">
       <p class="rbdm-block-headline">

@@ -27,6 +27,17 @@ export interface ReservedBudgetDeleteModeDialogData {
   /** Live migrations for the viewed month. Empty ⇒ both modalities free. Non-empty ⇒ both
    * blocked (3rd round — symmetric lock, see the module-level note on `deleteBlocked`). */
   readonly blockingMigrations: readonly ReservedBudgetDeleteBlockingMigration[];
+  /**
+   * Post-epic code review MAJOR 4: set only when this dialog is being reopened after the
+   * "Undo and end/skip" shortcut (RBM-F12a) failed partway through — e.g. 409
+   * `MigrationNotReversibleException` because a bullet already spent one of the migrated
+   * amounts (a persistent failure, not a transient one; retrying the shortcut again will fail
+   * the same way). Spec RBM-F12a's required user-facing copy
+   * ("Couldn't undo the migration to {bulletLabel} — the bullet has already spent the amount")
+   * — never shown before this fix, since the page's `error:` handler discarded the error object
+   * entirely. `null`/absent on every other open of this dialog (normal delete flow).
+   */
+  readonly errorMessage?: string;
 }
 
 export interface ReservedBudgetDeleteModeDialogResult {

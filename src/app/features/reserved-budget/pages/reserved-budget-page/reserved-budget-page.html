@@ -34,6 +34,9 @@
   @if (errorMessage()) {
     <div class="ew-alert" role="alert">{{ errorMessage() }}</div>
   }
+  @if (chainedDeleteFailureMessage(); as message) {
+    <div class="ew-alert" role="alert">{{ message }}</div>
+  }
 
   <div class="ew-row">
     <!-- Reserved budget list -->
@@ -89,7 +92,7 @@
                           type="button"
                           title="Undo migration"
                           aria-label="Undo migration"
-                          [disabled]="migratingReservedBudgetId() === budget.id"
+                          [disabled]="migratingReservedBudgetId() === budget.id || chainedDeleteBusyId() === budget.id"
                           (click)="undoMigration(budget, migration)"
                         >×</button>
                       </span>
@@ -121,28 +124,28 @@
                   type="button"
                   title="Migrate to bullet"
                   aria-label="Migrate to bullet"
-                  [disabled]="!budget.canMigrate || migratingReservedBudgetId() === budget.id"
+                  [disabled]="!budget.canMigrate || migratingReservedBudgetId() === budget.id || chainedDeleteBusyId() === budget.id"
                   (click)="openMigrationDialog(budget)"
                 >⇄</button>
                 <button
                   class="rb-action-btn"
                   type="button"
                   title="Link source"
-                  [disabled]="linkingReservedBudgetId() === budget.id"
+                  [disabled]="linkingReservedBudgetId() === budget.id || chainedDeleteBusyId() === budget.id"
                   (click)="openLinkDialog(budget)"
                 >🔗</button>
                 <button
                   class="rb-action-btn"
                   type="button"
                   title="Edit"
-                  [disabled]="updatingReservedBudgetId() === budget.id || deletingReservedBudgetId() === budget.id"
+                  [disabled]="updatingReservedBudgetId() === budget.id || deletingReservedBudgetId() === budget.id || chainedDeleteBusyId() === budget.id"
                   (click)="editReservedBudget(budget)"
                 >✎</button>
                 <button
                   class="rb-action-btn rb-action-btn--danger"
                   type="button"
                   title="Delete"
-                  [disabled]="deletingReservedBudgetId() === budget.id"
+                  [disabled]="deletingReservedBudgetId() === budget.id || chainedDeleteBusyId() === budget.id"
                   (click)="deleteReservedBudget(budget)"
                 >×</button>
               </div>

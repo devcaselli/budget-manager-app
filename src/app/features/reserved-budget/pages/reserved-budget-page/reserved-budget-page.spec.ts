@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
@@ -627,6 +627,106 @@ describe('ReservedBudgetPage — soft-delete of 2 modalities (RBM-F13)', () => {
       expect(bulletService.loadByWalletId).toHaveBeenCalledTimes(1);
       expect(extraBudgetService.loadByWalletId).toHaveBeenCalledTimes(1);
       expect(reservedBudgetService.createMigration).not.toHaveBeenCalled();
+    });
+
+    // Post-epic code review MAJOR 4: the reopened dialog must show the spec RBM-F12a copy
+    // ("Couldn't undo the migration to {bulletLabel} — the bullet has already spent the amount")
+    // — previously the page's error handler discarded the error object entirely, so the reopened
+    // dialog never received any errorMessage at all.
+    it('a 409 MigrationNotReversibleException failure reopens the dialog with the RBM-F12a error copy', () => {
+      const migrations = [
+        { extraBudgetId: 'eb-1', bulletId: 'b-1', bulletDescription: 'Groceries', amount: 100, effectiveMonth: '2030-01', description: '' },
+      ];
+      selectWallet(wallet, [buildReservedBudget({ migrations })]);
+      reservedBudgetService.deleteMigration.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { title: 'Migration not reversible', bulletId: 'b-1', remaining: 20, required: 100 },
+            }),
+        ),
+      );
+      reservedBudgetService.findActiveAt.mockReturnValue(
+        of({ content: [buildReservedBudget({ migrations })], page: 0, size: 100, totalElements: 1, totalPages: 1 }),
+      );
+      dialogOpen
+        .mockReturnValueOnce({
+          afterClosed: () =>
+            of<ReservedBudgetDeleteModeDialogResult>({ mode: 'END', undoBlockingMigrationsFirst: true }),
+        })
+        .mockReturnValueOnce({ afterClosed: () => of(undefined) });
+
+      deleteReservedBudget(reservedBudgetItem());
+
+      expect(dialogOpen).toHaveBeenCalledTimes(2);
+      const secondCallData = dialogOpen.mock.calls[1][1].data;
+      expect(secondCallData.errorMessage).toBe(
+        "Couldn't undo the migration to Groceries — the bullet has already spent the amount.",
+      );
+    });
+
+    // Post-epic code review MAJOR 4: the `!reservedBudget` branch used to `return` silently when
+    // the reserve was no longer found in the reopen fetch (e.g. a prior chain attempt already
+    // fully succeeded and this is a stale retry) — now it surfaces the error message on the page
+    // itself instead of leaving the user with no dialog and no feedback.
+    it('when the reserve no longer exists on reopen, surfaces the error on the page instead of returning silently', () => {
+      selectWallet(wallet, [buildReservedBudget()]);
+      reservedBudgetService.delete.mockReturnValue(throwError(() => new Error('boom')));
+      reservedBudgetService.findActiveAt.mockReturnValue(
+        of({ content: [], page: 0, size: 100, totalElements: 0, totalPages: 0 }),
+      );
+      dialogOpen.mockReturnValue({
+        afterClosed: () =>
+          of<ReservedBudgetDeleteModeDialogResult>({ mode: 'END', undoBlockingMigrationsFirst: true }),
+      });
+
+      deleteReservedBudget(reservedBudgetItem());
+      fixture.detectChanges();
+
+      // Only the one dialog open (the initial shortcut pick) — no second reopen, since there's no
+      // reserve left to reopen it for.
+      expect(dialogOpen).toHaveBeenCalledTimes(1);
+      expect(
+        (component as unknown as { chainedDeleteFailureMessage: () => string | null })
+          .chainedDeleteFailureMessage(),
+      ).not.toBeNull();
+    });
+
+    // Post-epic code review MAJOR 5: a page-level busy signal must stay true for the ENTIRE
+    // chain — set before the first request, cleared only once every request (N deleteMigration +
+    // 1 delete) has settled — instead of flickering per-request like the service's own
+    // migrating$/deleting$ streams.
+    it('chainedDeleteBusyId is set for the reserve before the chain starts and cleared only after the whole chain settles', () => {
+      const migrations = [
+        { extraBudgetId: 'eb-1', bulletId: 'b-1', bulletDescription: 'A', amount: 100, effectiveMonth: '2030-01', description: '' },
+        { extraBudgetId: 'eb-2', bulletId: 'b-2', bulletDescription: 'B', amount: 200, effectiveMonth: '2030-01', description: '' },
+      ];
+      selectWallet(wallet, [buildReservedBudget({ migrations })]);
+      const busyDuringChain: (string | null)[] = [];
+      const busySignal = (component as unknown as { chainedDeleteBusyId: () => string | null })
+        .chainedDeleteBusyId;
+
+      reservedBudgetService.deleteMigration.mockImplementation(() => {
+        busyDuringChain.push(busySignal());
+        return of(undefined);
+      });
+      reservedBudgetService.delete.mockImplementation(() => {
+        busyDuringChain.push(busySignal());
+        return of(undefined);
+      });
+      dialogOpen.mockReturnValue({
+        afterClosed: () =>
+          of<ReservedBudgetDeleteModeDialogResult>({ mode: 'END', undoBlockingMigrationsFirst: true }),
+      });
+
+      expect(busySignal()).toBeNull();
+      deleteReservedBudget(reservedBudgetItem());
+
+      // Steadily 'rb-1' for every request in the chain — never null/flickering mid-chain.
+      expect(busyDuringChain).toEqual(['rb-1', 'rb-1', 'rb-1']);
+      // Cleared once the whole chain (success) has settled.
+      expect(busySignal()).toBeNull();
     });
   });
 });
