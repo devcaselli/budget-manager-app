@@ -89,6 +89,22 @@
   flex: 0 0 auto;
 }
 
+// ── Reserved budget migration revert (RBM-F16) ──────────────────────────────
+.ovw__migration-revert {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ew-line);
+  display: grid;
+  gap: 10px;
+}
+
+.ovw__migration-ineligible {
+  margin: 0;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-sans);
+  font-size: 13px;
+}
+
 // ── Related items navigation (F-11) ─────────────────────────────────────────
 .ovw__links {
   margin-top: 24px;

@@ -24,15 +24,25 @@ import { CreditCardService } from '@features/credit-card/services/credit-card.se
 import { PatchExpenseRequest } from '@features/expense/models/expense';
 import { ExpenseService } from '@features/expense/services/expense.service';
 import { PaymentService } from '@features/payment/services/payment.service';
+import {
+  isMigrationNotReversibleProblem,
+  MigrationNotReversibleProblem,
+} from '@features/reserved-budget/models/reserved-budget';
+import { ReservedBudgetService } from '@features/reserved-budget/services/reserved-budget.service';
 import { SubscriptionService } from '@features/subscription/services/subscription.service';
 import { TagService } from '@features/tag/services/tag.service';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
 
-import { OmegaViewerDetail, OmegaViewerPayment } from './models/omega-viewer-detail';
+import {
+  OmegaViewerDetail,
+  OmegaViewerPayment,
+  OmegaViewerReservedBudgetMigrationDetail,
+} from './models/omega-viewer-detail';
 import { OmegaViewerFieldRow, OmegaViewerRemainingBadge } from './models/omega-viewer-field-row';
 import { formatPaymentDateLabel } from './models/omega-viewer-payment-row';
 import { OmegaViewerRef } from './models/omega-viewer-ref';
 import { OmegaViewerResult } from './models/omega-viewer-result';
+import { formatBrl } from '@shared/utils/currency';
 import { mapDetailToFieldRows, mapRemainingBadge } from './omega-viewer-field-mapper';
 import { OmegaViewerService } from './omega-viewer.service';
 import { ViewerDiscardConfirmDialogComponent } from './sections/viewer-discard-confirm-dialog.component';
@@ -40,7 +50,10 @@ import { ViewerEditFormComponent } from './sections/viewer-edit-form.component';
 import { ViewerFieldListComponent } from './sections/viewer-field-list.component';
 import { ViewerNotesSectionComponent } from './sections/viewer-notes-section.component';
 import { ViewerPaymentsSectionComponent } from './sections/viewer-payments-section.component';
-import { ViewerRevertConfirmDialogComponent } from './sections/viewer-revert-confirm-dialog.component';
+import {
+  ViewerRevertConfirmDialogComponent,
+  ViewerRevertConfirmDialogData,
+} from './sections/viewer-revert-confirm-dialog.component';
 
 /** The Omega Viewer's edit mode (F-07) — scoped to whatever item is currently on screen.
  * Always resets to `'VIEW'` on any navigation (push or pop), never preserved across items. */
@@ -66,15 +79,32 @@ function titleOf(detail: OmegaViewerDetail): string {
   }
 }
 
+/** RBM-F16: same `"{Mon} {YYYY}"` grammar `ReservedBudgetPage.formatMonth()` (RBM-F7) already
+ * uses for the identical confirm-dialog `dateLabel` field — the two revert entry points must
+ * read as the same UI, not two independently-invented date formats (RBM-F16 rule 3). */
+function formatMonthLabel(value: string): string {
+  const [year, month] = value.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(year, month - 1, 1)),
+  );
+}
+
 /**
- * Omega Viewer shell — a modal that shows one item (Expense/Installment/Subscription) at
- * a time with page-flip navigation between linked items. F-05 delivered the navigable shell
- * (history stack, detail resolution, loading/error/retry). F-11 adds the link-navigation UI
- * (slide+fade page-flip, `prefers-reduced-motion` support, keyboard focus management,
- * `aria-live` announcements). F-12 adds the field-list body via `ViewerFieldListComponent`.
- * F-07 adds Expense edit mode (see below). F-08 adds the notes section (see below) via
- * `ViewerNotesSectionComponent`, rendered for all 3 kinds. No payments section (F-09) yet —
- * that plugs into this shell later.
+ * Omega Viewer shell — a modal that shows one item at a time with page-flip navigation between
+ * linked items. Four kinds as of RBM-F14: Expense/Installment/Subscription, plus
+ * `RESERVED_BUDGET_MIGRATION` (a reserved-budget-to-bullet migration). F-05 delivered the
+ * navigable shell (history stack, detail resolution, loading/error/retry). F-11 adds the
+ * link-navigation UI (slide+fade page-flip, `prefers-reduced-motion` support, keyboard focus
+ * management, `aria-live` announcements). F-12 adds the field-list body via
+ * `ViewerFieldListComponent`. F-07 adds Expense edit mode (see below). F-08 adds the notes
+ * section (see below) via `ViewerNotesSectionComponent`, rendered for Expense/Installment/
+ * Subscription — NOT the migration kind, which has no `details` field at all (RBM-F14). F-09/
+ * F-10 add the payments section for Expense/Installment. RBM-F16 adds migration revert: a
+ * dedicated "Reverter migration" button/section, gated by `canRevertMigration()`, that calls
+ * `ReservedBudgetService.deleteMigration()` — the SAME write path `ReservedBudgetPage`'s own
+ * card-based undo (RBM-F7) uses, never a second one. This is the 2nd of the 2 coordinated
+ * reversal entry points the RBM epic's README calls for; see `requestRevertMigration()`'s doc
+ * comment for the 3 coordination rules.
  *
  * `OmegaViewerService` is provided here at component scope (`providers: [OmegaViewerService]`)
  * — it is modal view-state, not an app-lifetime singleton, so it must NOT be
@@ -128,6 +158,12 @@ export class OmegaViewerComponent {
   private readonly subscriptionService = inject(SubscriptionService);
   private readonly paymentService = inject(PaymentService);
   private readonly matDialog = inject(MatDialog);
+  /** RBM-F16: the ONE write path for undoing a migration, shared with `ReservedBudgetPage`'s
+   * card-based undo (RBM-F7). No second service/method is introduced here — see
+   * `deleteMigration()`'s own docstring and the class doc's coordination note below. Injecting
+   * a feature service into this shared shell is the same pattern already used for
+   * `ExpenseService`/`SubscriptionService`/`PaymentService` above, not a new exception. */
+  private readonly reservedBudgetService = inject(ReservedBudgetService);
 
   /** Title heading of the currently-displayed item — F-11 keyboard focus lands here on
    * every page-flip so focus is never lost mid-navigation. `tabindex="-1"` on the host
@@ -181,6 +217,19 @@ export class OmegaViewerComponent {
    * state, to avoid one open surface's state bleeding into another's. */
   protected readonly revertingId = signal<string | null>(null);
   protected readonly revertError = signal<string | null>(null);
+  /** RBM-F16: mirrors `revertingId`/`revertError` above, shell-local for the exact same reason
+   * documented on those two — `ReservedBudgetService`'s `migrating$`/`error$` are `providedIn:
+   * 'root'` streams shared with `ReservedBudgetPage`, and this shell never trusts a shared
+   * app-lifetime stream for view-local save/error UI state. `true` while the revert request for
+   * the migration on screen is in flight. */
+  protected readonly revertingMigration = signal(false);
+  protected readonly revertMigrationError = signal<string | null>(null);
+  /** RBM-F16: set right before `retry()` refetches after a successful migration revert — the
+   * migration ITSELF ceased to exist, so the refetch is expected to 404 (unlike every other
+   * `retry()` call site, where a fetch error is really an error). The `detailState` effect below
+   * reads this once, right after the refetch settles, and closes the dialog when both are true
+   * instead of falling into the generic error UI — see `revertMigration()`'s own doc comment. */
+  private readonly expectMigrationGoneAfterRetry = signal(false);
   /** User-facing message for the most recent failed save attempt, `null` when there is none
    * to show. Rendered inside `ViewerEditFormComponent` (still-open modal) rather than
    * relying on `ExpenseService.error$` — that stream surfaces in `ExpensePage`, which sits
@@ -294,6 +343,17 @@ export class OmegaViewerComponent {
       return false;
     }
     return detail.kind === 'EXPENSE' || detail.kind === 'INSTALLMENT';
+  });
+
+  /** RBM-F16: `true` only for the migration kind AND `revertable === true` — same pattern this
+   * class already uses for `showPaymentsSection` (a `computed()`, never an inline kind
+   * comparison in the template). `revertable` is currently always `true` in this build (RBM-F14
+   * — the real DTO has no such field), so the false branch below is exercised only via the 409
+   * `MigrationNotReversibleException` surfaced after a revert attempt, not via this computed
+   * directly, until the backend adds the field. */
+  protected readonly canRevertMigration = computed(() => {
+    const detail = this.readyDetail();
+    return detail?.kind === 'RESERVED_BUDGET_MIGRATION' && detail.revertable;
   });
 
   /** `TagService`/`CreditCardService` are both `providedIn: 'root'` app-lifetime singletons
@@ -435,6 +495,22 @@ export class OmegaViewerComponent {
       // on this exact turn (view not rendered), so retry on the next microtask too — cheap,
       // and guarantees focus lands once the heading is actually in the DOM.
       queueMicrotask(() => untracked(() => this.titleRef()?.nativeElement.focus()));
+    });
+
+    // RBM-F16: closes the viewer instead of showing the generic error+Retry state when a
+    // refetch 404s specifically because the migration on screen was just reverted away by
+    // this same shell — see `revertMigration()`'s doc comment for why a generic "couldn't
+    // load, try again" is actively wrong here (the item wasn't lost by accident, it was
+    // deliberately deleted by the user's own confirmed action one line above).
+    // `expectMigrationGoneAfterRetry` is read/cleared inside the effect, not the HTTP pipe
+    // itself, so an UNRELATED error status still falls through to the normal error UI.
+    effect(() => {
+      const state = this.detailState();
+      if (state.status !== 'error' || !this.expectMigrationGoneAfterRetry()) {
+        return;
+      }
+      this.expectMigrationGoneAfterRetry.set(false);
+      this.dialogRef.close({ mutated: this.mutated() });
     });
   }
 
@@ -693,6 +769,113 @@ export class OmegaViewerComponent {
         this.revertError.set(this.paymentService.describeRevertError(error));
       },
     });
+  }
+
+  /**
+   * Wired to the migration section's "Reverter" button (RBM-F16). Same shape as
+   * `requestRevertPayment()`: routed through `guardDirty()` first (a migration only ever
+   * displays while `mode() === 'VIEW'`, so nothing should be dirty in practice, but the guard is
+   * free insurance against a future template reorg reopening the same race C1 already closed
+   * for payments), then confirmed via `ViewerRevertConfirmDialogComponent` with the SAME
+   * `bodyOverride` shape RBM-F7 built for the Reserved Budget card's own undo button.
+   *
+   * This is one of the RBM epic's 2 coordinated migration-revert entry points (the other is
+   * `ReservedBudgetPage.undoMigration()`, RBM-F7). Coordination, per the README:
+   *   1. ONE write path — `revertMigration()` below calls `ReservedBudgetService.deleteMigration()`
+   *      exclusively, never a second method invented here and never `ExtraBudgetService.delete()`
+   *      directly. A concurrent revert from the other entry point resolves as a 404/409 on
+   *      whichever call lands second — the backend is the real barrier against a double-revert,
+   *      this shell does not try to prevent the race with shared client state.
+   *   2. Each point reloads only its OWN screen — this shell sets `mutated`/closes so the bullet
+   *      page (which opened it) reloads via its own `reloadWalletContext()`; it never reaches
+   *      into `ReservedBudgetPage`'s state, and vice-versa. The two screens are never on-screen
+   *      simultaneously (this is a modal over the bullet page; the RB card lives on another
+   *      route), so there is nothing to synchronize live.
+   *   3. IDENTICAL confirmation copy — same `bodyOverride` sentence shape as RBM-F7's card-based
+   *      undo (amount, source bullet, destination reserve, month), so a user reverting from
+   *      either point reads and confirms the exact same thing. Diverging the copy between the
+   *      two points would be the cheapest way to reopen this risk.
+   */
+  protected requestRevertMigration(detail: OmegaViewerReservedBudgetMigrationDetail): void {
+    this.guardDirty(() => this.openRevertMigrationConfirmDialog(detail));
+  }
+
+  private openRevertMigrationConfirmDialog(detail: OmegaViewerReservedBudgetMigrationDetail): void {
+    const monthLabel = formatMonthLabel(detail.effectiveMonth);
+    const data: ViewerRevertConfirmDialogData = {
+      dateLabel: monthLabel,
+      bodyOverride:
+        `Undo this migration? ${formatBrl(detail.amount)} will leave the bullet ` +
+        `"${detail.bulletDescription}" and return to the reserved budget ` +
+        `"${detail.reservedBudgetDescription}" for ${monthLabel}.`,
+    };
+
+    this.matDialog
+      .open<ViewerRevertConfirmDialogComponent, ViewerRevertConfirmDialogData, boolean>(
+        ViewerRevertConfirmDialogComponent,
+        { width: '30rem', maxWidth: 'calc(100vw - 2rem)', data },
+      )
+      .afterClosed()
+      .subscribe((confirmed) => {
+        if (confirmed) {
+          this.revertMigration(detail);
+        }
+      });
+  }
+
+  /**
+   * Calls `ReservedBudgetService.deleteMigration()` (RBM-F2/F7) — the ONE write path for
+   * undoing a migration, never a second one invented here or a direct
+   * `ExtraBudgetService.delete()` call (RBM-F16 rule 1; the coordination test in RBM-F17 pins
+   * exactly this).
+   *
+   * On success: `mutated.set(true)` (so the bullet page reloads on close, same convention as
+   * every other mutation in this shell) and `retry()` to refetch the current item. Unlike
+   * `revertPayment()`, a successful migration revert makes the migration itself CEASE TO EXIST
+   * — the refetch will 404. That is handled explicitly in `detailState`'s own `catchError`
+   * (see `wasRevertedAway`), which closes the dialog instead of falling into the generic error
+   * state — showing "Não foi possível carregar os detalhes" with a Retry button on an item that
+   * was deliberately just deleted would be actively wrong, not just unpolished.
+   *
+   * On 409 `MigrationNotReversibleException` (the bullet already spent the amount): surfaces
+   * `revertMigrationError` inside the still-open modal — never silently dropped, same
+   * discipline `revertPayment()`'s own doc comment already established for this shell (code
+   * review C2 elsewhere in this feature).
+   */
+  private revertMigration(detail: OmegaViewerReservedBudgetMigrationDetail): void {
+    this.revertingMigration.set(true);
+    this.revertMigrationError.set(null);
+    this.reservedBudgetService
+      .deleteMigration(detail.reservedBudgetId, detail.extraBudgetId)
+      .subscribe({
+        next: () => {
+          this.revertingMigration.set(false);
+          this.mutated.set(true);
+          this.expectMigrationGoneAfterRetry.set(true);
+          this.retry();
+        },
+        error: (error: unknown) => {
+          this.revertingMigration.set(false);
+          this.revertMigrationError.set(this.describeMigrationRevertError(error));
+        },
+      });
+  }
+
+  private describeMigrationRevertError(error: unknown): string {
+    if (error instanceof HttpErrorResponse && error.status === 409) {
+      const body: unknown = error.error;
+      if (isMigrationNotReversibleProblem(body)) {
+        return this.formatMigrationNotReversibleMessage(body);
+      }
+    }
+    return 'Não foi possível desfazer a migration. Tente novamente.';
+  }
+
+  private formatMigrationNotReversibleMessage(problem: MigrationNotReversibleProblem): string {
+    return (
+      `Não foi possível desfazer — o bullet já gastou parte do valor migrado ` +
+      `(disponível: ${formatBrl(problem.remaining)}, necessário: ${formatBrl(problem.required)}).`
+    );
   }
 
   /** Best-effort mapping from a patch failure to a message the user can act on — shared by

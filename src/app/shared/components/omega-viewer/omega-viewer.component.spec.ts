@@ -8,13 +8,14 @@ import { ApplicationRef } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { of, Subject } from 'rxjs';
+import { Observable, of, Subject } from 'rxjs';
 
 import {
   OmegaViewerDetail,
   OmegaViewerExpenseDetail,
   OmegaViewerInstallmentDetail,
   OmegaViewerPayment,
+  OmegaViewerReservedBudgetMigrationDetail,
 } from './models/omega-viewer-detail';
 import {
   ExpenseViewerResponseDto,
@@ -2735,6 +2736,245 @@ async function waitUntilRequestMade(
   }
   throw new Error(`Timed out waiting for a request to ${url}`);
 }
+
+// RBM-F16/F17 — revert entry point for the 4th kind, plus the coordination test that pins the
+// single-write-path rule (rule 1): the shell must call ReservedBudgetService.deleteMigration(),
+// never ExtraBudgetService.delete() directly.
+describe('OmegaViewerComponent — reserved budget migration revert (RBM-F16)', () => {
+  let fixture: ComponentFixture<OmegaViewerComponent>;
+  let component: OmegaViewerComponent;
+  let httpMock: HttpTestingController;
+  let dialog: { open: ReturnType<typeof vi.fn> };
+  let dialogRef: {
+    close: ReturnType<typeof vi.fn>;
+    keydownEvents: ReturnType<typeof vi.fn>;
+    backdropClick: ReturnType<typeof vi.fn>;
+  };
+  let loadSpy: ReturnType<typeof vi.fn>;
+
+  function buildMigrationDetail(
+    overrides: Partial<OmegaViewerReservedBudgetMigrationDetail> = {},
+  ): OmegaViewerReservedBudgetMigrationDetail {
+    return {
+      kind: 'RESERVED_BUDGET_MIGRATION',
+      ref: { kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' },
+      extraBudgetId: 'eb-1',
+      reservedBudgetId: 'rb-1',
+      reservedBudgetDescription: 'Vacation fund',
+      bulletId: 'bullet-1',
+      bulletDescription: 'Groceries',
+      amount: 500,
+      currency: 'BRL',
+      effectiveMonth: '2026-08',
+      description: null,
+      revertable: true,
+      links: [],
+      audit: null,
+      ...overrides,
+    };
+  }
+
+  // Mirrors the F-10 payments block's own setup() doc comment: mockImplementation (a fresh
+  // object per call), not mockReturnValue, so a refetch is observable as a real identity change
+  // — and so a refetch that errors (404-after-revert) is distinguishable from "never refetched".
+  async function setup(detail: OmegaViewerDetail): Promise<void> {
+    dialogRef = {
+      close: vi.fn(),
+      keydownEvents: vi.fn().mockReturnValue(of()),
+      backdropClick: vi.fn().mockReturnValue(of()),
+    };
+    dialog = { open: vi.fn().mockReturnValue({ afterClosed: () => of(true) }) };
+    loadSpy = vi.fn().mockImplementation(() => of({ ...detail }));
+
+    TestBed.configureTestingModule({
+      imports: [OmegaViewerComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MatDialogRef, useValue: dialogRef },
+        {
+          provide: MAT_DIALOG_DATA,
+          useValue: { kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' },
+        },
+        { provide: MatDialog, useValue: dialog },
+      ],
+    });
+    TestBed.overrideComponent(OmegaViewerComponent, {
+      set: {
+        providers: [
+          { provide: MatDialog, useValue: dialog },
+          { provide: OmegaViewerService, useValue: { load: loadSpy } },
+        ],
+      },
+    });
+
+    fixture = TestBed.createComponent(OmegaViewerComponent);
+    component = fixture.componentInstance;
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne('/api/credit-cards?page=0&size=100')
+      .flush({ content: [], page: 0, size: 100, totalElements: 0, totalPages: 0 });
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  it('canRevertMigration() is true only for the migration kind with revertable: true', async () => {
+    await setup(buildMigrationDetail({ revertable: true }));
+    expect(component['canRevertMigration']()).toBe(true);
+  });
+
+  it('canRevertMigration() is false for revertable: false', async () => {
+    await setup(buildMigrationDetail({ revertable: false }));
+    expect(component['canRevertMigration']()).toBe(false);
+  });
+
+  it('canRevertMigration() is false for the 3 old kinds (non-regression of the guard)', async () => {
+    await setup({
+      kind: 'EXPENSE',
+      ref: { kind: 'EXPENSE', id: 'expense-1' },
+      name: 'Groceries',
+      cost: 100,
+      remaining: 40,
+      purchaseDate: '2026-07-01',
+      creditCardId: null,
+      details: null,
+      tagIds: [],
+      payerName: null,
+      payments: [],
+      installmentsRemaining: null,
+      links: [],
+      audit: null,
+    });
+    expect(component['canRevertMigration']()).toBe(false);
+  });
+
+  it('revertable: false renders the ineligible message, not a revert button', async () => {
+    await setup(buildMigrationDetail({ revertable: false }));
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('.ovw__migration-ineligible')).not.toBeNull();
+    expect(root.querySelector('.ovw__migration-revert button')).toBeNull();
+  });
+
+  it('clicking Reverter opens the confirm dialog and does not call deleteMigration before confirmation', async () => {
+    await setup(buildMigrationDetail());
+    // afterClosed() stays open (never emits) until the test resolves it below — proves the
+    // DELETE genuinely waits on the user's confirmation, not just "eventually fires".
+    const confirmSubject = new Subject<boolean>();
+    dialog.open.mockReturnValue({ afterClosed: () => confirmSubject.asObservable() });
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.ovw__migration-revert button')?.click();
+    fixture.detectChanges();
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    httpMock.expectNone(
+      (req) => req.url === '/api/reserved-budgets/rb-1/migrations/eb-1' && req.method === 'DELETE',
+    );
+
+    confirmSubject.next(true);
+    fixture.detectChanges();
+
+    httpMock.expectOne(
+      (req) => req.url === '/api/reserved-budgets/rb-1/migrations/eb-1' && req.method === 'DELETE',
+    );
+  });
+
+  it('cancelling the confirm dialog calls no service', async () => {
+    await setup(buildMigrationDetail());
+    dialog.open.mockReturnValue({ afterClosed: () => of(false) });
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.ovw__migration-revert button')?.click();
+    fixture.detectChanges();
+
+    httpMock.expectNone(
+      (req) => req.url === '/api/reserved-budgets/rb-1/migrations/eb-1' && req.method === 'DELETE',
+    );
+  });
+
+  it('confirming calls ReservedBudgetService.deleteMigration(reservedBudgetId, extraBudgetId) — the ONE write path (RBM-F16 rule 1)', async () => {
+    await setup(buildMigrationDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.ovw__migration-revert button')?.click();
+    fixture.detectChanges();
+
+    const req = httpMock.expectOne(
+      (r) => r.url === '/api/reserved-budgets/rb-1/migrations/eb-1' && r.method === 'DELETE',
+    );
+    expect(req.request.method).toBe('DELETE');
+
+    // Coordination test (RBM-F16 rule 1): the ONLY write this flow may ever issue is the
+    // reserved-budgets migrations DELETE above — never a direct ExtraBudget delete. If someone
+    // "simplified" the shell by calling ExtraBudgetService.delete() straight, this assertion
+    // fails because that second write path would appear here.
+    httpMock.expectNone((r) => r.url.includes('/extra-budgets/') && r.method === 'DELETE');
+  });
+
+  it('the bodyOverride sent to the confirm dialog mentions amount, bullet, reserve, and month', async () => {
+    await setup(buildMigrationDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.ovw__migration-revert button')?.click();
+    fixture.detectChanges();
+
+    const [, config] = dialog.open.mock.calls[0] as [
+      unknown,
+      { data: { bodyOverride?: string; dateLabel: string } },
+    ];
+    expect(config.data.bodyOverride).toContain('Groceries');
+    expect(config.data.bodyOverride).toContain('Vacation fund');
+    expect(config.data.dateLabel).toBe('Aug 2026');
+  });
+
+  it('on success, mutated is set and the viewer closes instead of showing a generic error (404-after-revert)', async () => {
+    await setup(buildMigrationDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.ovw__migration-revert button')?.click();
+    fixture.detectChanges();
+
+    const deleteReq = httpMock.expectOne(
+      (r) => r.url === '/api/reserved-budgets/rb-1/migrations/eb-1' && r.method === 'DELETE',
+    );
+    deleteReq.flush({});
+
+    // The refetch triggered by retry() is expected to 404 — the migration itself is gone.
+    loadSpy.mockReturnValueOnce(
+      new Observable((subscriber) => subscriber.error(new Error('404'))),
+    );
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(dialogRef.close).toHaveBeenCalledWith({ mutated: true });
+  });
+
+  it('on 409 MigrationNotReversibleException, shows an inline error and keeps the modal open (mutated stays false)', async () => {
+    await setup(buildMigrationDetail());
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector<HTMLButtonElement>('.ovw__migration-revert button')?.click();
+    fixture.detectChanges();
+
+    httpMock
+      .expectOne(
+        (r) => r.url === '/api/reserved-budgets/rb-1/migrations/eb-1' && r.method === 'DELETE',
+      )
+      .flush(
+        { title: 'Migration not reversible', bulletId: 'bullet-1', remaining: 20, required: 100 },
+        { status: 409, statusText: 'Conflict' },
+      );
+    fixture.detectChanges();
+
+    expect(component['revertMigrationError']()).not.toBeNull();
+    expect(dialogRef.close).not.toHaveBeenCalled();
+  });
+});
 
 /** Drains pending microtasks and forces an `ApplicationRef.tick()` between DOM interactions in
  * the real-`MatDialog` F-17 launcher test above — unlike every other block in this file, that

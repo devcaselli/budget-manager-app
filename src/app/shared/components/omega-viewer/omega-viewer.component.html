@@ -86,6 +86,33 @@
             } @else {
               <app-viewer-field-list [rows]="fieldRows()" [remainingBadge]="remainingBadge()" />
 
+              @if (detail.kind === 'RESERVED_BUDGET_MIGRATION') {
+                <!-- RBM-F16: reversal lives here, not in a section component of its own — the
+                     field-list already shows everything the confirm text needs, and there is
+                     no per-row list to render (a migration is a single item, unlike payments). -->
+                <div class="ovw__migration-revert">
+                  @if (revertMigrationError(); as message) {
+                    <div class="ew-alert" role="alert">
+                      <span>{{ message }}</span>
+                    </div>
+                  }
+                  @if (canRevertMigration()) {
+                    <button
+                      class="ew-btn ew-btn--ghost"
+                      type="button"
+                      [disabled]="revertingMigration()"
+                      (click)="requestRevertMigration(detail)"
+                    >
+                      {{ revertingMigration() ? 'Revertendo...' : 'Reverter migration' }}
+                    </button>
+                  } @else {
+                    <p class="ovw__migration-ineligible">
+                      Esta migration não pode ser desfeita — o bullet já gastou o valor.
+                    </p>
+                  }
+                </div>
+              }
+
               @if (detail.kind !== 'RESERVED_BUDGET_MIGRATION') {
                 <!-- RBM-F14: a migration has no `details` field on its detail shape at all (it
                      isn't a notes-bearing kind like Expense/Installment/Subscription) — an
