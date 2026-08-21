@@ -1435,7 +1435,12 @@ describe('OmegaViewerComponent — notes section (F-08)', () => {
     });
     fixture.detectChanges();
 
-    expect(component['readyDetail']()?.details).toBe('Updated note');
+    // Narrowed via 'details' in — the union's RESERVED_BUDGET_MIGRATION member (RBM-F14) has no
+    // details field at all, so a plain optional-chained read no longer type-checks on the union.
+    const readyDetail = component['readyDetail']();
+    expect(readyDetail && 'details' in readyDetail ? readyDetail.details : undefined).toBe(
+      'Updated note',
+    );
     expect(component['notesSaving']()).toBe(false);
     // `mutated` is private — observed indirectly via close()'s result payload.
     component['close']();
@@ -1464,7 +1469,10 @@ describe('OmegaViewerComponent — notes section (F-08)', () => {
     });
     fixture.detectChanges();
 
-    expect(component['readyDetail']()?.details).toBe('Sub note');
+    const readyDetail = component['readyDetail']();
+    expect(readyDetail && 'details' in readyDetail ? readyDetail.details : undefined).toBe(
+      'Sub note',
+    );
     expect(component['notesSaving']()).toBe(false);
   });
 
@@ -2128,6 +2136,27 @@ describe('OmegaViewerComponent — end-to-end integration + accessibility (F-17)
     };
   }
 
+  // Not exercised by this block's own walk (Expense -> Installment -> Subscription -> Back ->
+  // Back) — added only to keep the switch below exhaustive without a `default:`.
+  function buildReservedBudgetMigrationDetail(): OmegaViewerDetail {
+    return {
+      kind: 'RESERVED_BUDGET_MIGRATION',
+      ref: { kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' },
+      extraBudgetId: 'eb-1',
+      reservedBudgetId: 'rb-1',
+      reservedBudgetDescription: 'Vacation fund',
+      bulletId: 'bullet-1',
+      bulletDescription: 'Groceries',
+      amount: 500,
+      currency: 'BRL',
+      effectiveMonth: '2026-08',
+      description: null,
+      revertable: true,
+      links: [],
+      audit: null,
+    };
+  }
+
   /** Stubs `OmegaViewerService.load()` by ref.kind, exactly like the F-11 block above — lets a
    * click-driven walk (Expense -> Installment -> Subscription -> Back -> Back) resolve every
    * hop without hand-wiring one HTTP flush per navigation. */
@@ -2164,6 +2193,8 @@ describe('OmegaViewerComponent — end-to-end integration + accessibility (F-17)
                     return of(buildInstallmentDetail());
                   case 'SUBSCRIPTION':
                     return of(buildSubscriptionDetail());
+                  case 'RESERVED_BUDGET_MIGRATION':
+                    return of(buildReservedBudgetMigrationDetail());
                 }
               },
             },

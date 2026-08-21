@@ -10,6 +10,7 @@ import {
   OmegaViewerInstallmentDetail,
   OmegaViewerInstallmentProgress,
   OmegaViewerPayment,
+  OmegaViewerReservedBudgetMigrationDetail,
   OmegaViewerSubscriptionDetail,
 } from './models/omega-viewer-detail';
 import {
@@ -17,6 +18,7 @@ import {
   InstallmentProgressResponseDto,
   InstallmentViewerResponseDto,
   PaymentTraceLineResponseDto,
+  ReservedBudgetMigrationViewerResponseDto,
   SubscriptionViewerResponseDto,
   ViewerRefResponseDto,
 } from './models/omega-viewer-dto';
@@ -51,6 +53,8 @@ export class OmegaViewerService {
         return this.loadInstallment(ref.id);
       case 'SUBSCRIPTION':
         return this.loadSubscription(ref.id);
+      case 'RESERVED_BUDGET_MIGRATION':
+        return this.loadReservedBudgetMigration(ref.id);
     }
   }
 
@@ -70,6 +74,19 @@ export class OmegaViewerService {
     return this.http
       .get<SubscriptionViewerResponseDto>(`${this.viewerUrl}/subscriptions/${id}`)
       .pipe(map((dto) => this.mapSubscription(dto)));
+  }
+
+  // Path segment/DTO/field confirmed against the real backend (RBM-F1 gate). The
+  // @PathVariable is named `id` on the controller but semantically receives the extraBudgetId
+  // — it's "the migration" that opens, not "the reserve budget with focus on the migration".
+  private loadReservedBudgetMigration(
+    extraBudgetId: string,
+  ): Observable<OmegaViewerReservedBudgetMigrationDetail> {
+    return this.http
+      .get<ReservedBudgetMigrationViewerResponseDto>(
+        `${this.viewerUrl}/reserved-budget-migrations/${extraBudgetId}`,
+      )
+      .pipe(map((dto) => this.mapReservedBudgetMigration(dto)));
   }
 
   private mapExpense(dto: ExpenseViewerResponseDto): OmegaViewerExpenseDetail {
@@ -155,6 +172,36 @@ export class OmegaViewerService {
         updatedAt: toDateOnly(dto.updatedAt),
         deletedAt: null,
       },
+    };
+  }
+
+  private mapReservedBudgetMigration(
+    dto: ReservedBudgetMigrationViewerResponseDto,
+  ): OmegaViewerReservedBudgetMigrationDetail {
+    return {
+      kind: 'RESERVED_BUDGET_MIGRATION',
+      ref: { kind: 'RESERVED_BUDGET_MIGRATION', id: dto.extraBudgetId },
+      extraBudgetId: dto.extraBudgetId,
+      reservedBudgetId: dto.reservedBudgetId,
+      reservedBudgetDescription: dto.reservedBudgetDescription,
+      bulletId: dto.bulletId,
+      bulletDescription: dto.bulletDescription,
+      amount: dto.amount,
+      currency: dto.currency,
+      effectiveMonth: dto.effectiveMonth,
+      description: dto.description,
+      // Not present on the real DTO (RBM-F1 gate) — assume revertable and let the 409
+      // MigrationNotReversibleException handle the false case specifically inside the viewer
+      // (RBM-F16). See the domain type's own doc comment for the full rationale.
+      revertable: true,
+      // The reserved budget the migration came from is not itself a viewer kind — only the
+      // migration is. No link is invented for it (same honesty as mapSubscription's empty
+      // links above, not an oversight).
+      links: [],
+      // The real DTO has no createdAt/updatedAt/deletedAt timestamps at all — audit stays
+      // hidden entirely, same "null means hidden, not a placeholder" convention documented on
+      // OmegaViewerAudit itself.
+      audit: null,
     };
   }
 }

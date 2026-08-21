@@ -1,5 +1,15 @@
-/** The three item kinds the Omega Viewer can display. */
-export type OmegaViewerItemKind = 'EXPENSE' | 'INSTALLMENT' | 'SUBSCRIPTION';
+/**
+ * The four item kinds the Omega Viewer can display. `RESERVED_BUDGET_MIGRATION` was added in
+ * RBM-F14 — its `id` is the `extraBudgetId` that materializes the migration (the same id
+ * `ReservedBudgetService.deleteMigration()` takes), not a `ReservedBudget` id: it's "the
+ * migration" that opens, not "the reserve with focus on the migration" (confirmed by the real
+ * endpoint's `@PathVariable` semantics — RBM-F1).
+ */
+export type OmegaViewerItemKind =
+  | 'EXPENSE'
+  | 'INSTALLMENT'
+  | 'SUBSCRIPTION'
+  | 'RESERVED_BUDGET_MIGRATION';
 
 /**
  * Identifies a single item to load into the viewer — either the item the launcher was

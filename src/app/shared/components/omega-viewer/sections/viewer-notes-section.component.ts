@@ -12,10 +12,23 @@ import {
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { OmegaViewerDetail } from '../models/omega-viewer-detail';
+import {
+  OmegaViewerDetail,
+  OmegaViewerReservedBudgetMigrationDetail,
+} from '../models/omega-viewer-detail';
 
 /** Local edit form shape — a single `details` textarea, always a non-nullable `string`. */
 type NotesForm = FormGroup<{ details: FormControl<string> }>;
+
+/**
+ * RBM-F14: the migration kind has no `details` field at all — it isn't a notes-bearing kind
+ * (see the class doc's "Editable for Expense/Subscription, read-only for Installment" list,
+ * which the migration was never meant to join). The shell already never renders this section
+ * for that kind (`omega-viewer.component.html`'s `@if (detail.kind !== 'RESERVED_BUDGET_MIGRATION')`
+ * guard) — narrowing the input's own type here makes that guarantee structural instead of an
+ * accident of template layout, the same reasoning `showPaymentsSection()` documents for itself.
+ */
+type NotesDetail = Exclude<OmegaViewerDetail, OmegaViewerReservedBudgetMigrationDetail>;
 
 /**
  * Notes section (F-08) — displays/edits the `details` field for all 3 Omega Viewer item
@@ -61,7 +74,7 @@ export class ViewerNotesSectionComponent {
    * subscription to this component's lifetime via `takeUntilDestroyed(this.destroyRef)`. */
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly detail = input.required<OmegaViewerDetail>();
+  readonly detail = input.required<NotesDetail>();
   /** Disables the Save button while a patch request is in flight — shell-owned, same as
    * `ViewerEditFormComponent.saving`. */
   readonly saving = input(false);

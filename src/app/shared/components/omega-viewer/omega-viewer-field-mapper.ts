@@ -4,6 +4,7 @@ import {
   OmegaViewerDetail,
   OmegaViewerExpenseDetail,
   OmegaViewerInstallmentDetail,
+  OmegaViewerReservedBudgetMigrationDetail,
   OmegaViewerSubscriptionDetail,
 } from './models/omega-viewer-detail';
 import { OmegaViewerFieldRow, OmegaViewerRemainingBadge } from './models/omega-viewer-field-row';
@@ -73,6 +74,8 @@ export function mapDetailToFieldRows(
       return mapInstallmentRows(detail, ctx);
     case 'SUBSCRIPTION':
       return mapSubscriptionRows(detail, ctx);
+    case 'RESERVED_BUDGET_MIGRATION':
+      return mapReservedBudgetMigrationRows(detail, ctx);
   }
 }
 
@@ -132,6 +135,23 @@ function mapSubscriptionRows(
     row('currency', 'Moeda', detail.currency),
     row('payer', 'Pagador', detail.payerName ?? UNSET),
     row('tags', 'Tags', tagsValue(detail.tagIds, ctx.tagNameById)),
+  ];
+}
+
+// ctx (tagNameById/creditCardNameById) is unused by this mapper — a migration has neither tags
+// nor a credit card. Kept as a parameter anyway to match the dispatch's uniform per-kind
+// signature (mapDetailToFieldRows's switch calls all four mapXRows the same way); not
+// destructured here since nothing in it is read.
+function mapReservedBudgetMigrationRows(
+  detail: OmegaViewerReservedBudgetMigrationDetail,
+  _ctx: OmegaViewerFieldMapperContext,
+): readonly OmegaViewerFieldRow[] {
+  return [
+    row('reservedBudget', 'Reserva de origem', detail.reservedBudgetDescription),
+    row('bullet', 'Bullet de destino', detail.bulletDescription),
+    row('amount', 'Valor migrado', formatBrl(detail.amount), true),
+    row('effectiveMonth', 'Mês', formatMonth(detail.effectiveMonth)),
+    row('currency', 'Moeda', detail.currency),
   ];
 }
 

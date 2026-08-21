@@ -108,3 +108,32 @@ export interface SubscriptionViewerResponseDto {
   readonly updatedAt: string;
   readonly versions: readonly SubscriptionVersionViewResponseDto[];
 }
+
+/**
+ * RBM-F14/RBM-F1 gate — mirrors `ReservedBudgetMigrationViewerResponseDto`/
+ * `ReservedBudgetMigrationViewerOutput` exactly, as read from the real backend. `revertable` is
+ * confirmed absent from this DTO (unlike the plan doc's assumption) — see the domain type's own
+ * doc comment for the fallback this drives. `reverted`/`revertedAt`/`reservedBudgetActive`/
+ * `reservedBudgetAmount`/`reservedBudgetRemaining` exist in the real DTO though the original
+ * plan doc didn't list them; useful for reopening the viewer on an already-reverted migration
+ * without a 404, but not consumed by this task's mapping (kept here for shape fidelity — the
+ * file's own convention is to mirror the DTO exactly, not just the fields currently used).
+ */
+export interface ReservedBudgetMigrationViewerResponseDto {
+  readonly extraBudgetId: string;
+  readonly description: string | null;
+  readonly amount: number;
+  readonly currency: string;
+  readonly effectiveMonth: string;
+  readonly walletId: string;
+  readonly bulletId: string;
+  readonly bulletDescription: string;
+  readonly reverted: boolean;
+  readonly revertedAt: string | null;
+  readonly reservedBudgetId: string;
+  readonly reservedBudgetDescription: string;
+  readonly reservedBudgetAmount: number;
+  readonly reservedBudgetRemaining: number;
+  readonly reservedBudgetActive: boolean;
+  readonly refs: readonly ViewerRefResponseDto[];
+}

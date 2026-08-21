@@ -5,11 +5,13 @@ import { TestBed } from '@angular/core/testing';
 import {
   ExpenseViewerResponseDto,
   InstallmentViewerResponseDto,
+  ReservedBudgetMigrationViewerResponseDto,
   SubscriptionViewerResponseDto,
 } from './models/omega-viewer-dto';
 import {
   OmegaViewerExpenseDetail,
   OmegaViewerInstallmentDetail,
+  OmegaViewerReservedBudgetMigrationDetail,
   OmegaViewerSubscriptionDetail,
 } from './models/omega-viewer-detail';
 import { OmegaViewerService } from './omega-viewer.service';
@@ -78,6 +80,30 @@ function buildSubscriptionDto(
     createdAt: '2026-01-01T10:00:00Z',
     updatedAt: '2026-01-15T10:00:00Z',
     versions: [],
+    ...overrides,
+  };
+}
+
+function buildReservedBudgetMigrationDto(
+  overrides: Partial<ReservedBudgetMigrationViewerResponseDto> = {},
+): ReservedBudgetMigrationViewerResponseDto {
+  return {
+    extraBudgetId: 'eb-1',
+    description: 'Vacation money',
+    amount: 500,
+    currency: 'BRL',
+    effectiveMonth: '2026-08',
+    walletId: 'wallet-1',
+    bulletId: 'bullet-1',
+    bulletDescription: 'Groceries',
+    reverted: false,
+    revertedAt: null,
+    reservedBudgetId: 'rb-1',
+    reservedBudgetDescription: 'Vacation fund',
+    reservedBudgetAmount: 2000,
+    reservedBudgetRemaining: 1500,
+    reservedBudgetActive: true,
+    refs: [],
     ...overrides,
   };
 }
@@ -390,6 +416,72 @@ describe('OmegaViewerService', () => {
         .flush(buildSubscriptionDto({ state: 'PREVIEW' }));
 
       expect(result?.state).toBe('PREVIEW');
+    });
+  });
+
+  // RBM-F14/F17 — GET path confirmed against the real backend (RBM-F1 gate). extraBudgetId is
+  // the id, not a separate migration id (there isn't one).
+  describe('RESERVED_BUDGET_MIGRATION', () => {
+    it('calls GET /viewer/reserved-budget-migrations/{extraBudgetId} and maps the response 1:1', () => {
+      let result: OmegaViewerReservedBudgetMigrationDetail | undefined;
+      service.load({ kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' }).subscribe((detail) => {
+        result = detail as OmegaViewerReservedBudgetMigrationDetail;
+      });
+
+      httpMock
+        .expectOne('/api/viewer/reserved-budget-migrations/eb-1')
+        .flush(buildReservedBudgetMigrationDto());
+
+      expect(result?.kind).toBe('RESERVED_BUDGET_MIGRATION');
+      expect(result?.extraBudgetId).toBe('eb-1');
+      expect(result?.reservedBudgetId).toBe('rb-1');
+      expect(result?.reservedBudgetDescription).toBe('Vacation fund');
+      expect(result?.bulletId).toBe('bullet-1');
+      expect(result?.bulletDescription).toBe('Groceries');
+      expect(result?.amount).toBe(500);
+      expect(result?.currency).toBe('BRL');
+      expect(result?.effectiveMonth).toBe('2026-08');
+      expect(result?.description).toBe('Vacation money');
+      expect(result?.ref).toEqual({ kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' });
+    });
+
+    it('always reports revertable as true (the real DTO has no such field) — RBM-F1 fallback', () => {
+      let result: OmegaViewerReservedBudgetMigrationDetail | undefined;
+      service.load({ kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' }).subscribe((detail) => {
+        result = detail as OmegaViewerReservedBudgetMigrationDetail;
+      });
+
+      httpMock
+        .expectOne('/api/viewer/reserved-budget-migrations/eb-1')
+        .flush(buildReservedBudgetMigrationDto());
+
+      expect(result?.revertable).toBe(true);
+    });
+
+    it('has an empty links array (the source reserved budget is not a viewer kind of its own)', () => {
+      let result: OmegaViewerReservedBudgetMigrationDetail | undefined;
+      service.load({ kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' }).subscribe((detail) => {
+        result = detail as OmegaViewerReservedBudgetMigrationDetail;
+      });
+
+      httpMock
+        .expectOne('/api/viewer/reserved-budget-migrations/eb-1')
+        .flush(buildReservedBudgetMigrationDto());
+
+      expect(result?.links).toEqual([]);
+    });
+
+    it('has a null audit block (the real DTO carries no timestamps at all)', () => {
+      let result: OmegaViewerReservedBudgetMigrationDetail | undefined;
+      service.load({ kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' }).subscribe((detail) => {
+        result = detail as OmegaViewerReservedBudgetMigrationDetail;
+      });
+
+      httpMock
+        .expectOne('/api/viewer/reserved-budget-migrations/eb-1')
+        .flush(buildReservedBudgetMigrationDto());
+
+      expect(result?.audit).toBeNull();
     });
   });
 });

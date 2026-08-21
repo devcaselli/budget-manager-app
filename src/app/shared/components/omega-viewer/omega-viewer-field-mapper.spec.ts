@@ -1,4 +1,8 @@
-import { OmegaViewerExpenseDetail, OmegaViewerInstallmentDetail } from './models/omega-viewer-detail';
+import {
+  OmegaViewerExpenseDetail,
+  OmegaViewerInstallmentDetail,
+  OmegaViewerReservedBudgetMigrationDetail,
+} from './models/omega-viewer-detail';
 import { mapDetailToFieldRows, mapRemainingBadge, OmegaViewerFieldMapperContext } from './omega-viewer-field-mapper';
 
 const emptyCtx: OmegaViewerFieldMapperContext = {
@@ -44,6 +48,28 @@ function buildInstallmentDetail(
     payerName: null,
     progress: { paidInstallments: 7, remainingInstallments: 5, totalInstallments: 12 },
     payments: [],
+    links: [],
+    audit: null,
+    ...overrides,
+  };
+}
+
+function buildReservedBudgetMigrationDetail(
+  overrides: Partial<OmegaViewerReservedBudgetMigrationDetail> = {},
+): OmegaViewerReservedBudgetMigrationDetail {
+  return {
+    kind: 'RESERVED_BUDGET_MIGRATION',
+    ref: { kind: 'RESERVED_BUDGET_MIGRATION', id: 'eb-1' },
+    extraBudgetId: 'eb-1',
+    reservedBudgetId: 'rb-1',
+    reservedBudgetDescription: 'Vacation fund',
+    bulletId: 'bullet-1',
+    bulletDescription: 'Groceries',
+    amount: 500,
+    currency: 'BRL',
+    effectiveMonth: '2026-08',
+    description: null,
+    revertable: true,
     links: [],
     audit: null,
     ...overrides,
@@ -107,10 +133,49 @@ describe('mapDetailToFieldRows — INSTALLMENT', () => {
   });
 });
 
+describe('mapDetailToFieldRows — RESERVED_BUDGET_MIGRATION (RBM-F14)', () => {
+  it('renders exactly the 5 documented rows, in order', () => {
+    const rows = mapDetailToFieldRows(buildReservedBudgetMigrationDetail(), emptyCtx);
+
+    expect(rows.map((r) => r.key)).toEqual([
+      'reservedBudget',
+      'bullet',
+      'amount',
+      'effectiveMonth',
+      'currency',
+    ]);
+  });
+
+  it('sources reservedBudget/bullet rows from the already-resolved descriptions', () => {
+    const rows = mapDetailToFieldRows(buildReservedBudgetMigrationDetail(), emptyCtx);
+
+    expect(rows.find((r) => r.key === 'reservedBudget')?.value).toBe('Vacation fund');
+    expect(rows.find((r) => r.key === 'bullet')?.value).toBe('Groceries');
+  });
+
+  it('marks the amount row as sensitive for .ew-blur, same treatment as cost/remaining', () => {
+    const rows = mapDetailToFieldRows(buildReservedBudgetMigrationDetail(), emptyCtx);
+
+    expect(rows.find((r) => r.key === 'amount')?.sensitive).toBe(true);
+  });
+
+  it('renders no tag/payer/creditCard rows — the migration has none of the three', () => {
+    const rows = mapDetailToFieldRows(buildReservedBudgetMigrationDetail(), emptyCtx);
+
+    expect(rows.find((r) => r.key === 'tags')).toBeUndefined();
+    expect(rows.find((r) => r.key === 'payer')).toBeUndefined();
+    expect(rows.find((r) => r.key === 'creditCard')).toBeUndefined();
+  });
+});
+
 describe('mapRemainingBadge', () => {
   it('returns {kind: "none"} for a non-EXPENSE detail kind', () => {
     const detail = buildExpenseDetail({ installmentsRemaining: 3 });
     expect(mapRemainingBadge({ ...detail, kind: 'EXPENSE' })).toEqual({ kind: 'remaining', count: 3 });
+  });
+
+  it('returns {kind: "none"} for the new RESERVED_BUDGET_MIGRATION kind (non-regression of the existing guard)', () => {
+    expect(mapRemainingBadge(buildReservedBudgetMigrationDetail())).toEqual({ kind: 'none' });
   });
 
   it('returns {kind: "none"} when installmentsRemaining is null (not installment-linked)', () => {

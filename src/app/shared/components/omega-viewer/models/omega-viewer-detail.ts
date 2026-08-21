@@ -115,8 +115,33 @@ export interface OmegaViewerSubscriptionDetail extends OmegaViewerDetailBase {
   readonly payerName: string | null;
 }
 
+/**
+ * RBM-F14 — 4th kind, a reserved-budget-to-bullet migration. `revertable` is confirmed absent
+ * from the real backend DTO/output (`ReservedBudgetMigrationViewerResponseDto`/
+ * `ReservedBudgetMigrationViewerOutput`, RBM-F1 gate) — the documented fallback is to assume
+ * `true` here and handle the 409 `MigrationNotReversibleException` specifically inside the
+ * viewer (RBM-F16) when it turns out false. Worse UX than a real field, registered as a known
+ * divergence rather than silently treated as if the field existed.
+ */
+export interface OmegaViewerReservedBudgetMigrationDetail extends OmegaViewerDetailBase {
+  readonly kind: 'RESERVED_BUDGET_MIGRATION';
+  /** The ExtraBudget that materializes the migration — the id the revert call uses. */
+  readonly extraBudgetId: string;
+  readonly reservedBudgetId: string;
+  readonly reservedBudgetDescription: string;
+  readonly bulletId: string;
+  readonly bulletDescription: string;
+  readonly amount: number;
+  readonly currency: string;
+  readonly effectiveMonth: string;
+  readonly description: string | null;
+  /** Always `true` in this build — see the class doc above. */
+  readonly revertable: boolean;
+}
+
 /** Discriminated union of the viewer's per-kind detail shapes, narrowable by `kind`. */
 export type OmegaViewerDetail =
   | OmegaViewerExpenseDetail
   | OmegaViewerInstallmentDetail
-  | OmegaViewerSubscriptionDetail;
+  | OmegaViewerSubscriptionDetail
+  | OmegaViewerReservedBudgetMigrationDetail;

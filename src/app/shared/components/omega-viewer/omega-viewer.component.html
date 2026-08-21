@@ -54,6 +54,11 @@
                 @case ('SUBSCRIPTION') {
                   <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
                 }
+                @case ('RESERVED_BUDGET_MIGRATION') {
+                  <h3 class="ovw__item-title" #titleEl tabindex="-1">
+                    {{ detail.description ?? ('Migração · ' + detail.bulletDescription) }}
+                  </h3>
+                }
               }
 
               @if (detail.kind === 'EXPENSE' && mode() === 'VIEW' && !detail.audit?.deletedAt) {
@@ -81,15 +86,21 @@
             } @else {
               <app-viewer-field-list [rows]="fieldRows()" [remainingBadge]="remainingBadge()" />
 
-              <app-viewer-notes-section
-                [detail]="detail"
-                [saving]="notesSaving()"
-                [saveError]="notesSaveError()"
-                (save)="saveNotes($event)"
-                (cancelEdit)="onNotesCancelEdit()"
-                (dirtyChange)="onNotesDirtyChange($event)"
-                (editingChange)="onNotesEditingChange($event)"
-              />
+              @if (detail.kind !== 'RESERVED_BUDGET_MIGRATION') {
+                <!-- RBM-F14: a migration has no `details` field on its detail shape at all (it
+                     isn't a notes-bearing kind like Expense/Installment/Subscription) — an
+                     honest guard, same pattern as mapRemainingBadge's kind check, not a
+                     `default:` swallow. -->
+                <app-viewer-notes-section
+                  [detail]="detail"
+                  [saving]="notesSaving()"
+                  [saveError]="notesSaveError()"
+                  (save)="saveNotes($event)"
+                  (cancelEdit)="onNotesCancelEdit()"
+                  (dirtyChange)="onNotesDirtyChange($event)"
+                  (editingChange)="onNotesEditingChange($event)"
+                />
+              }
 
               @if (showPaymentsSection()) {
                 <app-viewer-payments-section

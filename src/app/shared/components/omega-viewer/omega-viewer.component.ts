@@ -61,6 +61,8 @@ function titleOf(detail: OmegaViewerDetail): string {
     case 'INSTALLMENT':
     case 'SUBSCRIPTION':
       return detail.description;
+    case 'RESERVED_BUDGET_MIGRATION':
+      return detail.description ?? `Migração · ${detail.bulletDescription}`;
   }
 }
 
