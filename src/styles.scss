@@ -4,15 +4,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,300;1,6..72,400;1,6..72,500&family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 // ─── Angular Material theme ──────────────────────────────────────────────────
+// Base palette is `$orange-palette` purely as a warm-hue seed for Material's
+// derived state-layer/ripple color-mixes (M3 has no hex-to-palette generator
+// in pure Sass) — the actual `--mat-sys-*` color tokens consumed by every
+// component are hard-pinned to D1's `--ew-*`/semantic tokens immediately
+// below, in both theme scopes, so the seed palette itself is never visible.
 html {
   height: 100%;
   @include mat.theme(
     (
       color: (
-        primary: mat.$azure-palette,
-        tertiary: mat.$blue-palette,
+        primary: mat.$orange-palette,
+        tertiary: mat.$orange-palette,
       ),
-      typography: Roboto,
+      typography: 'Inter Tight',
       density: 0,
     )
   );
@@ -85,6 +90,70 @@ html {
   --ew-serif:     'Newsreader', Georgia, serif;
   --ew-sans:      'Inter Tight', system-ui, sans-serif;
   --ew-mono:      'JetBrains Mono', ui-monospace, monospace;
+
+  // Material system tokens (Redesign v1 — D2) — pin `mat.theme()`'s M3
+  // `--mat-sys-*` color roots to the D1 semantic tokens above. Every
+  // component-level `--mat-*` token (dialog, button, icon, ripple,
+  // state-layer, etc.) reads through `var(--mat-sys-*, fallback)`, so this
+  // single override layer re-themes every Material component that isn't
+  // explicitly pinned further below.
+  // `on-primary` pins to `--surface` (light: near-white, contrast 5.98:1
+  // against `--primary-bg`) rather than `--accent-fg`, which is a *lighter
+  // accent tint* token (used for text/icon accents on a plain surface, not
+  // as an "on-filled-color" pairing) — `--accent`/`--accent-fg` measures
+  // 2.31:1 (light) / 1.43:1 (dark), well under WCAG AA. Dark-mode
+  // `--primary-bg`/`--surface` still only reaches 3.17:1; no existing D1
+  // token clears 4.5:1 here (closest is `--text` at 4.25:1, used below) —
+  // flagged as a known contrast gap for D10 (dark palette explicitly
+  // "unverified until D10" per the epic's acceptance criteria), not
+  // resolved here since D2 is token alignment, not new token creation.
+  --mat-sys-primary:                 var(--primary-bg);
+  --mat-sys-on-primary:               var(--surface);
+  --mat-sys-primary-container:        var(--accent-soft);
+  --mat-sys-on-primary-container:     var(--accent-deep);
+  --mat-sys-secondary-container:      var(--accent-soft-2);
+  --mat-sys-on-secondary-container:   var(--text);
+  --mat-sys-surface:                  var(--surface);
+  --mat-sys-surface-container:        var(--surface-2);
+  --mat-sys-surface-container-low:    var(--surface);
+  --mat-sys-surface-container-lowest: var(--surface);
+  --mat-sys-surface-container-high:   var(--surface-3);
+  --mat-sys-surface-container-highest: var(--surface-3);
+  --mat-sys-surface-bright:           var(--surface);
+  --mat-sys-surface-dim:              var(--surface-2);
+  --mat-sys-surface-variant:          var(--surface-2);
+  --mat-sys-on-surface:               var(--text);
+  --mat-sys-on-surface-variant:       var(--text-2);
+  --mat-sys-outline:                  var(--line);
+  --mat-sys-outline-variant:          var(--line-soft);
+  --mat-sys-error:                    var(--danger);
+  --mat-sys-on-error:                 var(--surface);
+  --mat-sys-error-container:          var(--danger-bg);
+  --mat-sys-on-error-container:       var(--danger-text);
+
+  // Component-level Material tokens (Redesign v1 — D2) — explicit pins for
+  // the 3 Material modules actually used in the app (dialog, button, icon)
+  // per the epic's acceptance criteria, on top of the `--mat-sys-*` layer
+  // above (belt-and-suspenders: correct even if a future Material upgrade
+  // stops threading a given component token through its `--mat-sys-*`
+  // fallback). Same `on-primary`/contrast rationale as above.
+  --mat-dialog-container-color:        var(--surface);
+  --mat-dialog-subhead-color:          var(--text);
+  --mat-dialog-supporting-text-color:  var(--text-2);
+
+  --mat-button-filled-container-color:    var(--primary-bg);
+  --mat-button-filled-label-text-color:   var(--surface);
+  --mat-button-outlined-label-text-color: var(--accent);
+  --mat-button-outlined-outline-color:    var(--line);
+  --mat-button-protected-container-color: var(--surface);
+  --mat-button-protected-label-text-color: var(--accent);
+  --mat-button-text-label-text-color:     var(--accent);
+  --mat-button-tonal-container-color:     var(--accent-soft-2);
+  --mat-button-tonal-label-text-color:    var(--text);
+
+  --mat-icon-color:               var(--text-2);
+  --mat-icon-button-icon-color:   var(--text-2);
+  --mat-icon-button-state-layer-color: var(--text-2);
 }
 
 [data-theme='dark'] {
@@ -142,6 +211,53 @@ html {
   --ew-acc-soft:  var(--accent-soft);
   --ew-teal:      #5fb6a5;
   --ew-bad:       var(--danger);
+
+  // Material system tokens (Redesign v1 — D2) — see `:root` block above for
+  // rationale (incl. the `on-primary`/contrast note); same override set,
+  // resolved against this scope's dark values.
+  --mat-sys-primary:                 var(--primary-bg);
+  --mat-sys-on-primary:               var(--surface);
+  --mat-sys-primary-container:        var(--accent-soft);
+  --mat-sys-on-primary-container:     var(--accent-deep);
+  --mat-sys-secondary-container:      var(--accent-soft-2);
+  --mat-sys-on-secondary-container:   var(--text);
+  --mat-sys-surface:                  var(--surface);
+  --mat-sys-surface-container:        var(--surface-2);
+  --mat-sys-surface-container-low:    var(--surface);
+  --mat-sys-surface-container-lowest: var(--surface);
+  --mat-sys-surface-container-high:   var(--surface-3);
+  --mat-sys-surface-container-highest: var(--surface-3);
+  --mat-sys-surface-bright:           var(--surface);
+  --mat-sys-surface-dim:              var(--surface-2);
+  --mat-sys-surface-variant:          var(--surface-2);
+  --mat-sys-on-surface:               var(--text);
+  --mat-sys-on-surface-variant:       var(--text-2);
+  --mat-sys-outline:                  var(--line);
+  --mat-sys-outline-variant:          var(--line-soft);
+  --mat-sys-error:                    var(--danger);
+  --mat-sys-on-error:                 var(--surface);
+  --mat-sys-error-container:          var(--danger-bg);
+  --mat-sys-on-error-container:       var(--danger-text);
+
+  // Component-level Material tokens (Redesign v1 — D2) — see `:root` block
+  // above for rationale.
+  --mat-dialog-container-color:        var(--surface);
+  --mat-dialog-subhead-color:          var(--text);
+  --mat-dialog-supporting-text-color:  var(--text-2);
+
+  --mat-button-filled-container-color:    var(--primary-bg);
+  --mat-button-filled-label-text-color:   var(--surface);
+  --mat-button-outlined-label-text-color: var(--accent);
+  --mat-button-outlined-outline-color:    var(--line);
+  --mat-button-protected-container-color: var(--surface);
+  --mat-button-protected-label-text-color: var(--accent);
+  --mat-button-text-label-text-color:     var(--accent);
+  --mat-button-tonal-container-color:     var(--accent-soft-2);
+  --mat-button-tonal-label-text-color:    var(--text);
+
+  --mat-icon-color:               var(--text-2);
+  --mat-icon-button-icon-color:   var(--text-2);
+  --mat-icon-button-state-layer-color: var(--text-2);
 }
 
 [data-theme='dark']::before {
