@@ -188,10 +188,8 @@ export class ShellComponent {
   });
 
   constructor() {
-    // Apply persisted theme on boot
-    if (!this.prefs.darkTheme()) {
-      document.body.classList.add('ew-light');
-    }
+    // Theme/privacy boot logic lives in PreferencesService (applied as soon
+    // as it's constructed — injecting `prefs` above already triggered it).
 
     this.walletService.loadWallets();
 

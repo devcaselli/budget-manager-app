@@ -18,55 +18,142 @@ html {
   );
 }
 
-// ─── Editorial Wealth Design Tokens ─────────────────────────────────────────
+// ─── Theme tokens (Redesign v1 — D1) ─────────────────────────────────────────
+// Source of truth: `Budget Redesign.dc.html` design file, ported verbatim.
+// Contract: light values live in bare `:root` (the design's own default);
+// dark values are gated under `[data-theme="dark"]` on `<html>`, applied by
+// `PreferencesService` on boot (see core/services/preferences.service.ts).
 :root {
-  --ew-bg:        #13110e;
-  --ew-bg-2:      #1a1714;
-  --ew-panel:     #1c1814;
-  --ew-panel-2:   #221d18;
-  --ew-line:      #2a241e;
-  --ew-line-2:    #3a3128;
-  --ew-ink:       #f5ede0;
-  --ew-ink-2:     #a89b88;
-  --ew-ink-3:     #7a6f5f;
-  --ew-acc:       #d6a371;
-  --ew-acc-2:     #e8be8f;
-  --ew-acc-soft:  rgba(214, 163, 113, 0.14);
-  --ew-teal:      #5fb6a5;
-  --ew-bad:       #d97a6c;
+  --bg:             #f5efe6;
+  --bg-blur:        rgba(245, 239, 230, .9);
+  --surface:        #fffaf2;
+  --surface-2:      #f0e6d8;
+  --surface-3:      #ebe1d4;
+  --surface-blur:   rgba(255, 250, 242, .94);
+  --line:           #ded0be;
+  --line-soft:      #ebe1d4;
+  --text:           #1f1a15;
+  --text-2:         #6d6257;
+  --text-3:         #6d6257;
+  --text-4:         #857566;
+  --accent:         #a86935;
+  --accent-deep:    #8a5429;
+  --accent-fg:      #e0b382;
+  --accent-soft:    #f3e6d7;
+  --accent-soft-2:  #ead8c4;
+  --accent-line:    #c9b79f;
+  --primary-bg:       #8a5429;
+  --primary-bg-hover: #6f4320;
+  --toast-bg:       #1f1a15;
+  --disabled:       #c9b79f;
+  --warn-text:      #8a5429;
+  --warn-bg:        #f6e9d6;
+  --warn-bg-2:      #eedcc3;
+  --warn-line:      #dcc4a4;
+  --warn-dot:       #c98244;
+  --warn-solid:     #7a4a24;
+  --warn-solid-hover: #613a1b;
+  --ok-text:        #1f6c5f;
+  --ok-bg:          #dfede9;
+  --ok-dot:         #a9cdc4;
+  --danger:         #b84c42;
+  --danger-solid:   #b84c42;
+  --danger-bg:      #f7e5e1;
+  --danger-text:    #8f382f;
+  --scrim:          rgba(31, 26, 21, .45);
+  color-scheme: light;
+
+  // Legacy `--ew-*` alias layer — 60+ existing templates/styles still
+  // reference these names directly (D2+ migrates consumers off them
+  // incrementally; keeping the alias means D1 is a pure token-contract
+  // migration with zero visual regression on every screen this epic
+  // doesn't touch yet).
+  --ew-bg:        var(--bg);
+  --ew-bg-2:      var(--surface-2);
+  --ew-panel:     var(--surface);
+  --ew-panel-2:   var(--surface-2);
+  --ew-line:      var(--line);
+  --ew-line-2:    var(--accent-line);
+  --ew-ink:       var(--text);
+  --ew-ink-2:     var(--text-2);
+  --ew-ink-3:     var(--text-4);
+  --ew-acc:       var(--accent);
+  --ew-acc-2:     var(--accent-fg);
+  --ew-acc-soft:  var(--accent-soft);
+  --ew-teal:      #277f71;
+  --ew-bad:       var(--danger);
   --ew-serif:     'Newsreader', Georgia, serif;
   --ew-sans:      'Inter Tight', system-ui, sans-serif;
   --ew-mono:      'JetBrains Mono', ui-monospace, monospace;
 }
 
-body.ew-light {
-  --ew-bg:        #f5efe6;
-  --ew-bg-2:      #ebe1d4;
-  --ew-panel:     #fffaf2;
-  --ew-panel-2:   #f0e6d8;
-  --ew-line:      #ded0be;
-  --ew-line-2:    #c9b79f;
-  --ew-ink:       #1f1a15;
-  --ew-ink-2:     #6d6257;
-  --ew-ink-3:     #998978;
-  --ew-acc:       #a86935;
-  --ew-acc-2:     #c98244;
-  --ew-acc-soft:  rgba(168, 105, 53, 0.14);
-  --ew-teal:      #277f71;
-  --ew-bad:       #b84c42;
-  color-scheme: light;
+[data-theme='dark'] {
+  --bg:             #0f1a1e;
+  --bg-blur:        rgba(15, 26, 30, .9);
+  --surface:        #16262c;
+  --surface-2:      #1b2e34;
+  --surface-3:      #22383f;
+  --surface-blur:   rgba(22, 38, 44, .95);
+  --line:           #2c4249;
+  --line-soft:      #24383f;
+  --text:           #e8f0f1;
+  --text-2:         #bacbd0;
+  --text-3:         #93a9b0;
+  --text-4:         #7c939a;
+  --accent:         #6fb3c4;
+  --accent-deep:    #9bd3e0;
+  --accent-fg:      #9bd3e0;
+  --accent-soft:    #1d3a43;
+  --accent-soft-2:  #24454f;
+  --accent-line:    #37606b;
+  --primary-bg:       #2e7a8c;
+  --primary-bg-hover: #3a8a9d;
+  --toast-bg:       #22383f;
+  --disabled:       #3a5158;
+  --warn-text:      #e3c08a;
+  --warn-bg:        #2a2317;
+  --warn-bg-2:      #332b1d;
+  --warn-line:      #4b3f27;
+  --warn-dot:       #c4a882;
+  --warn-solid:     #8a6b3a;
+  --warn-solid-hover: #a0803f;
+  --ok-text:        #7fc7a9;
+  --ok-bg:          #15302a;
+  --ok-dot:         #3e6b60;
+  --danger:         #e28878;
+  --danger-solid:   #a9483b;
+  --danger-bg:      #3a211d;
+  --danger-text:    #f2b5aa;
+  --scrim:          rgba(4, 12, 15, .62);
+  color-scheme: dark;
+
+  // Legacy `--ew-*` alias layer — see the `:root` block above for rationale.
+  --ew-bg:        var(--bg);
+  --ew-bg-2:      var(--surface-2);
+  --ew-panel:     var(--surface);
+  --ew-panel-2:   var(--surface-2);
+  --ew-line:      var(--line);
+  --ew-line-2:    var(--accent-line);
+  --ew-ink:       var(--text);
+  --ew-ink-2:     var(--text-2);
+  --ew-ink-3:     var(--text-4);
+  --ew-acc:       var(--accent);
+  --ew-acc-2:     var(--accent-fg);
+  --ew-acc-soft:  var(--accent-soft);
+  --ew-teal:      #5fb6a5;
+  --ew-bad:       var(--danger);
 }
 
-body.ew-light::before {
-  background: radial-gradient(circle at 90% 0%, rgba(168, 105, 53, 0.08), transparent 55%);
+[data-theme='dark']::before {
+  background: radial-gradient(circle at 90% 0%, rgba(111, 179, 196, 0.08), transparent 55%);
 }
 
-body.ew-light .ew-side {
-  background: linear-gradient(180deg, #fff8ef, var(--ew-bg));
+[data-theme='dark'] .ew-side {
+  background: linear-gradient(180deg, var(--surface-2), var(--bg));
 }
 
-body.ew-light .ew-bigwallet {
-  background: linear-gradient(135deg, #fff8ef 0%, #efe3d4 100%);
+[data-theme='dark'] .ew-bigwallet {
+  background: linear-gradient(135deg, var(--surface-2) 0%, var(--surface) 100%);
 }
 
 // ─── Global reset & base ─────────────────────────────────────────────────────
@@ -81,7 +168,6 @@ body {
   margin: 0;
   height: 100%;
   min-height: 100%;
-  color-scheme: dark;
   background: var(--ew-bg);
   color: var(--ew-ink);
   font-family: var(--ew-sans);
@@ -90,15 +176,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-body.ew-light {
-  color-scheme: light;
-}
-
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at 90% 0%, rgba(214, 163, 113, 0.05), transparent 55%);
+  background: radial-gradient(circle at 90% 0%, rgba(168, 105, 53, 0.08), transparent 55%);
   pointer-events: none;
   z-index: 0;
 }
