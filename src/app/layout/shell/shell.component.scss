@@ -3,130 +3,12 @@
   display: block;
 }
 
-.ew-app {
-  display: grid;
-  grid-template-columns: 230px 1fr;
-  min-height: 100vh;
-  position: relative;
-  z-index: 1;
-}
-
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-.ew-side {
-  border-right: 1px solid var(--ew-line);
-  padding: 24px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-  background: linear-gradient(180deg, #16130f, var(--ew-bg));
-}
-
-.ew-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 4px;
-}
-
-.ew-brand-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, var(--ew-acc-2), var(--ew-acc) 70%);
-  display: grid;
-  place-items: center;
-  font-family: var(--ew-serif);
-  font-size: 24px;
-  font-style: italic;
-  font-weight: 500;
-  color: #1c1814;
-  line-height: 1;
-  flex: 0 0 36px;
-}
-
-.ew-brand-name {
-  font-family: var(--ew-serif);
-  font-size: 22px;
-  line-height: 1;
-  letter-spacing: -0.015em;
-  font-weight: 500;
-
-  span {
-    display: block;
-    font-family: var(--ew-sans);
-    font-size: 10px;
-    color: var(--ew-ink-3);
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    margin-top: 6px;
-  }
-}
-
-// ── Navigation ────────────────────────────────────────────────────────────────
-.ew-nav {
-  display: flex;
-  flex-direction: column;
-}
-
-.ew-nav-section {
-  font-family: var(--ew-sans);
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ew-ink-3);
-  padding: 18px 8px 6px;
-}
-
-.ew-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 10px;
-  color: var(--ew-ink-2);
-  font-size: 14px;
-  cursor: pointer;
-  border-left: 1px solid transparent;
-  margin-left: -1px;
-  text-decoration: none;
-  transition: color 0.15s;
-
-  &:hover {
-    color: var(--ew-ink);
-  }
-
-  &--active {
-    color: var(--ew-ink);
-    border-left-color: var(--ew-acc);
-
-    .ew-nav-num {
-      color: var(--ew-acc);
-    }
-  }
-}
-
-.ew-nav-num {
-  font-family: var(--ew-mono);
-  font-size: 10px;
-  color: var(--ew-ink-3);
-  width: 18px;
-  letter-spacing: 0.04em;
-  flex: 0 0 18px;
-}
-
-.ew-nav-item--tools {
-  justify-content: space-between;
-}
-
-.ew-nav-tools-chev {
-  width: 13px;
-  height: 13px;
-  color: var(--ew-ink-3);
-  flex: 0 0 13px;
-}
+// `.ew-app`, `.ew-side*`, `.ew-brand*` and `.ew-nav*` all moved to `src/styles.scss`
+// (D4) — this component file was already over the `anyComponentStyle` build
+// budget before D4 started (20.7KB against a 20kB warning threshold), so the
+// sidebar regroup/rail/collapse CSS lives in the global `ew-*` partial instead
+// of growing this file further. See the "Sidebar (D4)" section in styles.scss.
 
 .ew-side-spacer {
   flex: 1;
@@ -541,45 +423,6 @@
   to   { opacity: 1; transform: translateY(-100%) translateX(0); }
 }
 
-// Tools submenu — position:fixed so it escapes sidebar overflow:auto
-.ew-tools-submenu {
-  position: fixed;
-  min-width: 180px;
-  background: var(--ew-panel);
-  border: 1px solid var(--ew-line-2);
-  border-radius: 14px;
-  padding: 8px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(214, 163, 113, 0.06);
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  animation: toolsSubmenuIn 0.15s cubic-bezier(0.2, 0.7, 0.3, 1);
-}
-
-@keyframes toolsSubmenuIn {
-  from { opacity: 0; transform: translateX(-6px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-.ew-tools-submenu-item {
-  padding: 9px 12px;
-  border-radius: 9px;
-  color: var(--ew-ink-2);
-  font-size: 14px;
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
-
-  &:hover {
-    color: var(--ew-ink);
-    background: rgba(214, 163, 113, 0.08);
-  }
-
-  &--active {
-    color: var(--ew-acc);
-  }
-}
-
 .ew-wp-head {
   padding-bottom: 16px;
   border-bottom: 1px solid var(--ew-line);
@@ -875,6 +718,7 @@
   }
 }
 
+.ew-user-settings,
 .ew-user-logout {
   width: 30px;
   height: 30px;
@@ -887,12 +731,28 @@
   transition: color 0.12s, border-color 0.12s;
   background: transparent;
   cursor: pointer;
+  text-decoration: none;
 
   svg {
     width: 13px;
     height: 13px;
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
+  }
+}
+
+.ew-user-settings {
+  &:hover,
+  &[aria-current='page'] {
+    color: var(--ew-acc);
+    border-color: var(--ew-acc);
+  }
+}
+
+.ew-user-logout {
   &:hover {
     color: var(--ew-bad);
     border-color: var(--ew-bad);
@@ -912,7 +772,7 @@
   }
 
   .ew-brand-name,
-  .ew-nav-section,
+  .ew-nav-group-head,
   .ew-side-card,
   .ew-wallet-wrap {
     display: none;
@@ -989,7 +849,7 @@
     overflow-x: auto;
   }
 
-  .ew-nav-section {
+  .ew-nav-group-head {
     display: none;
   }
 

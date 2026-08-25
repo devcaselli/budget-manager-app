@@ -27,6 +27,25 @@ function writeStored(key: string, value: string | null): void {
   }
 }
 
+/** Sidebar nav-group labels that can be individually collapsed (D4). */
+export type NavGroupLabel = 'BUDGET' | 'LEDGER' | 'MANAGER' | 'EXTERNAL';
+
+/**
+ * Parses the `bm_nav_closed` JSON blob into a label→closed map. Malformed or
+ * missing storage collapses to `{}` (all groups open by default) — mirrors
+ * the design's own `budget.navClosed` fallback (`JSON.parse(saved) || {}`).
+ */
+function readClosedNavGroups(): Partial<Record<NavGroupLabel, boolean>> {
+  const raw = readStored('bm_nav_closed');
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Partial<Record<NavGroupLabel, boolean>>) : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Resolves the boot-time theme per the design's own fallback chain:
  * 1. explicit `bm_theme` in localStorage ('dark' | 'light')
@@ -65,6 +84,10 @@ export class PreferencesService {
   readonly featureFlags = signal(readStored('bm_flags') === 'on');
   /** Wallet to auto-select on load/refresh; null when none is starred. */
   readonly favoriteWalletId = signal<string | null>(readStored('bm_favorite_wallet'));
+  /** Sidebar nav groups collapsed by the user (D4) — label → true when closed. */
+  readonly closedNavGroups = signal<Partial<Record<NavGroupLabel, boolean>>>(readClosedNavGroups());
+  /** Desktop sidebar collapsed to 0px width (D4) — distinct from per-group collapse above. */
+  readonly sidebarHidden = signal(readStored('bm_sidebar_hidden') === 'on');
 
   constructor() {
     this.applyTheme(this.darkTheme());
@@ -122,5 +145,31 @@ export class PreferencesService {
     const next = this.favoriteWalletId() === walletId ? null : walletId;
     this.favoriteWalletId.set(next);
     writeStored('bm_favorite_wallet', next);
+  }
+
+  /**
+   * Toggles one sidebar nav group's collapsed state. Callers must not invoke
+   * this for the group currently holding the active route (mirrors the
+   * design's `canToggle: !holdsActive` — enforced in the template via
+   * `[disabled]`, not re-checked here, since the service has no route
+   * awareness of its own).
+   */
+  toggleNavGroup(label: NavGroupLabel): void {
+    const current = this.closedNavGroups();
+    const next = { ...current };
+    if (next[label]) {
+      delete next[label];
+    } else {
+      next[label] = true;
+    }
+    this.closedNavGroups.set(next);
+    writeStored('bm_nav_closed', JSON.stringify(next));
+  }
+
+  /** Toggles the desktop sidebar between its full width and fully hidden (0px). */
+  toggleSidebarHidden(): void {
+    const next = !this.sidebarHidden();
+    this.sidebarHidden.set(next);
+    writeStored('bm_sidebar_hidden', next ? 'on' : 'off');
   }
 }

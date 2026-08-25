@@ -7,7 +7,7 @@ import {
   computed,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { filter, interval, map, takeUntil } from 'rxjs';
 import { takeWhile } from 'rxjs/operators';
@@ -26,7 +26,8 @@ import { DecimalPipe } from '@angular/common';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { formatBrl } from '@shared/utils/currency';
 import { AuthService } from '@core/auth/auth.service';
-import { PreferencesService } from '@core/services/preferences.service';
+import { NavGroupLabel, PreferencesService } from '@core/services/preferences.service';
+import { PendingReviewService } from '@features/pending-review/services/pending-review.service';
 
 interface PopoverCoords {
   top: number;
@@ -37,9 +38,6 @@ interface TweaksPos {
   x: number;
   y: number;
 }
-
-/** Horizontal gap (px) between the Tools nav trigger and its flyout submenu. */
-const TOOLS_SUBMENU_GAP_PX = 8;
 
 /** Approximate rendered footprint (px) of the `.ew-tweaks` panel, used to keep it within viewport bounds. */
 const TWEAKS_PANEL_WIDTH_PX = 230;
@@ -52,13 +50,68 @@ interface NavEntry {
   readonly label: string;
   readonly route: string;
   readonly num: string;
-  readonly exact?: boolean;
 }
+
+interface RenderedNavEntry extends NavEntry {
+  readonly badgeCount: number;
+}
+
+interface NavGroup {
+  readonly label: NavGroupLabel;
+  readonly items: readonly RenderedNavEntry[];
+  readonly open: boolean;
+  readonly holdsActive: boolean;
+  /** `translateY(index * 46px)` offset for the active rail, or `null` when no item in this group is active (rail hidden via opacity). */
+  readonly railIndex: number | null;
+}
+
+/** Rail row height (px) — matches the design's `translateY(index * 46px)` step and each item's 44px height + 2px gap. */
+const NAV_RAIL_STEP_PX = 46;
+
+/** Static group→item route map (D4 regroup: BUDGET / LEDGER / MANAGER / EXTERNAL). */
+const NAV_GROUP_DEFS: readonly { label: NavGroupLabel; items: readonly NavEntry[] }[] = [
+  {
+    label: 'BUDGET',
+    items: [
+      { label: 'Wallets', route: '/wallets', num: '02' },
+      { label: 'Bullets', route: '/bullets', num: '03' },
+      { label: 'Extra budgets', route: '/extra-budgets', num: '04' },
+      { label: 'Reserved budgets', route: '/reserved-budgets', num: '05' },
+    ],
+  },
+  {
+    label: 'LEDGER',
+    items: [
+      { label: 'Expenses', route: '/expenses', num: '06' },
+      { label: 'Subscriptions', route: '/subscriptions', num: '07' },
+      { label: 'Installments', route: '/installments', num: '08' },
+    ],
+  },
+  {
+    label: 'MANAGER',
+    items: [
+      { label: 'Credit cards', route: '/credit-cards', num: '09' },
+      { label: 'Payments', route: '/payments', num: '10' },
+      { label: 'Inbox', route: '/review-imports', num: '11' },
+      { label: 'Tags', route: '/tags', num: '12' },
+    ],
+  },
+  {
+    label: 'EXTERNAL',
+    items: [
+      { label: 'Payers', route: '/payers', num: '13' },
+      { label: 'Shares', route: '/shares', num: '14' },
+    ],
+  },
+];
+
+/** Standalone Settings entry — footer icon button next to the theme toggle (design), not part of any group. */
+const SETTINGS_NAV: NavEntry = { label: 'Settings', route: '/settings', num: '15' };
 
 @Component({
   selector: 'app-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, BrlCurrencyPipe, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [DecimalPipe, BrlCurrencyPipe, RouterLink, RouterOutlet],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
 })
@@ -71,6 +124,7 @@ export class ShellComponent {
   private readonly bulletService = inject(BulletService);
   private readonly installmentService = inject(InstallmentService);
   private readonly authService = inject(AuthService);
+  private readonly pendingReviewService = inject(PendingReviewService);
   protected readonly prefs = inject(PreferencesService);
 
   protected readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
@@ -145,33 +199,48 @@ export class ShellComponent {
 
   protected readonly currentRouteLabel = signal('Dashboard');
 
-  protected readonly workspaceNav: readonly NavEntry[] = [
-    { label: 'Dashboard', route: '/dashboard', num: '01', exact: true },
-    { label: 'Wallets',   route: '/wallets',   num: '02' },
-    { label: 'Bullets',   route: '/bullets',   num: '03' },
-    { label: 'Extra budgets', route: '/extra-budgets', num: '04' },
-    { label: 'Reserved budgets', route: '/reserved-budgets', num: '05' },
-  ];
+  protected readonly dashboardNav: NavEntry = { label: 'Dashboard', route: '/dashboard', num: '01' };
+  protected readonly settingsNav: NavEntry = SETTINGS_NAV;
+  protected readonly settingsActive = computed(() => this.currentRouteLabel() === SETTINGS_NAV.label);
 
-  protected readonly activityNav: readonly NavEntry[] = [
-    { label: 'Expenses',      route: '/expenses',      num: '05' },
-    { label: 'Installments',  route: '/installments',  num: '06' },
-    { label: 'Payers',        route: '/payers',        num: '07' },
-    { label: 'Shares',        route: '/shares',        num: '08' },
-    { label: 'Credit cards',  route: '/credit-cards',  num: '09' },
-    { label: 'Subscriptions', route: '/subscriptions', num: '10' },
-    { label: 'Payments',      route: '/payments',      num: '11' },
-    { label: 'Review imports', route: '/review-imports', num: '12' },
-    { label: 'Settings',      route: '/settings',      num: '13' },
-  ];
+  /** Count of items in `PENDING_REVIEW` state, badged on the Inbox nav item — reuses the same
+   *  `pendingReviews$` list the dedicated `/review-imports` page and its modal already read from
+   *  (D4 acceptance criteria: "reuse how pending-review currently exposes its count"). */
+  protected readonly pendingReviewCount = toSignal(
+    this.pendingReviewService.pendingReviews$.pipe(map((items) => items.length)),
+    { initialValue: 0 },
+  );
 
-  protected readonly toolsNav: readonly NavEntry[] = [
-    { label: 'Tags', route: '/tags', num: '14' },
-  ];
+  /** Dashboard is a standalone top item (outside the 4 groups) — its own single-row rail. */
+  protected readonly dashboardActive = computed(() => this.currentRouteLabel() === this.dashboardNav.label);
 
-  protected readonly toolsMenuOpen = signal(false);
-  protected readonly toolsMenuCoords = signal<PopoverCoords>({ top: 0, left: 0 });
-  private toolsMenuCloseTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** Regrouped sidebar nav (D4): BUDGET / LEDGER / MANAGER / EXTERNAL, each independently
+   *  collapsible via `PreferencesService.closedNavGroups`. A group holding the active route is
+   *  always rendered open and cannot be collapsed (mirrors the design's `canToggle: !holdsActive`)
+   *  so navigating into a group never hides the very item you're on. */
+  protected readonly navGroups = computed<readonly NavGroup[]>(() => {
+    const activeLabel = this.currentRouteLabel();
+    const closed = this.prefs.closedNavGroups();
+    const pendingCount = this.pendingReviewCount();
+
+    return NAV_GROUP_DEFS.map((group) => {
+      const items: RenderedNavEntry[] = group.items.map((item) => ({
+        ...item,
+        badgeCount: item.route === '/review-imports' ? pendingCount : 0,
+      }));
+      const activeIndex = items.findIndex((item) => item.label === activeLabel);
+      const holdsActive = activeIndex >= 0;
+      const open = holdsActive || !closed[group.label];
+
+      return {
+        label: group.label,
+        items,
+        open,
+        holdsActive,
+        railIndex: activeIndex >= 0 ? activeIndex : null,
+      };
+    });
+  });
 
   /** Percentage of wallet budget already committed. */
   protected readonly utilizationRate = computed(() => {
@@ -219,16 +288,6 @@ export class ShellComponent {
       document.removeEventListener('click', closeOnClick);
       document.removeEventListener('keydown', closeOnEsc);
     });
-
-    // Close tools submenu on Escape (reuses the same keydown listener pattern)
-    const closeToolsOnEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') this.closeToolsMenu();
-    };
-    document.addEventListener('keydown', closeToolsOnEsc);
-    this.destroyRef.onDestroy(() => {
-      document.removeEventListener('keydown', closeToolsOnEsc);
-      this.clearToolsMenuCloseTimeout();
-    });
   }
 
   protected toggleWalletPop(event: MouseEvent): void {
@@ -253,33 +312,16 @@ export class ShellComponent {
     this.walletPopOpen.set(false);
   }
 
-  protected onToolsMenuEnter(event: Event): void {
-    this.clearToolsMenuCloseTimeout();
-    const trigger = event.currentTarget as HTMLElement;
-    const rect = trigger.getBoundingClientRect();
-    this.toolsMenuCoords.set({ top: rect.top, left: rect.right + TOOLS_SUBMENU_GAP_PX });
-    this.toolsMenuOpen.set(true);
+  /** Toggles one sidebar nav group open/closed — no-op for the group holding the active route
+   *  (the design's `canToggle: !holdsActive`; the template also disables the button so this
+   *  guard is defense-in-depth, not the only enforcement). */
+  protected toggleNavGroup(group: NavGroup): void {
+    if (group.holdsActive) return;
+    this.prefs.toggleNavGroup(group.label);
   }
 
-  protected cancelToolsMenuClose(): void {
-    this.clearToolsMenuCloseTimeout();
-  }
-
-  protected onToolsMenuLeave(): void {
-    this.clearToolsMenuCloseTimeout();
-    this.toolsMenuCloseTimeout = setTimeout(() => this.toolsMenuOpen.set(false), 150);
-  }
-
-  protected closeToolsMenu(): void {
-    this.clearToolsMenuCloseTimeout();
-    this.toolsMenuOpen.set(false);
-  }
-
-  private clearToolsMenuCloseTimeout(): void {
-    if (this.toolsMenuCloseTimeout !== null) {
-      clearTimeout(this.toolsMenuCloseTimeout);
-      this.toolsMenuCloseTimeout = null;
-    }
+  protected toggleSidebar(): void {
+    this.prefs.toggleSidebarHidden();
   }
 
   protected switchWallet(wallet: Wallet): void {
@@ -469,7 +511,11 @@ export class ShellComponent {
 
   private syncRouteLabel(): void {
     const url = this.router.url.split('?')[0].split('#')[0];
-    const all = [...this.workspaceNav, ...this.activityNav, ...this.toolsNav];
+    const all: readonly NavEntry[] = [
+      this.dashboardNav,
+      ...NAV_GROUP_DEFS.flatMap((group) => group.items),
+      SETTINGS_NAV,
+    ];
     const match = all.find((n) => url.startsWith(n.route));
     this.currentRouteLabel.set(match?.label ?? 'Dashboard');
   }

@@ -153,4 +153,87 @@ describe('PreferencesService', () => {
       expect(document.body.classList.contains('ew-privacy')).toBe(false);
     });
   });
+
+  describe('sidebar nav-group collapse (D4)', () => {
+    it('defaults to all groups open (empty map) when nothing is stored', () => {
+      resetPreferenceState();
+
+      const service = TestBed.inject(PreferencesService);
+
+      expect(service.closedNavGroups()).toEqual({});
+    });
+
+    it('toggleNavGroup closes an open group and persists it', () => {
+      resetPreferenceState();
+      const service = TestBed.inject(PreferencesService);
+
+      service.toggleNavGroup('LEDGER');
+
+      expect(service.closedNavGroups()).toEqual({ LEDGER: true });
+      expect(JSON.parse(localStorage.getItem('bm_nav_closed') ?? 'null')).toEqual({ LEDGER: true });
+    });
+
+    it('toggleNavGroup reopens an already-closed group', () => {
+      resetPreferenceState();
+      const service = TestBed.inject(PreferencesService);
+
+      service.toggleNavGroup('LEDGER');
+      service.toggleNavGroup('LEDGER');
+
+      expect(service.closedNavGroups()).toEqual({});
+      expect(JSON.parse(localStorage.getItem('bm_nav_closed') ?? 'null')).toEqual({});
+    });
+
+    it('restores closed groups from bm_nav_closed on boot', () => {
+      resetPreferenceState();
+      localStorage.setItem('bm_nav_closed', JSON.stringify({ MANAGER: true }));
+
+      const service = TestBed.inject(PreferencesService);
+
+      expect(service.closedNavGroups()).toEqual({ MANAGER: true });
+    });
+
+    it('falls back to all-open when bm_nav_closed holds malformed JSON', () => {
+      resetPreferenceState();
+      localStorage.setItem('bm_nav_closed', '{not json');
+
+      const service = TestBed.inject(PreferencesService);
+
+      expect(service.closedNavGroups()).toEqual({});
+    });
+  });
+
+  describe('desktop sidebar collapse (D4)', () => {
+    it('defaults to visible (not hidden) when nothing is stored', () => {
+      resetPreferenceState();
+
+      const service = TestBed.inject(PreferencesService);
+
+      expect(service.sidebarHidden()).toBe(false);
+    });
+
+    it('toggleSidebarHidden flips state and persists it across boot', () => {
+      resetPreferenceState();
+      const service = TestBed.inject(PreferencesService);
+
+      service.toggleSidebarHidden();
+
+      expect(service.sidebarHidden()).toBe(true);
+      expect(localStorage.getItem('bm_sidebar_hidden')).toBe('on');
+
+      service.toggleSidebarHidden();
+
+      expect(service.sidebarHidden()).toBe(false);
+      expect(localStorage.getItem('bm_sidebar_hidden')).toBe('off');
+    });
+
+    it('restores sidebarHidden from bm_sidebar_hidden on boot', () => {
+      resetPreferenceState();
+      localStorage.setItem('bm_sidebar_hidden', 'on');
+
+      const service = TestBed.inject(PreferencesService);
+
+      expect(service.sidebarHidden()).toBe(true);
+    });
+  });
 });

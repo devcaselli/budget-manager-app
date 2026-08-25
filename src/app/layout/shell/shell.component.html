@@ -1,69 +1,87 @@
-<div class="ew-app">
+<div class="ew-app" [class.ew-app--sidebar-hidden]="prefs.sidebarHidden()">
   <!-- ── Sidebar ─────────────────────────────────────────────────── -->
-  <aside class="ew-side">
-    <div class="ew-brand">
-      <div class="ew-brand-mark">B</div>
-      <div class="ew-brand-name">
-        Budget
-        <span>Personal Ledger</span>
+  <aside class="ew-side" [class.ew-side--hidden]="prefs.sidebarHidden()">
+    <div class="ew-side-inner">
+      <div class="ew-brand">
+        <div class="ew-brand-mark">B</div>
+        <div class="ew-brand-name">
+          Budget
+          <span>Personal Ledger</span>
+        </div>
+        <button
+          class="ew-side-collapse"
+          type="button"
+          aria-label="Collapse menu"
+          title="Collapse menu"
+          (click)="toggleSidebar()"
+        >«</button>
       </div>
+
+      <nav class="ew-nav" aria-label="Main navigation">
+        <div class="ew-nav-item-wrap">
+          <div class="ew-nav-rail" [class.ew-nav-rail--hidden]="!dashboardActive()"></div>
+          <a
+            class="ew-nav-item"
+            [class.ew-nav-item--active]="dashboardActive()"
+            [routerLink]="dashboardNav.route"
+            [attr.aria-current]="dashboardActive() ? 'page' : null"
+            [attr.aria-label]="dashboardNav.label"
+            [attr.data-go]="dashboardNav.label.toLowerCase()"
+          >
+            <span class="ew-nav-num">{{ dashboardNav.num }}</span>
+            {{ dashboardNav.label }}
+          </a>
+        </div>
+
+        @for (group of navGroups(); track group.label) {
+          <div class="ew-nav-group">
+            <button
+              class="ew-nav-group-head"
+              type="button"
+              [attr.aria-expanded]="group.open"
+              [disabled]="group.holdsActive"
+              (click)="toggleNavGroup(group)"
+            >
+              <span>{{ group.label }}</span>
+              <svg
+                class="ew-nav-group-chev"
+                [class.ew-nav-group-chev--closed]="!group.open"
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+
+            @if (group.open) {
+              <div class="ew-nav-item-wrap">
+                <div
+                  class="ew-nav-rail"
+                  [class.ew-nav-rail--hidden]="group.railIndex === null"
+                  [style.transform]="'translateY(' + ((group.railIndex ?? 0) * 46) + 'px)'"
+                ></div>
+
+                @for (item of group.items; track item.route) {
+                  <a
+                    class="ew-nav-item"
+                    [class.ew-nav-item--active]="item.label === currentRouteLabel()"
+                    [routerLink]="item.route"
+                    [attr.aria-current]="item.label === currentRouteLabel() ? 'page' : null"
+                    [attr.aria-label]="item.label"
+                    [attr.data-go]="item.label.toLowerCase()"
+                  >
+                    <span class="ew-nav-num">{{ item.num }}</span>
+                    {{ item.label }}
+                    @if (item.badgeCount > 0) {
+                      <span class="ew-nav-badge">{{ item.badgeCount }}</span>
+                    }
+                  </a>
+                }
+              </div>
+            }
+          </div>
+        }
+      </nav>
     </div>
-
-    <nav class="ew-nav" aria-label="Main navigation">
-      <div class="ew-nav-section">Workspace</div>
-
-      @for (item of workspaceNav; track item.route) {
-        <a
-          class="ew-nav-item"
-          [routerLink]="item.route"
-          routerLinkActive="ew-nav-item--active"
-          [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
-          [attr.aria-label]="item.label"
-          [attr.data-go]="item.label.toLowerCase()"
-        >
-          <span class="ew-nav-num">{{ item.num }}</span>
-          {{ item.label }}
-        </a>
-      }
-
-      <div class="ew-nav-section">Activity</div>
-
-      @for (item of activityNav; track item.route) {
-        <a
-          class="ew-nav-item"
-          [routerLink]="item.route"
-          routerLinkActive="ew-nav-item--active"
-          [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
-          [attr.aria-label]="item.label"
-          [attr.data-go]="item.label.toLowerCase()"
-        >
-          <span class="ew-nav-num">{{ item.num }}</span>
-          {{ item.label }}
-        </a>
-      }
-
-      <div class="ew-nav-section">Tools</div>
-
-      <div
-        class="ew-nav-item ew-nav-item--tools"
-        role="button"
-        tabindex="0"
-        [attr.aria-expanded]="toolsMenuOpen()"
-        aria-haspopup="true"
-        aria-controls="ew-tools-submenu"
-        (mouseenter)="onToolsMenuEnter($event)"
-        (mouseleave)="onToolsMenuLeave()"
-        (focus)="onToolsMenuEnter($event)"
-        (blur)="onToolsMenuLeave()"
-        (keydown.enter)="onToolsMenuEnter($event)"
-      >
-        <span class="ew-nav-num">15</span>
-        Tools
-        <svg class="ew-nav-tools-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-          <polyline points="9 6 15 12 9 18"/>
-        </svg>
-      </div>
-    </nav>
 
     <div class="ew-side-spacer"></div>
 
@@ -106,6 +124,18 @@
         }
         <span>{{ userEmail() }}</span>
       </div>
+      <a
+        class="ew-user-settings"
+        [routerLink]="settingsNav.route"
+        [attr.aria-current]="settingsActive() ? 'page' : null"
+        aria-label="Settings"
+        title="Settings"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M4 7h9"/><path d="M17 7h3"/><circle cx="15" cy="7" r="2.1"/>
+          <path d="M4 17h5"/><path d="M13 17h7"/><circle cx="11" cy="17" r="2.1"/>
+        </svg>
+      </a>
       <button
         class="ew-user-logout"
         type="button"
@@ -121,6 +151,16 @@
       </button>
     </div>
   </aside>
+
+  @if (prefs.sidebarHidden()) {
+    <button
+      class="ew-side-expand"
+      type="button"
+      aria-label="Show menu"
+      title="Show menu"
+      (click)="toggleSidebar()"
+    >»</button>
+  }
 
   <!-- ── Main area ───────────────────────────────────────────────── -->
   <div class="ew-main">
@@ -270,34 +310,6 @@
         <polyline points="12 5 19 12 12 19"/>
       </svg>
     </a>
-  </div>
-}
-
-<!-- ── Tools submenu — rendered outside sidebar to escape overflow:auto ── -->
-@if (toolsMenuOpen()) {
-  <div
-    id="ew-tools-submenu"
-    class="ew-tools-submenu"
-    role="menu"
-    aria-label="Tools"
-    [style.top.px]="toolsMenuCoords().top"
-    [style.left.px]="toolsMenuCoords().left"
-    (mouseenter)="cancelToolsMenuClose()"
-    (mouseleave)="onToolsMenuLeave()"
-  >
-    @for (item of toolsNav; track item.route) {
-      <a
-        class="ew-tools-submenu-item"
-        role="menuitem"
-        [routerLink]="item.route"
-        routerLinkActive="ew-tools-submenu-item--active"
-        (click)="closeToolsMenu()"
-        (focus)="cancelToolsMenuClose()"
-        (blur)="onToolsMenuLeave()"
-      >
-        {{ item.label }}
-      </a>
-    }
   </div>
 }
 
