@@ -758,6 +758,22 @@ describe('ShellComponent — topbar + theme toggle (D5)', () => {
     expect(topbar).toBeTruthy();
   });
 
+  // P0-2 fix: topbar controls live inside a `.ew-topbar-inner` container that shares the
+  // same 1240px max-width column as `.ew-content`, so the two line up on wide screens.
+  // jsdom doesn't resolve computed max-width/margin from the external .scss file (same
+  // limitation noted above), so this only asserts the container element exists and holds
+  // the topbar's controls — the actual 1240px/auto-margin values are covered by the SCSS
+  // diff and `ng build`'s budget check.
+  it('wraps the topbar controls in a `.ew-topbar-inner` container matching `.ew-content`\'s max-width column', () => {
+    const topbar = fixture.nativeElement.querySelector('.ew-topbar') as HTMLElement;
+    const inner = topbar.querySelector('.ew-topbar-inner') as HTMLElement;
+    expect(inner).toBeTruthy();
+    expect(inner.querySelector('.ew-crumb')).toBeTruthy();
+
+    const content = fixture.nativeElement.querySelector('.ew-content') as HTMLElement;
+    expect(content).toBeTruthy();
+  });
+
   it('renders exactly one theme-toggle control in the sidebar footer, not duplicated in the topbar', () => {
     const sidebarToggles = fixture.nativeElement.querySelectorAll('.ew-user-theme');
     const topbar = fixture.nativeElement.querySelector('.ew-topbar') as HTMLElement;

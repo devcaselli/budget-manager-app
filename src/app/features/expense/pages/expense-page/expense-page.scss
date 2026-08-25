@@ -99,9 +99,55 @@
 .ep-row-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 6px;
   padding-right: 26px !important;
   white-space: nowrap;
+}
+
+// ── P0-3: table column widths (grid-ish, via <colgroup>) ────────────────────
+// Loosely mirrors the design's fixed-width action/status columns while keeping
+// the semantic <table> markup (colgroup + col widths instead of CSS grid).
+.ep-table {
+  table-layout: fixed;
+}
+
+.ep-col-name { width: auto; }
+.ep-col-date { width: 104px; }
+.ep-col-bullet { width: 128px; }
+.ep-col-card { width: 96px; }
+.ep-col-status { width: 104px; }
+.ep-col-amount { width: 136px; }
+.ep-col-actions { width: 116px; }
+
+// ── P0-3: "Pay" text button + "⋯" overflow menu trigger ──────────────────────
+
+.ep-pay-btn {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ew-acc);
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--ew-acc-soft);
+    border-color: var(--ew-acc);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.ep-menu-item--danger {
+  color: var(--ew-bad) !important;
 }
 
 .ep-icon-btn {
@@ -703,6 +749,68 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+// ── P0-1: quick-add footer strip (replaces the old sidebar "New expense" panel) ─
+
+.ep-quick-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: var(--ew-panel-2);
+  border-top: 1px solid var(--ew-line);
+}
+
+.ep-quick-add-name {
+  flex: 2;
+  min-width: 180px;
+  height: 42px;
+}
+
+.ep-quick-add-cost {
+  flex: 0 0 120px;
+  height: 42px;
+  font-family: var(--ew-mono);
+}
+
+.ep-quick-add-btn {
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--ew-acc);
+  background: var(--ew-panel);
+  color: var(--ew-acc);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--ew-acc);
+    color: var(--ew-on-acc);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.ep-quick-add-more {
+  height: 42px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ew-ink-3);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+
+  &:hover {
+    color: var(--ew-ink);
+  }
 }
 
 .ep-day-action-btn {

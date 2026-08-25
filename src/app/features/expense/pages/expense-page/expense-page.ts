@@ -16,8 +16,10 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
-import { catchError, map, of } from 'rxjs';
+import { MatMenuModule } from '@angular/material/menu';
+import { catchError, map, of, takeUntil } from 'rxjs';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
@@ -49,6 +51,11 @@ import {
 import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
 import { DESKTOP_DIALOG_MAX_WIDTH, DESKTOP_DIALOG_WIDTH } from '@shared/constants/dialog.constants';
 
+import {
+  ExpenseCreateDialogComponent,
+  ExpenseCreateDialogData,
+  ExpenseCreateDialogResult,
+} from '../../components/expense-create-dialog/expense-create-dialog.component';
 import {
   ExpenseDeleteDialogComponent,
   ExpenseDeleteDialogData,
@@ -113,7 +120,14 @@ interface FilterChip {
 @Component({
   selector: 'app-expense-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BrDatePipe, BrlCurrencyPipe, MatIconModule, ReactiveFormsModule],
+  imports: [
+    BrDatePipe,
+    BrlCurrencyPipe,
+    MatDividerModule,
+    MatIconModule,
+    MatMenuModule,
+    ReactiveFormsModule,
+  ],
   templateUrl: './expense-page.html',
   styleUrl: './expense-page.scss',
 })
@@ -609,6 +623,64 @@ export class ExpensePage implements AfterViewChecked {
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({ next: () => this.resetForm(), error: () => undefined });
+  }
+
+  /** P0-1: "More options →" in the quick-add footer strip opens the same full
+   *  expense-create-dialog the shell's "+ New transaction" topbar action uses — it already
+   *  covers every field the old sidebar panel had (name, cost, date, credit card,
+   *  installments) plus bullet selection and keep-open/keep-card conveniences the sidebar
+   *  panel never had. On success, resets this page's own quick-add form the same way
+   *  createExpense() does, and reloads the ledger. */
+  protected openCreateDialog(): void {
+    const wallet = this.selectedWallet();
+    if (!wallet) return;
+
+    const data: ExpenseCreateDialogData = {
+      walletDescription: wallet.description || 'Wallet',
+      bullets: this.bulletOptions(),
+      creditCards: this.creditCards().map((c) => ({ id: c.id, name: c.name })),
+    };
+
+    const dialogRef = this.dialog.open<
+      ExpenseCreateDialogComponent,
+      ExpenseCreateDialogData,
+      ExpenseCreateDialogResult
+    >(ExpenseCreateDialogComponent, {
+      width: DESKTOP_DIALOG_WIDTH,
+      maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
+      data,
+    });
+
+    dialogRef.componentInstance.submitted
+      .pipe(takeUntil(dialogRef.afterClosed()), takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => this.createExpenseFromDialog(wallet.id, result));
+
+    dialogRef
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result) this.createExpenseFromDialog(wallet.id, result);
+      });
+  }
+
+  private createExpenseFromDialog(walletId: string, expense: ExpenseCreateDialogResult): void {
+    this.expenseService
+      .create({
+        name: expense.name,
+        cost: expense.cost,
+        purchaseDate: expense.purchaseDate,
+        walletId,
+        creditCardId: expense.creditCardId,
+        ...(expense.bulletId ? { bulletId: expense.bulletId } : {}),
+        ...(expense.installment && expense.installmentNumber
+          ? { installment: true, installmentNumber: expense.installmentNumber }
+          : {}),
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.expenseService.loadByWalletId(walletId),
+        error: () => undefined,
+      });
   }
 
   /** D9: replaces the inline filters panel with the desktop 544px modal. Passes the live

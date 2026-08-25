@@ -39,6 +39,7 @@ class FakeExpenseService {
   readonly error$ = new BehaviorSubject<string | null>(null);
   loadByWalletId = vi.fn();
   assignTags = vi.fn().mockReturnValue(of(buildExpense()));
+  create = vi.fn().mockReturnValue(of(buildExpense()));
 }
 
 class FakeTagService {
@@ -234,7 +235,7 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     expect(item.hasShare).toBe(false);
   });
 
-  it('renders the split button only for expenses without an active share', () => {
+  it('renders the split menu item only for expenses without an active share', () => {
     expenseService.expenses$.next([
       buildExpense({ id: 'expense-1' }),
       buildExpense({ id: 'expense-2', name: 'Fuel' }),
@@ -242,9 +243,19 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     shareService.shares$.next([buildShare({ sourceId: 'expense-1' })]);
     fixture.detectChanges();
 
-    const splitButtons = fixture.nativeElement.querySelectorAll('button[title="Split expense"]');
-    // expense-1 is shared (button hidden), expense-2 is not (button shown).
-    expect(splitButtons.length).toBe(1);
+    // P0-3: "Split expense" moved from an always-visible icon button to a
+    // MatMenu item behind the row's "⋯" trigger — open both rows' menus (each
+    // row has its own #rowMenu instance) before asserting on their content.
+    const menuTriggers = fixture.nativeElement.querySelectorAll('button[aria-label="More actions"]') as NodeListOf<HTMLButtonElement>;
+    expect(menuTriggers.length).toBe(2);
+    menuTriggers.forEach((trigger) => trigger.click());
+    fixture.detectChanges();
+
+    const splitItems = Array.from(document.querySelectorAll('.mat-mdc-menu-item')).filter(
+      (el) => el.textContent?.trim() === 'Split expense',
+    );
+    // expense-1 is shared (item hidden), expense-2 is not (item shown).
+    expect(splitItems.length).toBe(1);
   });
 
   it('openShareDialog is a no-op when the expense already has an active share', () => {
@@ -414,14 +425,25 @@ describe('ExpensePage — share derivation & split button visibility', () => {
       expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'EXPENSE', id: 'expense-1' });
     });
 
-    it('opens the viewer from the visibility icon button in the row actions cluster', () => {
+    it('opens the viewer from "View expense" in the row actions overflow menu', () => {
       expenseService.expenses$.next([buildExpense({ id: 'expense-1', name: 'Groceries' })]);
       fixture.detectChanges();
 
-      const viewButton = fixture.nativeElement.querySelector('button[title="View expense"]');
-      expect(viewButton).toBeTruthy();
+      // P0-3: "View expense" moved from an always-visible icon button to a
+      // MatMenu item behind the row's "⋯" trigger.
+      const menuTrigger = fixture.nativeElement.querySelector(
+        'button[aria-label="More actions"]',
+      ) as HTMLButtonElement;
+      expect(menuTrigger).toBeTruthy();
+      menuTrigger.click();
+      fixture.detectChanges();
 
-      viewButton.click();
+      const viewItem = Array.from(document.querySelectorAll('.mat-mdc-menu-item')).find(
+        (el) => el.textContent?.trim() === 'View expense',
+      ) as HTMLButtonElement;
+      expect(viewItem).toBeTruthy();
+
+      viewItem.click();
 
       expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'EXPENSE', id: 'expense-1' });
     });
@@ -978,11 +1000,20 @@ describe('ExpensePage — D6 redesign: stat cards, toolbar, layouts, chips, impo
     expenseService.expenses$.next([buildExpense({ id: 'e1', name: 'Mercado' })]);
     fixture.detectChanges();
 
+    // P0-3: "Delete" moved from an always-visible icon button to a MatMenu item
+    // behind the row's "⋯" trigger.
     const dialog = TestBed.inject(MatDialog) as unknown as { open: ReturnType<typeof vi.fn> };
-    const deleteBtn = query('.ep-icon-btn--danger') as HTMLButtonElement;
-    expect(deleteBtn).toBeTruthy();
+    const menuTrigger = query('button[aria-label="More actions"]') as HTMLButtonElement;
+    expect(menuTrigger).toBeTruthy();
+    menuTrigger.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
 
-    deleteBtn.dispatchEvent(new Event('click'));
+    const deleteItem = Array.from(document.querySelectorAll('.mat-mdc-menu-item')).find(
+      (el) => el.textContent?.trim() === 'Delete',
+    ) as HTMLButtonElement;
+    expect(deleteItem).toBeTruthy();
+
+    deleteItem.dispatchEvent(new Event('click'));
     fixture.detectChanges();
 
     expect(dialog.open).toHaveBeenCalledTimes(1);
@@ -1049,4 +1080,176 @@ describe('ExpensePage — D6 redesign: stat cards, toolbar, layouts, chips, impo
     expect(announceSpy).toHaveBeenCalledWith(expect.stringContaining('groceries'), 'polite');
   });
 
+});
+
+// ── Post-epic-audit P0 fixes ────────────────────────────────────────────────
+// P0-1: full-width ledger card + horizontal quick-add footer strip (replaces the
+//       old 2-column grid with a sidebar "New expense" panel).
+// P0-3: "Pay" text button (OPEN only) + "⋯" overflow menu (replaces 5 always-
+//       visible icon buttons).
+describe('ExpensePage — post-epic-audit P0 fixes (no 2-col grid, quick-add strip, Pay/overflow menu)', () => {
+  let fixture: ComponentFixture<ExpensePage>;
+  let component: ExpensePage;
+  let expenseService: FakeExpenseService;
+  let dialog: { open: ReturnType<typeof vi.fn> };
+
+  function query<T extends Element = Element>(selector: string): T | null {
+    return fixture.nativeElement.querySelector(selector);
+  }
+
+  beforeEach(() => {
+    expenseService = new FakeExpenseService();
+    dialog = { open: vi.fn().mockReturnValue({ afterClosed: () => of(undefined) }) };
+
+    TestBed.configureTestingModule({
+      imports: [ExpensePage],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ExpenseService, useValue: expenseService },
+        { provide: ShareService, useClass: FakeShareService },
+        { provide: PaymentService, useClass: FakePaymentService },
+        { provide: BulletService, useClass: FakeBulletService },
+        { provide: InstallmentService, useClass: FakeInstallmentService },
+        { provide: WalletService, useClass: FakeWalletService },
+        { provide: TagService, useClass: FakeTagService },
+        { provide: SyncService, useClass: FakeSyncService },
+        { provide: PendingReviewService, useClass: FakePendingReviewService },
+        { provide: MatDialog, useValue: dialog },
+        { provide: OmegaViewerLauncher, useClass: FakeOmegaViewerLauncher },
+      ],
+    });
+
+    fixture = TestBed.createComponent(ExpensePage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('the ledger no longer sits in a 2-column grid with a sidebar quick-add panel', () => {
+    expect(query('.ew-row')).toBeNull();
+    // Old sidebar panel had its own "New expense" heading — gone.
+    expect(fixture.nativeElement.textContent).not.toContain('New expense');
+  });
+
+  it('renders the quick-add footer strip with name + cost fields, an Add button, and "More options →"', () => {
+    const strip = query('.ep-quick-add');
+    expect(strip).toBeTruthy();
+    expect(query('.ep-quick-add-name')).toBeTruthy();
+    expect(query('.ep-quick-add-cost')).toBeTruthy();
+
+    const moreBtn = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'More options →',
+    );
+    expect(moreBtn).toBeTruthy();
+  });
+
+  it('quick-add strip submit calls ExpenseService.create() via the shared `form` FormGroup', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    const installmentService = TestBed.inject(InstallmentService) as unknown as {
+      creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
+    };
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+
+    const createSpy = vi
+      .fn()
+      .mockReturnValue(of(buildExpense({ id: 'e-new', name: 'Padaria', cost: 12.5 })));
+    (expenseService as unknown as { create: typeof createSpy }).create = createSpy;
+
+    const c = component as unknown as {
+      form: { patchValue: (v: Record<string, unknown>) => void };
+    };
+    c.form.patchValue({ name: 'Padaria', cost: 12.5, creditCardId: 'card-1' });
+    fixture.detectChanges();
+
+    const form = query('form.ep-quick-add') as HTMLFormElement;
+    expect(form).toBeTruthy();
+    form.dispatchEvent(new Event('submit'));
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    const [payload] = createSpy.mock.calls[0] as [{ name: string; cost: number; walletId: string }];
+    expect(payload.name).toBe('Padaria');
+    expect(payload.cost).toBe(12.5);
+    expect(payload.walletId).toBe('wallet-1');
+  });
+
+  it('"More options →" opens the full expense-create-dialog with bullets and credit cards', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({ id: 'wallet-1', description: 'Main' } as Wallet);
+    const installmentService = TestBed.inject(InstallmentService) as unknown as {
+      creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
+    };
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+
+    dialog.open.mockReturnValue({
+      componentInstance: { submitted: of() },
+      afterClosed: () => of(undefined),
+    });
+
+    const moreBtn = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'More options →',
+    ) as HTMLButtonElement;
+    moreBtn.click();
+    fixture.detectChanges();
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const [, config] = dialog.open.mock.calls[0] as [
+      unknown,
+      { data: { walletDescription: string; creditCards: readonly { id: string }[] } },
+    ];
+    expect(config.data.walletDescription).toBe('Main');
+    expect(config.data.creditCards).toEqual([{ id: 'card-1', name: 'Nubank' }]);
+  });
+
+  it('"More options →" is a no-op when no wallet is selected', () => {
+    const c = component as unknown as { openCreateDialog: () => void };
+    c.openCreateDialog();
+
+    expect(dialog.open).not.toHaveBeenCalled();
+  });
+
+  it('shows the "Pay" text button only for OPEN expenses, not PAID ones', () => {
+    expenseService.expenses$.next([
+      buildExpense({ id: 'e-open', name: 'Open one', cost: 100, remaining: 100 }),
+      buildExpense({ id: 'e-paid', name: 'Paid one', cost: 50, remaining: 0 }),
+    ]);
+    fixture.detectChanges();
+
+    const payButtons = Array.from(fixture.nativeElement.querySelectorAll('.ep-pay-btn'));
+    expect(payButtons.length).toBe(1);
+    expect((payButtons[0] as HTMLButtonElement).textContent?.trim()).toBe('Pay');
+  });
+
+  it('no row renders more than the Pay button + the "⋯" overflow trigger (no always-visible icon cluster)', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', cost: 100, remaining: 100 })]);
+    fixture.detectChanges();
+
+    const actionsCell = query('.ep-row-actions') as HTMLElement;
+    expect(actionsCell).toBeTruthy();
+    const directButtons = Array.from(actionsCell.querySelectorAll(':scope > button'));
+    // Pay button + "⋯" trigger — never the old 5-icon cluster.
+    expect(directButtons.length).toBe(2);
+  });
+
+  it('the overflow menu exposes View expense, Manage tags, Split expense, and Delete', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', name: 'Groceries' })]);
+    fixture.detectChanges();
+
+    const trigger = query('button[aria-label="More actions"]') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const labels = Array.from(document.querySelectorAll('.mat-mdc-menu-item')).map((el) =>
+      el.textContent?.trim(),
+    );
+    expect(labels).toEqual(
+      expect.arrayContaining(['View expense', 'Manage tags', 'Split expense', 'Delete']),
+    );
+  });
 });

@@ -51,11 +51,7 @@
 // Sticky, height-pinned (design: 68px desktop), blurred over `--bg-blur`
 // (D1 token) so page content shows through while scrolling underneath.
 .ew-topbar {
-  display: flex;
-  align-items: center;
-  gap: 14px;
   height: 68px;
-  padding: 0 36px;
   border-bottom: 1px solid var(--ew-line);
   position: sticky;
   top: 0;
@@ -63,6 +59,19 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   z-index: 40;
+}
+
+// Inner container caps at the same 1240px column as `.ew-content` below, so the
+// topbar's controls and the page content line up on wide screens (P0-2 fix).
+.ew-topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 100%;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 36px;
 }
 
 .ew-crumb {
@@ -225,6 +234,9 @@
 }
 
 // ── Content area ──────────────────────────────────────────────────────────────
+// Default max-width matches `.ew-topbar-inner` (1240px) so topbar and page content
+// share the same visual column (P0-2 fix). The optional "centered" Tweaks toggle
+// widens that cap for users who prefer more breathing room on very wide screens.
 .ew-content {
   padding: clamp(28px, 3.2vw, 56px) clamp(28px, 3.6vw, 72px) 80px;
   flex: 1;
@@ -232,11 +244,12 @@
   overflow-y: auto;
   width: 100%;
   min-width: 0;
+  max-width: 1240px;
+  margin: 0 auto;
 
-  // Centered mode: cap width and center
+  // Centered mode: widen the cap, still centered
   &--centered {
     max-width: 1720px;
-    margin: 0 auto;
   }
 }
 
@@ -858,7 +871,7 @@
     padding: 0;
   }
 
-  .ew-topbar {
+  .ew-topbar-inner {
     padding: 12px 20px;
     gap: 10px;
   }

@@ -74,422 +74,366 @@
     <div class="ep-sync-note" role="status">{{ syncResultMessage() }}</div>
   }
 
-  <div class="ew-row">
-    <!-- Expense ledger -->
-    <div class="ew-panel">
-      <div class="ew-panel-head">
-        <div class="ep-panel-head-main">
-          <h3>Expense ledger</h3>
-          <p>{{ filteredExpenseItems().length }} of {{ expenseItems().length }} expense(s) in cycle</p>
-        </div>
-        <div class="ew-panel-head-actions">
-          <!-- Filter buttons, not real tabs (no tabpanel) — plain buttons with
-               aria-pressed rather than the tablist/tab APG pattern, which would need a
-               tabpanel and roving-tabindex/arrow-key support to be non-misleading. -->
-          <div class="ep-layout-tabs" aria-label="Ledger layout">
-            <div class="ep-tabs-thumb" [style.--thumb-index]="isGroupedLayout() ? 1 : 0" [style.--thumb-count]="2"></div>
-            <button
-              type="button"
-              class="ep-layout-tab"
-              [attr.aria-pressed]="!isGroupedLayout()"
-              [class.ep-layout-tab--active]="!isGroupedLayout()"
-              title="Dense table — scan and compare"
-              (click)="setLayout('ledger')"
-            >
-              Table
-            </button>
-            <button
-              type="button"
-              class="ep-layout-tab"
-              [attr.aria-pressed]="isGroupedLayout()"
-              [class.ep-layout-tab--active]="isGroupedLayout()"
-              title="Grouped by purchase date with subtotals"
-              (click)="setLayout('grouped')"
-            >
-              By day
-            </button>
-          </div>
+  <!-- Expense ledger — full-width card (P0-1 fix: no more 2-column grid with a
+       sidebar quick-add panel; quick-add now lives as a footer strip inside this
+       same card, see bottom of section). -->
+  <div class="ew-panel">
+    <div class="ew-panel-head">
+      <div class="ep-panel-head-main">
+        <h3>Expense ledger</h3>
+        <p>{{ filteredExpenseItems().length }} of {{ expenseItems().length }} expense(s) in cycle</p>
+      </div>
+      <div class="ew-panel-head-actions">
+        <!-- Filter buttons, not real tabs (no tabpanel) — plain buttons with
+             aria-pressed rather than the tablist/tab APG pattern, which would need a
+             tabpanel and roving-tabindex/arrow-key support to be non-misleading. -->
+        <div class="ep-layout-tabs" aria-label="Ledger layout">
+          <div class="ep-tabs-thumb" [style.--thumb-index]="isGroupedLayout() ? 1 : 0" [style.--thumb-count]="2"></div>
           <button
-            class="ep-sync-btn"
             type="button"
-            [disabled]="isSyncing()"
-            (click)="syncNow()"
-            aria-label="Sync bank SMS expenses"
-            title="Sync bank SMS expenses"
+            class="ep-layout-tab"
+            [attr.aria-pressed]="!isGroupedLayout()"
+            [class.ep-layout-tab--active]="!isGroupedLayout()"
+            title="Dense table — scan and compare"
+            (click)="setLayout('ledger')"
           >
-            <mat-icon aria-hidden="true">sync</mat-icon>
-            {{ isSyncing() ? 'Syncing...' : 'Sync' }}
+            Table
+          </button>
+          <button
+            type="button"
+            class="ep-layout-tab"
+            [attr.aria-pressed]="isGroupedLayout()"
+            [class.ep-layout-tab--active]="isGroupedLayout()"
+            title="Grouped by purchase date with subtotals"
+            (click)="setLayout('grouped')"
+          >
+            By day
           </button>
         </div>
-      </div>
-
-      <div class="ep-toolbar" [formGroup]="filtersForm">
-        <div class="ep-search-field">
-          <mat-icon class="ep-search-icon" aria-hidden="true">search</mat-icon>
-          <input
-            #searchInput
-            class="ep-search-input"
-            type="text"
-            formControlName="search"
-            placeholder="Search expense or tag"
-            aria-label="Search expense or tag"
-          />
-        </div>
-        <div class="ep-status-tabs" aria-label="Status filter">
-          <div class="ep-tabs-thumb" [style.--thumb-index]="statusTabIndex()" [style.--thumb-count]="3"></div>
-          <button type="button" class="ep-status-tab" [attr.aria-pressed]="statusTabIndex() === 0" [class.ep-status-tab--active]="statusTabIndex() === 0" (click)="setStatusTab('ALL')">All</button>
-          <button type="button" class="ep-status-tab" [attr.aria-pressed]="statusTabIndex() === 1" [class.ep-status-tab--active]="statusTabIndex() === 1" (click)="setStatusTab('OPEN')">Open</button>
-          <button type="button" class="ep-status-tab" [attr.aria-pressed]="statusTabIndex() === 2" [class.ep-status-tab--active]="statusTabIndex() === 2" (click)="setStatusTab('PAID')">Paid</button>
-        </div>
         <button
+          class="ep-sync-btn"
           type="button"
-          class="ep-filters-btn"
-          [class.ep-filters-btn--active]="filterChips().length > 0"
-          (click)="openFiltersDialog()"
-          aria-haspopup="dialog"
+          [disabled]="isSyncing()"
+          (click)="syncNow()"
+          aria-label="Sync bank SMS expenses"
+          title="Sync bank SMS expenses"
         >
-          <mat-icon aria-hidden="true">tune</mat-icon>
-          Filters
-          @if (filterChips().length > 0) {
-            <span class="ep-filters-count">{{ filterChips().length }}</span>
-          }
+          <mat-icon aria-hidden="true">sync</mat-icon>
+          {{ isSyncing() ? 'Syncing...' : 'Sync' }}
         </button>
       </div>
+    </div>
 
-      @if (filterChips().length > 0) {
-        <!-- aria-live="polite" + LiveAnnouncer (chipRemoved()) announce the removal, and
-             ngAfterViewChecked() redirects focus to the next chip / Clear all / search
-             input once the row re-renders — removing a chip must never silently drop
-             keyboard/screen-reader focus to <body>. -->
-        <div class="ep-chips-row" aria-live="polite">
-          @for (chip of filterChips(); track chip.id) {
-            <button #chipButton type="button" class="ep-chip" (click)="chip.clear(); chipRemoved(chip.label)">
-              <span>{{ chip.label }}</span>
-              <span class="ep-chip-x" aria-hidden="true">×</span>
-              <span class="ew-sr-only">Remove filter {{ chip.label }}</span>
-            </button>
-          }
-          <button #clearAllButton type="button" class="ep-chip-clear-all" (click)="clearAllFilters()">Clear all</button>
-        </div>
-      }
+    <div class="ep-toolbar" [formGroup]="filtersForm">
+      <div class="ep-search-field">
+        <mat-icon class="ep-search-icon" aria-hidden="true">search</mat-icon>
+        <input
+          #searchInput
+          class="ep-search-input"
+          type="text"
+          formControlName="search"
+          placeholder="Search expense or tag"
+          aria-label="Search expense or tag"
+        />
+      </div>
+      <div class="ep-status-tabs" aria-label="Status filter">
+        <div class="ep-tabs-thumb" [style.--thumb-index]="statusTabIndex()" [style.--thumb-count]="3"></div>
+        <button type="button" class="ep-status-tab" [attr.aria-pressed]="statusTabIndex() === 0" [class.ep-status-tab--active]="statusTabIndex() === 0" (click)="setStatusTab('ALL')">All</button>
+        <button type="button" class="ep-status-tab" [attr.aria-pressed]="statusTabIndex() === 1" [class.ep-status-tab--active]="statusTabIndex() === 1" (click)="setStatusTab('OPEN')">Open</button>
+        <button type="button" class="ep-status-tab" [attr.aria-pressed]="statusTabIndex() === 2" [class.ep-status-tab--active]="statusTabIndex() === 2" (click)="setStatusTab('PAID')">Paid</button>
+      </div>
+      <button
+        type="button"
+        class="ep-filters-btn"
+        [class.ep-filters-btn--active]="filterChips().length > 0"
+        (click)="openFiltersDialog()"
+        aria-haspopup="dialog"
+      >
+        <mat-icon aria-hidden="true">tune</mat-icon>
+        Filters
+        @if (filterChips().length > 0) {
+          <span class="ep-filters-count">{{ filterChips().length }}</span>
+        }
+      </button>
+    </div>
 
-      @if (isLoading()) {
-        <div class="ew-empty">Loading...</div>
-      } @else if (filteredExpenseItems().length === 0) {
-        <div class="ep-empty-state">
-          <div class="ep-empty-icon" aria-hidden="true"></div>
-          <div class="ep-empty-title">No expenses match filters</div>
-          <p class="ep-empty-sub">Adjust the search or clear the filters to see every entry in this cycle.</p>
-          <button type="button" class="ep-empty-clear-btn" (click)="clearAllFilters()">Clear filters</button>
-        </div>
-      } @else if (!isGroupedLayout()) {
-        <div class="ew-panel-table-wrap">
-        <table class="ew-table">
-          <thead>
+    @if (filterChips().length > 0) {
+      <!-- aria-live="polite" + LiveAnnouncer (chipRemoved()) announce the removal, and
+           ngAfterViewChecked() redirects focus to the next chip / Clear all / search
+           input once the row re-renders — removing a chip must never silently drop
+           keyboard/screen-reader focus to <body>. -->
+      <div class="ep-chips-row" aria-live="polite">
+        @for (chip of filterChips(); track chip.id) {
+          <button #chipButton type="button" class="ep-chip" (click)="chip.clear(); chipRemoved(chip.label)">
+            <span>{{ chip.label }}</span>
+            <span class="ep-chip-x" aria-hidden="true">×</span>
+            <span class="ew-sr-only">Remove filter {{ chip.label }}</span>
+          </button>
+        }
+        <button #clearAllButton type="button" class="ep-chip-clear-all" (click)="clearAllFilters()">Clear all</button>
+      </div>
+    }
+
+    @if (isLoading()) {
+      <div class="ew-empty">Loading...</div>
+    } @else if (filteredExpenseItems().length === 0) {
+      <div class="ep-empty-state">
+        <div class="ep-empty-icon" aria-hidden="true"></div>
+        <div class="ep-empty-title">No expenses match filters</div>
+        <p class="ep-empty-sub">Adjust the search or clear the filters to see every entry in this cycle.</p>
+        <button type="button" class="ep-empty-clear-btn" (click)="clearAllFilters()">Clear filters</button>
+      </div>
+    } @else if (!isGroupedLayout()) {
+      <div class="ew-panel-table-wrap">
+      <table class="ew-table ep-table">
+        <colgroup>
+          <col class="ep-col-name" />
+          <col class="ep-col-date" />
+          <col class="ep-col-bullet" />
+          <col class="ep-col-card" />
+          <col class="ep-col-status" />
+          <col class="ep-col-amount" />
+          <col class="ep-col-actions" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Date</th>
+            <th>Bullet</th>
+            <th>Card</th>
+            <th>Status</th>
+            <th>Amount</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (expense of filteredExpenseItems(); track expense.id) {
             <tr>
-              <th>Name</th>
-              <th>Date</th>
-              <th>Bullet</th>
-              <th>Card</th>
-              <th>Status</th>
-              <th>Amount</th>
-              <th style="width: 1%"></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (expense of filteredExpenseItems(); track expense.id) {
-              <tr>
-                <td
-                  role="button"
-                  tabindex="0"
-                  (click)="openViewer(expense)"
-                  (keydown.enter)="openViewer(expense)"
-                  (keydown.space)="$event.preventDefault(); openViewer(expense)"
-                  [attr.aria-label]="'View ' + expense.name"
+              <td
+                role="button"
+                tabindex="0"
+                (click)="openViewer(expense)"
+                (keydown.enter)="openViewer(expense)"
+                (keydown.space)="$event.preventDefault(); openViewer(expense)"
+                [attr.aria-label]="'View ' + expense.name"
+              >
+                {{ expense.name }}
+                @if (expense.tagChips.length > 0) {
+                  <div class="expense-tag-chips">
+                    @for (chip of expense.tagChips; track chip.id) {
+                      <span class="expense-tag-chip">{{ chip.name }}</span>
+                    }
+                  </div>
+                }
+              </td>
+              <td>{{ expense.purchaseDate | brDate }}</td>
+              <td>{{ expense.bulletLabel }}</td>
+              <td>{{ expense.creditCardLabel }}</td>
+              <td>
+                <span class="ew-pill" [class.ew-pill--paid]="expense.statusLabel === 'PAID'" [class.ew-pill--open]="expense.statusLabel === 'OPEN'">
+                  {{ expense.statusLabel }}
+                </span>
+              </td>
+              <td class="ep-amount-cell ew-blur">
+                @if (expense.paid > 0) {
+                  <small class="ep-amount-original">{{ expense.cost | brlCurrency }}</small>
+                }
+                <span class="ep-amount">{{ expense.remaining | brlCurrency }}</span>
+                @if (expense.hasShare) {
+                  <span
+                    class="ep-share-indicator"
+                    [attr.title]="expense.shareSummary"
+                    aria-label="Expense has an active share"
+                  >
+                    <mat-icon aria-hidden="true">groups</mat-icon>
+                  </span>
+                }
+              </td>
+              <td class="ep-row-actions">
+                @if (expense.statusLabel === 'OPEN') {
+                  <button
+                    class="ep-pay-btn"
+                    type="button"
+                    [disabled]="bulletOptions().length === 0 || isPaying()"
+                    (click)="$event.stopPropagation(); openPaymentDialog(expense)"
+                    aria-label="Pay expense"
+                    title="Pay expense"
+                  >
+                    Pay
+                  </button>
+                }
+                <button
+                  class="ep-icon-btn"
+                  type="button"
+                  [matMenuTriggerFor]="rowMenu"
+                  (click)="$event.stopPropagation()"
+                  aria-label="More actions"
                 >
-                  {{ expense.name }}
-                  @if (expense.tagChips.length > 0) {
-                    <div class="expense-tag-chips">
-                      @for (chip of expense.tagChips; track chip.id) {
-                        <span class="expense-tag-chip">{{ chip.name }}</span>
+                  <mat-icon aria-hidden="true">more_horiz</mat-icon>
+                </button>
+                <mat-menu #rowMenu="matMenu">
+                  <button mat-menu-item type="button" (click)="openViewer(expense)">View expense</button>
+                  <button mat-menu-item type="button" (click)="onTagsClick(expense)">Manage tags</button>
+                  @if (!expense.hasShare) {
+                    <button mat-menu-item type="button" (click)="openShareDialog(expense)">Split expense</button>
+                  }
+                  <mat-divider></mat-divider>
+                  <button
+                    mat-menu-item
+                    type="button"
+                    class="ep-menu-item--danger"
+                    [disabled]="deletingExpenseId() === expense.id"
+                    (click)="onDeleteClick(expense)"
+                  >
+                    {{ deletingExpenseId() === expense.id ? 'Deleting…' : 'Delete' }}
+                  </button>
+                </mat-menu>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      </div>
+    } @else {
+      <!-- Grouped-by-day layout (D6 desktop). Sticky group headers sit at top: 68px,
+           flush below D5's sticky topbar (see .ep-day-head in expense-page.scss) so the
+           two stickies never overlap. -->
+      <div class="ep-day-groups">
+        @for (group of dayGroups(); track group.date) {
+          <div class="ep-day-group">
+            <div class="ep-day-head">
+              <span class="ep-day-label">{{ group.date | brDate }}</span>
+              <span class="ep-day-count">
+                {{ group.items.length }} expense(s)
+              </span>
+              <span class="ep-day-subtotal">{{ group.subtotal | brlCurrency }}</span>
+            </div>
+            @for (expense of group.items; track expense.id) {
+              <div
+                class="ep-day-row"
+                role="button"
+                tabindex="0"
+                (click)="openViewer(expense)"
+                (keydown.enter)="openViewer(expense)"
+                (keydown.space)="$event.preventDefault(); openViewer(expense)"
+                [attr.aria-label]="'View ' + expense.name"
+              >
+                <div class="ep-day-row-main">
+                  <span class="ep-day-dot" [class.ep-day-dot--open]="expense.statusLabel === 'OPEN'"></span>
+                  <div class="ep-day-row-body">
+                    <div class="ep-day-row-title">
+                      <span class="ep-day-row-name">{{ expense.name }}</span>
+                      @if (expense.hasShare) {
+                        <span class="ep-day-badge" [attr.title]="expense.shareSummary">SHARED</span>
                       }
                     </div>
-                  }
-                </td>
-                <td>{{ expense.purchaseDate | brDate }}</td>
-                <td>{{ expense.bulletLabel }}</td>
-                <td>{{ expense.creditCardLabel }}</td>
-                <td>
-                  <span class="ew-pill" [class.ew-pill--paid]="expense.statusLabel === 'PAID'" [class.ew-pill--open]="expense.statusLabel === 'OPEN'">
-                    {{ expense.statusLabel }}
-                  </span>
-                </td>
-                <td class="ep-amount-cell ew-blur">
-                  @if (expense.paid > 0) {
-                    <small class="ep-amount-original">{{ expense.cost | brlCurrency }}</small>
-                  }
-                  <span class="ep-amount">{{ expense.remaining | brlCurrency }}</span>
-                  @if (expense.hasShare) {
-                    <span
-                      class="ep-share-indicator"
-                      [attr.title]="expense.shareSummary"
-                      aria-label="Expense has an active share"
-                    >
-                      <mat-icon aria-hidden="true">groups</mat-icon>
+                    @if (expense.tagChips.length > 0) {
+                      <div class="expense-tag-chips">
+                        @for (chip of expense.tagChips; track chip.id) {
+                          <span class="expense-tag-chip">{{ chip.name }}</span>
+                        }
+                      </div>
+                    }
+                    <div class="ep-day-row-meta">
+                      {{ expense.creditCardLabel }}
+                      @if (expense.bulletLabel !== '—') {
+                        · {{ expense.bulletLabel }}
+                      }
+                    </div>
+                  </div>
+                  <div class="ep-day-row-amount-col">
+                    <span class="ep-amount ew-blur">
+                      {{ (expense.statusLabel === 'OPEN' ? expense.remaining : expense.cost) | brlCurrency }}
                     </span>
+                    <span class="ew-pill" [class.ew-pill--paid]="expense.statusLabel === 'PAID'" [class.ew-pill--open]="expense.statusLabel === 'OPEN'">
+                      {{ expense.statusLabel }}
+                    </span>
+                  </div>
+                </div>
+                <div class="ep-day-row-actions">
+                  @if (expense.statusLabel === 'OPEN') {
+                    <button
+                      type="button"
+                      class="ep-day-action-btn"
+                      [disabled]="bulletOptions().length === 0 || isPaying()"
+                      (click)="$event.stopPropagation(); openPaymentDialog(expense)"
+                      title="Pay expense"
+                    >
+                      Pay
+                    </button>
                   }
-                </td>
-                <td class="ep-row-actions">
+                  @if (!expense.hasShare) {
+                    <button
+                      type="button"
+                      class="ep-day-action-btn ep-day-action-btn--ghost"
+                      (click)="$event.stopPropagation(); openShareDialog(expense)"
+                      title="Split expense"
+                    >
+                      Split
+                    </button>
+                  }
                   <button
-                    class="ep-icon-btn"
                     type="button"
-                    (click)="openViewer(expense)"
-                    aria-label="View expense"
-                    title="View expense"
-                  >
-                    <mat-icon aria-hidden="true">visibility</mat-icon>
-                  </button>
-                  <button
-                    class="ep-icon-btn"
-                    type="button"
-                    [disabled]="expense.statusLabel === 'PAID' || bulletOptions().length === 0 || isPaying()"
-                    (click)="openPaymentDialog(expense)"
-                    [attr.aria-label]="expense.statusLabel === 'PAID' ? 'Expense already paid' : 'Pay expense'"
-                    [title]="expense.statusLabel === 'PAID' ? 'Already paid' : 'Pay expense'"
-                  >
-                    <mat-icon aria-hidden="true">
-                      {{ expense.statusLabel === 'PAID' ? 'check' : 'payments' }}
-                    </mat-icon>
-                  </button>
-                  <button
-                    class="ep-icon-btn"
-                    type="button"
-                    (click)="onTagsClick(expense)"
+                    class="ep-day-action-btn ep-day-action-btn--ghost"
+                    (click)="$event.stopPropagation(); onTagsClick(expense)"
                     aria-label="Manage tags"
                     title="Manage tags"
                   >
                     <mat-icon aria-hidden="true">sell</mat-icon>
                   </button>
-                  @if (!expense.hasShare) {
-                    <button
-                      class="ep-icon-btn"
-                      type="button"
-                      (click)="openShareDialog(expense)"
-                      aria-label="Split expense"
-                      title="Split expense"
-                    >
-                      <mat-icon aria-hidden="true">groups</mat-icon>
-                    </button>
-                  }
                   <button
-                    class="ep-icon-btn ep-icon-btn--danger"
                     type="button"
+                    class="ep-day-action-btn ep-day-action-btn--danger"
                     [disabled]="deletingExpenseId() === expense.id"
-                    (click)="onDeleteClick(expense)"
+                    (click)="$event.stopPropagation(); onDeleteClick(expense)"
                     aria-label="Delete expense"
                   >
-                    <mat-icon>
+                    <mat-icon aria-hidden="true">
                       {{ deletingExpenseId() === expense.id ? 'hourglass_empty' : 'delete_outline' }}
                     </mat-icon>
                   </button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-        </div>
-      } @else {
-        <!-- Grouped-by-day layout (D6 desktop). Sticky group headers sit at top: 68px,
-             flush below D5's sticky topbar (see .ep-day-head in expense-page.scss) so the
-             two stickies never overlap. -->
-        <div class="ep-day-groups">
-          @for (group of dayGroups(); track group.date) {
-            <div class="ep-day-group">
-              <div class="ep-day-head">
-                <span class="ep-day-label">{{ group.date | brDate }}</span>
-                <span class="ep-day-count">
-                  {{ group.items.length }} expense(s)
-                </span>
-                <span class="ep-day-subtotal">{{ group.subtotal | brlCurrency }}</span>
-              </div>
-              @for (expense of group.items; track expense.id) {
-                <div
-                  class="ep-day-row"
-                  role="button"
-                  tabindex="0"
-                  (click)="openViewer(expense)"
-                  (keydown.enter)="openViewer(expense)"
-                  (keydown.space)="$event.preventDefault(); openViewer(expense)"
-                  [attr.aria-label]="'View ' + expense.name"
-                >
-                  <div class="ep-day-row-main">
-                    <span class="ep-day-dot" [class.ep-day-dot--open]="expense.statusLabel === 'OPEN'"></span>
-                    <div class="ep-day-row-body">
-                      <div class="ep-day-row-title">
-                        <span class="ep-day-row-name">{{ expense.name }}</span>
-                        @if (expense.hasShare) {
-                          <span class="ep-day-badge" [attr.title]="expense.shareSummary">SHARED</span>
-                        }
-                      </div>
-                      @if (expense.tagChips.length > 0) {
-                        <div class="expense-tag-chips">
-                          @for (chip of expense.tagChips; track chip.id) {
-                            <span class="expense-tag-chip">{{ chip.name }}</span>
-                          }
-                        </div>
-                      }
-                      <div class="ep-day-row-meta">
-                        {{ expense.creditCardLabel }}
-                        @if (expense.bulletLabel !== '—') {
-                          · {{ expense.bulletLabel }}
-                        }
-                      </div>
-                    </div>
-                    <div class="ep-day-row-amount-col">
-                      <span class="ep-amount ew-blur">
-                        {{ (expense.statusLabel === 'OPEN' ? expense.remaining : expense.cost) | brlCurrency }}
-                      </span>
-                      <span class="ew-pill" [class.ew-pill--paid]="expense.statusLabel === 'PAID'" [class.ew-pill--open]="expense.statusLabel === 'OPEN'">
-                        {{ expense.statusLabel }}
-                      </span>
-                    </div>
-                  </div>
-                  <div class="ep-day-row-actions">
-                    @if (expense.statusLabel === 'OPEN') {
-                      <button
-                        type="button"
-                        class="ep-day-action-btn"
-                        [disabled]="bulletOptions().length === 0 || isPaying()"
-                        (click)="$event.stopPropagation(); openPaymentDialog(expense)"
-                        title="Pay expense"
-                      >
-                        Pay
-                      </button>
-                    }
-                    @if (!expense.hasShare) {
-                      <button
-                        type="button"
-                        class="ep-day-action-btn ep-day-action-btn--ghost"
-                        (click)="$event.stopPropagation(); openShareDialog(expense)"
-                        title="Split expense"
-                      >
-                        Split
-                      </button>
-                    }
-                    <button
-                      type="button"
-                      class="ep-day-action-btn ep-day-action-btn--ghost"
-                      (click)="$event.stopPropagation(); onTagsClick(expense)"
-                      aria-label="Manage tags"
-                      title="Manage tags"
-                    >
-                      <mat-icon aria-hidden="true">sell</mat-icon>
-                    </button>
-                    <button
-                      type="button"
-                      class="ep-day-action-btn ep-day-action-btn--danger"
-                      [disabled]="deletingExpenseId() === expense.id"
-                      (click)="$event.stopPropagation(); onDeleteClick(expense)"
-                      aria-label="Delete expense"
-                    >
-                      <mat-icon aria-hidden="true">
-                        {{ deletingExpenseId() === expense.id ? 'hourglass_empty' : 'delete_outline' }}
-                      </mat-icon>
-                    </button>
-                  </div>
                 </div>
-              }
-            </div>
-          }
-        </div>
-      }
-    </div>
-
-    <!-- New expense form -->
-    <div class="ew-panel">
-      <div class="ew-panel-head">
-        <div>
-          <h3>New <em>expense</em></h3>
-          <p>Quick add</p>
-        </div>
+              </div>
+            }
+          </div>
+        }
       </div>
-      <div class="ew-panel-body">
-        <form class="ew-form" [formGroup]="form" (ngSubmit)="createExpense()">
-          <div class="ew-field">
-            <label for="ep-name">Name</label>
-            <input
-              id="ep-name"
-              class="ew-input"
-              formControlName="name"
-              placeholder="e.g. Mercado"
-            />
-          </div>
-          <div class="ew-field">
-            <label for="ep-cost">Cost</label>
-            <input
-              id="ep-cost"
-              class="ew-input"
-              type="number"
-              min="0.01"
-              step="0.01"
-              formControlName="cost"
-              placeholder="R$ 0.00"
-            />
-          </div>
-          <div class="ew-field">
-            <label for="ep-date">Purchase date</label>
-            <input id="ep-date" class="ew-input" type="date" formControlName="purchaseDate" />
-          </div>
+    }
 
-          @if (creditCards().length > 0) {
-            <div class="ew-field">
-              <label for="ep-card">Credit card</label>
-              <select id="ep-card" class="ew-select" formControlName="creditCardId">
-                <option value="">Select card...</option>
-                @for (card of creditCards(); track card.id) {
-                  <option [value]="card.id">{{ card.name }}</option>
-                }
-              </select>
-            </div>
-          }
-
-          <button
-            class="ew-checkbox"
-            type="button"
-            [class.ew-checkbox--on]="showInstallments()"
-            (click)="toggleInstallment()"
-          >
-            <i></i>
-            <span>Installment purchase</span>
-          </button>
-
-          @if (showInstallments()) {
-            <div class="ew-field">
-              <label for="ep-charges">Charges (min. 2)</label>
-              <input
-                id="ep-charges"
-                class="ew-input"
-                type="number"
-                min="2"
-                step="1"
-                formControlName="installmentCharges"
-                placeholder="e.g. 12"
-              />
-              @if (form.controls.installmentCharges.touched && form.controls.installmentCharges.invalid) {
-                <p class="ep-field-error">Enter a number of charges (min. 2).</p>
-              }
-            </div>
-          }
-
-          <button
-            class="ew-btn-submit"
-            type="submit"
-            [disabled]="!canSubmitExpense()"
-          >
-            {{ isSaving() ? 'Creating...' : 'Create expense' }}
-          </button>
-        </form>
-      </div>
-    </div>
+    <!-- Quick-add footer strip (P0-1 fix: replaces the old sidebar "New expense"
+         panel). Covers the two fields most adds need — name + cost — plus
+         "More options →", which opens the full expense-create-dialog (bullet,
+         credit card, installments) for anything beyond that. -->
+    <form class="ep-quick-add" [formGroup]="form" (ngSubmit)="createExpense()">
+      <input
+        class="ew-input ep-quick-add-name"
+        formControlName="name"
+        placeholder="Quick add an expense…"
+        aria-label="Expense name"
+      />
+      <input
+        class="ew-input ep-quick-add-cost"
+        type="number"
+        min="0.01"
+        step="0.01"
+        formControlName="cost"
+        placeholder="R$ 0.00"
+        aria-label="Cost"
+      />
+      <button
+        class="ep-quick-add-btn"
+        type="submit"
+        [disabled]="!canSubmitExpense()"
+      >
+        {{ isSaving() ? 'Adding…' : 'Add' }}
+      </button>
+      <button
+        class="ep-quick-add-more"
+        type="button"
+        (click)="openCreateDialog()"
+      >
+        More options →
+      </button>
+    </form>
   </div>
 </div>

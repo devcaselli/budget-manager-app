@@ -183,50 +183,52 @@
   <div class="ew-main">
     <!-- Topbar -->
     <header class="ew-topbar">
-      <div class="ew-crumb">Budget · <b>{{ currentRouteLabel() }}</b></div>
+      <div class="ew-topbar-inner">
+        <div class="ew-crumb">Budget · <b>{{ currentRouteLabel() }}</b></div>
 
-      <div class="ew-topbar-spacer"></div>
+        <div class="ew-topbar-spacer"></div>
 
-      @if (selectedWallet(); as wallet) {
-        <button
-          class="ew-ticker"
-          type="button"
-          [attr.aria-expanded]="walletPopOpen()"
-          aria-label="Wallet summary"
-          (click)="toggleWalletPop($event)"
-        >
-          <span>{{ wallet.effectiveMonth }} · <b [class.ew-up]="utilizationRate() < 80">{{ utilizationRate() }}%</b> used</span>
-          <svg class="ew-ticker-chev" [class.ew-ticker-chev--open]="walletPopOpen()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </button>
-      }
+        @if (selectedWallet(); as wallet) {
+          <button
+            class="ew-ticker"
+            type="button"
+            [attr.aria-expanded]="walletPopOpen()"
+            aria-label="Wallet summary"
+            (click)="toggleWalletPop($event)"
+          >
+            <span>{{ wallet.effectiveMonth }} · <b [class.ew-up]="utilizationRate() < 80">{{ utilizationRate() }}%</b> used</span>
+            <svg class="ew-ticker-chev" [class.ew-ticker-chev--open]="walletPopOpen()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+        }
 
-      <button
-        class="ew-btn ew-btn--ghost"
-        type="button"
-        aria-label="Refresh"
-        (click)="refresh()"
-      >↻</button>
-
-      @if (prefs.showTweaks()) {
         <button
           class="ew-btn ew-btn--ghost"
           type="button"
-          aria-label="Recenter tweaks panel"
-          title="Recenter tweaks panel"
-          (click)="recenterTweaks()"
-        >⌖</button>
-      }
+          aria-label="Refresh"
+          (click)="refresh()"
+        >↻</button>
 
-      <button
-        class="ew-btn ew-btn--primary"
-        type="button"
-        [disabled]="!selectedWallet()"
-        (click)="openTransactionDialog()"
-      >
-        + New transaction
-      </button>
+        @if (prefs.showTweaks()) {
+          <button
+            class="ew-btn ew-btn--ghost"
+            type="button"
+            aria-label="Recenter tweaks panel"
+            title="Recenter tweaks panel"
+            (click)="recenterTweaks()"
+          >⌖</button>
+        }
+
+        <button
+          class="ew-btn ew-btn--primary"
+          type="button"
+          [disabled]="!selectedWallet()"
+          (click)="openTransactionDialog()"
+        >
+          + New transaction
+        </button>
+      </div>
     </header>
 
     <!-- Email confirmation banner — informational only, never blocking (soft-verification epic decision) -->
