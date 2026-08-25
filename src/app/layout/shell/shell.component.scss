@@ -59,6 +59,12 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   z-index: 40;
+
+  // P2-5: rises above the scrim (190) while the wallet popover is open, per design —
+  // keeps the ticker trigger visible/clickable-to-close on top of the dimmed page.
+  &--raised {
+    z-index: 58;
+  }
 }
 
 // Inner container caps at the same 1240px column as `.ew-content` below, so the
@@ -484,37 +490,45 @@
   }
 }
 
-// Popover — position:fixed so it escapes sidebar overflow:auto
+// Popover — position:fixed so it escapes sidebar overflow:auto. P2-1 (post-epic-audit):
+// design specs 344px/16px-radius/18px-padding and a plain soft shadow with NO arrow — this
+// was ported from an earlier iteration that anchored off the sidebar wallet button (hence
+// the left-pointing arrow and the `translateY(-100%)` "sit above the trigger" math). Since
+// P0/P1 made the topbar ticker the primary trigger, coords are now computed relative to
+// that button's own rect (see `toggleWalletPop()`) with no upward flip and no arrow.
 .ew-wallet-pop {
   position: fixed;
-  width: 320px;
+  width: 344px;
   background: var(--ew-panel);
   border: 1px solid var(--ew-line-2);
-  border-radius: 18px;
-  padding: 22px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(214, 163, 113, 0.06);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 24px 60px rgba(22, 50, 60, 0.16);
   z-index: 200;
   animation: walletPopIn 0.2s cubic-bezier(0.2, 0.7, 0.3, 1);
-  transform: translateY(-100%); // top coord = button bottom → shift up so popover sits above
-
-  // Arrow pointing left
-  &::before {
-    content: '';
-    position: absolute;
-    left: -7px;
-    bottom: 24px;
-    width: 12px;
-    height: 12px;
-    background: var(--ew-panel);
-    border-left: 1px solid var(--ew-line-2);
-    border-bottom: 1px solid var(--ew-line-2);
-    transform: rotate(45deg);
-  }
 }
 
 @keyframes walletPopIn {
-  from { opacity: 0; transform: translateY(-100%) translateX(-8px); }
-  to   { opacity: 1; transform: translateY(-100%) translateX(0); }
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// P2-5 (post-epic-audit): scrim behind the wallet popover, matching the design's
+// `position:fixed; inset:0; background:var(--scrim)`. `MatMenu` (row-menu, P0) already
+// ships its own CDK overlay backdrop, so this custom scrim is only needed here.
+// z-index sits between the raised topbar (58, stays visible/clickable above the scrim
+// per design) and the popover itself (200).
+.ew-wallet-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 57;
+  animation: walletScrimIn 0.15s ease-out;
+}
+
+@keyframes walletScrimIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .ew-wp-head {

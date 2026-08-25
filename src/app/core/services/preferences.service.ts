@@ -84,6 +84,17 @@ export class PreferencesService {
   readonly featureFlags = signal(readStored('bm_flags') === 'on');
   /** Wallet to auto-select on load/refresh; null when none is starred. */
   readonly favoriteWalletId = signal<string | null>(readStored('bm_favorite_wallet'));
+  /**
+   * P2-4 (post-epic-audit): whether `expense-create-dialog`'s "Remember the selected
+   * card" toggle is on — distinct from that same dialog's existing `keepCreditCard`
+   * form control, which only carries the card forward across "Keep modal open"
+   * resets within one dialog session. This preference instead persists the last-used
+   * credit card ID across dialog OPENINGS (new session, new page load), same
+   * `bm_*`-prefixed localStorage pattern as `favoriteWalletId` above.
+   */
+  readonly rememberCard = signal(readStored('bm_remember_card') === 'on');
+  /** Credit card ID to pre-fill when `rememberCard` is on; null when none saved yet. */
+  readonly rememberedCreditCardId = signal<string | null>(readStored('bm_remembered_credit_card_id'));
   /** Sidebar nav groups collapsed by the user (D4) — label → true when closed. */
   readonly closedNavGroups = signal<Partial<Record<NavGroupLabel, boolean>>>(readClosedNavGroups());
   /** Desktop sidebar collapsed to 0px width (D4) — distinct from per-group collapse above. */
@@ -145,6 +156,21 @@ export class PreferencesService {
     const next = this.favoriteWalletId() === walletId ? null : walletId;
     this.favoriteWalletId.set(next);
     writeStored('bm_favorite_wallet', next);
+  }
+
+  /** Toggles the "Remember the selected card" preference (P2-4). Turning it off does
+   *  NOT clear the last-remembered card ID — turning it back on later restores the
+   *  same card, mirroring how `favoriteWalletId` above only clears on explicit re-toggle. */
+  toggleRememberCard(): void {
+    const next = !this.rememberCard();
+    this.rememberCard.set(next);
+    writeStored('bm_remember_card', next ? 'on' : 'off');
+  }
+
+  /** Called by `expense-create-dialog` on submit, only while `rememberCard` is on. */
+  setRememberedCreditCardId(creditCardId: string | null): void {
+    this.rememberedCreditCardId.set(creditCardId);
+    writeStored('bm_remembered_credit_card_id', creditCardId);
   }
 
   /**

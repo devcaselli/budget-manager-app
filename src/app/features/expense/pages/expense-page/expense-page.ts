@@ -49,6 +49,7 @@ import {
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
 import { DESKTOP_DIALOG_MAX_WIDTH, DESKTOP_DIALOG_WIDTH } from '@shared/constants/dialog.constants';
+import { ToastService } from '@shared/services/toast.service';
 
 import {
   ExpenseCreateDialogComponent,
@@ -144,6 +145,7 @@ export class ExpensePage implements AfterViewChecked {
   private readonly tagService = inject(TagService);
   private readonly pendingReviewService = inject(PendingReviewService);
   private readonly omegaViewerLauncher = inject(OmegaViewerLauncher);
+  private readonly toast = inject(ToastService);
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
@@ -624,7 +626,13 @@ export class ExpensePage implements AfterViewChecked {
           : {}),
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: () => this.resetForm(), error: () => undefined });
+      .subscribe({
+        next: () => {
+          this.resetForm();
+          this.toast.show('Expense created');
+        },
+        error: () => undefined,
+      });
   }
 
   /** P0-1: "More options →" in the quick-add footer strip opens the same full
@@ -680,7 +688,10 @@ export class ExpensePage implements AfterViewChecked {
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.expenseService.loadByWalletId(walletId),
+        next: () => {
+          this.expenseService.loadByWalletId(walletId);
+          this.toast.show('Expense created');
+        },
         error: () => undefined,
       });
   }
@@ -759,6 +770,7 @@ export class ExpensePage implements AfterViewChecked {
           this.paymentService.loadByWalletId(id);
           this.shareService.loadAll();
           this.reloadWalletPayers(id);
+          this.toast.show('Split created');
         }
       });
   }
@@ -846,7 +858,7 @@ export class ExpensePage implements AfterViewChecked {
     this.expenseService
       .delete(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: () => undefined, error: () => undefined });
+      .subscribe({ next: () => this.toast.show('Expense deleted'), error: () => undefined });
   }
 
   private payExpense(walletId: string, expenseId: string, payment: ExpensePaymentDialogResult): void {
@@ -866,6 +878,7 @@ export class ExpensePage implements AfterViewChecked {
           this.bulletService.loadByWalletId(id);
           this.expenseService.loadByWalletId(id);
           this.paymentService.loadByWalletId(id);
+          this.toast.show('Payment recorded');
         },
         error: () => undefined,
       });

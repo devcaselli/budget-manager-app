@@ -111,6 +111,19 @@
       </div>
     }
 
+    <!-- P2-4: "Remember the selected card" — persists via PreferencesService (bm_remember_card),
+         distinct from "Keep selected credit card" above (which only carries the card forward
+         within one dialog session via keepCreditCard/keepOpen). -->
+    <button
+      class="ew-checkbox"
+      type="button"
+      [class.ew-checkbox--on]="prefs.rememberCard()"
+      (click)="toggleRememberCard()"
+    >
+      <i></i>
+      <span>Remember the selected card</span>
+    </button>
+
     <button
       class="ew-checkbox"
       type="button"

@@ -151,4 +151,10 @@
       color: var(--ew-on-acc);
     }
   }
+
+  // P2-4 (post-epic-audit): added alongside the new Cancel button — same modifier every
+  // other expense dialog's local `.ew-btn` block already defines.
+  &--ghost {
+    border-color: transparent;
+  }
 }

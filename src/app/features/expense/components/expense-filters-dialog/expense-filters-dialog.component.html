@@ -67,5 +67,12 @@
 </mat-dialog-content>
 
 <mat-dialog-actions class="efd-actions" align="end">
+  <!-- P2-4 (post-epic-audit): design shows Cancel + "Apply filters" (~L802-806). This
+       dialog binds the page's LIVE filtersForm by reference (see ExpenseFiltersDialogData's
+       doc) — every edit already applies instantly, there's no draft state to discard. So
+       Cancel and Done both just close the dialog here; Cancel exists for the honest signal
+       ("I'm done looking, not committing anything new") and for keyboard/visual parity with
+       the design, not because it reverts anything real. -->
+  <button class="ew-btn ew-btn--ghost" type="button" (click)="close()">Cancel</button>
   <button class="ew-btn ew-btn--primary" type="button" (click)="close()">Done</button>
 </mat-dialog-actions>

@@ -14,7 +14,20 @@
 </div>
 
 <mat-dialog-content class="payment-dialog__body">
+  <!-- P2-4: "Remaining balance" banner (design ~L619-622, --accent-soft box, mono 18px value). -->
+  <div class="payment-dialog__balance">
+    <span class="payment-dialog__balance-label">Remaining balance</span>
+    <span class="payment-dialog__balance-value">{{ data.expense.remaining }}</span>
+  </div>
+
   <form class="payment-dialog__form" [formGroup]="form" (ngSubmit)="submit()">
+    <!-- P2-4: value-shortcut chips (design ~L636-640). -->
+    <div class="payment-dialog__chips" role="group" aria-label="Amount shortcuts">
+      <button class="payment-dialog__chip" type="button" (click)="applyFullAmount()">Full amount</button>
+      <button class="payment-dialog__chip" type="button" (click)="applyHalfAmount()">Half</button>
+      <button class="payment-dialog__chip" type="button" (click)="applyRoundDownAmount()">Round down</button>
+    </div>
+
     <div class="ew-field">
       <label for="pay-bullet">Bullet *</label>
       <select id="pay-bullet" class="ew-select" formControlName="bulletId">

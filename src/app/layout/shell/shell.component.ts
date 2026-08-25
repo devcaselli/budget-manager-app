@@ -23,7 +23,6 @@ import { Wallet } from '@features/wallet/models/wallet';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { BulletService } from '@features/bullet/services/bullet.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
-import { DecimalPipe } from '@angular/common';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { formatBrl } from '@shared/utils/currency';
 import { AuthService } from '@core/auth/auth.service';
@@ -31,6 +30,7 @@ import { NavGroupLabel, PreferencesService } from '@core/services/preferences.se
 import { PendingReviewService } from '@features/pending-review/services/pending-review.service';
 import { PendingReviewDialogComponent } from '@features/pending-review/components/pending-review-dialog/pending-review-dialog.component';
 import { SyncService } from '@features/sync/services/sync.service';
+import { ToastService } from '@shared/services/toast.service';
 
 interface PopoverCoords {
   top: number;
@@ -45,6 +45,9 @@ interface TweaksPos {
 /** Approximate rendered footprint (px) of the `.ew-tweaks` panel, used to keep it within viewport bounds. */
 const TWEAKS_PANEL_WIDTH_PX = 230;
 const TWEAKS_PANEL_HEIGHT_PX = 100;
+
+/** Must match `.ew-wallet-pop`'s `width` in shell.component.scss (P2-1: design's 344px). */
+const WALLET_POP_WIDTH_PX = 344;
 
 /** Same cooldown length as F-C3's `CheckEmailPage`/F-C4's `ConfirmEmailPage` resend actions. */
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -70,6 +73,14 @@ interface NavGroup {
    * string), or `null` when no item in this group is active (rail hidden via opacity).
    */
   readonly railIndex: number | null;
+  /**
+   * P2-3 (post-epic-audit): shown in the group head only while `!open`, so collapsing a
+   * group never fully hides that it holds pending work — the design's `"4"` / `"4 · 2 new"`
+   * format. `null` when the group has no badge count to call out (plain `"4"`); a number
+   * when at least one item's badge (currently only Inbox) is non-zero — before this fix,
+   * collapsing MANAGER hid the Inbox badge entirely with no visible trace.
+   */
+  readonly closedCountLabel: string;
 }
 
 /** Static group→item route map (D4 regroup: BUDGET / LEDGER / MANAGER / EXTERNAL). */
@@ -115,7 +126,7 @@ const SETTINGS_NAV: NavEntry = { label: 'Settings', route: '/settings' };
 @Component({
   selector: 'app-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, BrlCurrencyPipe, RouterLink, RouterOutlet],
+  imports: [BrlCurrencyPipe, RouterLink, RouterOutlet],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
 })
@@ -130,6 +141,7 @@ export class ShellComponent {
   private readonly authService = inject(AuthService);
   private readonly pendingReviewService = inject(PendingReviewService);
   private readonly syncService = inject(SyncService);
+  private readonly toast = inject(ToastService);
   protected readonly prefs = inject(PreferencesService);
 
   protected readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
@@ -240,6 +252,8 @@ export class ShellComponent {
       const activeIndex = items.findIndex((item) => item.label === activeLabel);
       const holdsActive = activeIndex >= 0;
       const open = holdsActive || !closed[group.label];
+      const newCount = items.reduce((sum, item) => sum + item.badgeCount, 0);
+      const closedCountLabel = newCount > 0 ? `${items.length} · ${newCount} new` : `${items.length}`;
 
       return {
         label: group.label,
@@ -247,6 +261,7 @@ export class ShellComponent {
         open,
         holdsActive,
         railIndex: activeIndex >= 0 ? activeIndex : null,
+        closedCountLabel,
       };
     });
   });
@@ -299,14 +314,24 @@ export class ShellComponent {
     });
   }
 
+  /**
+   * P2-1 (post-epic-audit): coords are now anchored relative to the topbar itself
+   * (design: `top:48px; right:0` off the topbar's ticker) rather than the clicked
+   * button's own rect — the old per-button math produced an inconsistent popover
+   * position depending on which of the two redundant triggers (sidebar button vs.
+   * topbar ticker) opened it, and needed the arrow/upward-flip hack this fix removes.
+   * `right` is computed from the viewport edge so the popover's fixed 344px width
+   * (see shell.component.scss `.ew-wallet-pop`) lines up with the topbar's own right
+   * edge regardless of trigger, matching the design's `right:0` intent.
+   */
   protected toggleWalletPop(event: MouseEvent): void {
     event.stopPropagation();
     if (!this.walletPopOpen()) {
-      const btn = event.currentTarget as HTMLElement;
-      const rect = btn.getBoundingClientRect();
+      const topbar = (event.currentTarget as HTMLElement).closest('.ew-app')?.querySelector('.ew-topbar-inner');
+      const rect = (topbar ?? (event.currentTarget as HTMLElement)).getBoundingClientRect();
       this.walletPopCoords.set({
-        top: rect.bottom - 8,
-        left: rect.right + 14,
+        top: rect.bottom + 12,
+        left: rect.right - WALLET_POP_WIDTH_PX,
       });
       // Ensure bullets are loaded when popover opens
       const walletId = this.selectedWallet()?.id ?? null;
@@ -430,6 +455,7 @@ export class ShellComponent {
       .subscribe({
         next: (result) => {
           this.pendingReviewService.applySyncResult(result);
+          this.toast.show('Expenses imported');
           this.openPendingReviewDialog();
         },
         error: () => undefined,
@@ -544,7 +570,10 @@ export class ShellComponent {
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.expenseService.loadByWalletId(walletId),
+        next: () => {
+          this.expenseService.loadByWalletId(walletId);
+          this.toast.show('Expense created');
+        },
         error: () => undefined,
       });
   }

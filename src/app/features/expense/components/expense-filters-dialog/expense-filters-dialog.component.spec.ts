@@ -116,4 +116,15 @@ describe('ExpenseFiltersDialogComponent', () => {
 
     expect(dialogRef.close).toHaveBeenCalledTimes(1);
   });
+
+  it('P2-4: Cancel closes the dialog too (no staged/draft state to discard — see close() doc)', () => {
+    setup();
+
+    const cancelBtn = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Cancel',
+    ) as HTMLButtonElement;
+    cancelBtn.click();
+
+    expect(dialogRef.close).toHaveBeenCalledTimes(1);
+  });
 });

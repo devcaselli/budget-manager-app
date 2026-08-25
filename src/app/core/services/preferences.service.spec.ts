@@ -236,4 +236,61 @@ describe('PreferencesService', () => {
       expect(service.sidebarHidden()).toBe(true);
     });
   });
+
+  describe('remembered credit card (P2-4)', () => {
+    it('defaults rememberCard to off and rememberedCreditCardId to null when nothing is stored', () => {
+      resetPreferenceState();
+
+      const service = TestBed.inject(PreferencesService);
+
+      expect(service.rememberCard()).toBe(false);
+      expect(service.rememberedCreditCardId()).toBeNull();
+    });
+
+    it('toggleRememberCard flips state and persists it across boot', () => {
+      resetPreferenceState();
+      const service = TestBed.inject(PreferencesService);
+
+      service.toggleRememberCard();
+
+      expect(service.rememberCard()).toBe(true);
+      expect(localStorage.getItem('bm_remember_card')).toBe('on');
+
+      service.toggleRememberCard();
+
+      expect(service.rememberCard()).toBe(false);
+      expect(localStorage.getItem('bm_remember_card')).toBe('off');
+    });
+
+    it('setRememberedCreditCardId persists the id and restores it on boot', () => {
+      resetPreferenceState();
+      const service = TestBed.inject(PreferencesService);
+
+      service.setRememberedCreditCardId('card-1');
+
+      expect(service.rememberedCreditCardId()).toBe('card-1');
+      expect(localStorage.getItem('bm_remembered_credit_card_id')).toBe('card-1');
+
+      TestBed.resetTestingModule();
+      const rebooted = TestBed.inject(PreferencesService);
+
+      expect(rebooted.rememberedCreditCardId()).toBe('card-1');
+    });
+
+    it('toggling rememberCard off does not clear the previously remembered card id', () => {
+      resetPreferenceState();
+      const service = TestBed.inject(PreferencesService);
+
+      service.setRememberedCreditCardId('card-1');
+      service.toggleRememberCard();
+
+      expect(service.rememberCard()).toBe(true);
+      expect(service.rememberedCreditCardId()).toBe('card-1');
+
+      service.toggleRememberCard();
+
+      expect(service.rememberCard()).toBe(false);
+      expect(service.rememberedCreditCardId()).toBe('card-1');
+    });
+  });
 });

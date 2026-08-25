@@ -60,6 +60,61 @@
   padding: 24px 28px;
 }
 
+// P2-4 (post-epic-audit): "Remaining balance" banner (design ~L619-622).
+.payment-dialog__balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+
+.payment-dialog__balance-label {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+}
+
+.payment-dialog__balance-value {
+  font-family: var(--ew-mono);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ew-acc-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+// P2-4: value-shortcut chips (design ~L636-640).
+.payment-dialog__chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.payment-dialog__chip {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  &:hover {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+    background: var(--ew-acc-soft);
+  }
+}
+
 .payment-dialog__form {
   display: grid;
   gap: 20px;

@@ -4,6 +4,7 @@ import { take } from 'rxjs';
 
 import { PendingReviewListComponent } from '../../components/pending-review-list/pending-review-list.component';
 import { PendingReviewService } from '../../services/pending-review.service';
+import { ToastService } from '@shared/services/toast.service';
 
 /**
  * Smart page — resolves state via `PendingReviewService`, passes the list to the dumb
@@ -21,6 +22,7 @@ import { PendingReviewService } from '../../services/pending-review.service';
 export class PendingReviewPage {
   private readonly destroyRef = inject(DestroyRef);
   private readonly pendingReviewService = inject(PendingReviewService);
+  private readonly toast = inject(ToastService);
 
   protected readonly items = toSignal(this.pendingReviewService.pendingReviews$, { initialValue: [] });
   protected readonly isLoading = toSignal(this.pendingReviewService.loading$, { initialValue: false });
@@ -104,6 +106,9 @@ export class PendingReviewPage {
           this.confirmErrorsById.set(errors);
           const failedCount = result.failed.length;
           this.confirmSummary.set(`${result.confirmed.length} confirmed, ${failedCount} failed.`);
+          if (result.confirmed.length > 0) {
+            this.toast.show('Pending items confirmed');
+          }
         },
         error: () => undefined,
       });

@@ -42,6 +42,11 @@
               (click)="toggleNavGroup(group)"
             >
               <span>{{ group.label }}</span>
+              @if (!group.open) {
+                <!-- P2-3: item count (+ pending badges) surfaced when the group is
+                     collapsed, so closing MANAGER doesn't hide that Inbox has pending items. -->
+                <span class="ew-nav-group-count">{{ group.closedCountLabel }}</span>
+              }
               <svg
                 class="ew-nav-group-chev"
                 [class.ew-nav-group-chev--closed]="!group.open"
@@ -180,7 +185,7 @@
   <!-- ── Main area ───────────────────────────────────────────────── -->
   <div class="ew-main">
     <!-- Topbar -->
-    <header class="ew-topbar">
+    <header class="ew-topbar" [class.ew-topbar--raised]="walletPopOpen()">
       <div class="ew-topbar-inner">
         <div class="ew-crumb">Budget · <b>{{ currentRouteLabel() }}</b></div>
 
@@ -279,6 +284,9 @@
 
 <!-- ── Wallet popover — rendered outside sidebar to escape overflow:auto ── -->
 @if (walletPopOpen() && selectedWallet(); as wallet) {
+  <!-- P2-5: scrim behind the popover, click closes it (design: fixed inset:0, --scrim). -->
+  <div class="ew-wallet-scrim" (click)="closeWalletPop()"></div>
+
   <div
     class="ew-wallet-pop"
     role="dialog"
@@ -320,17 +328,19 @@
     } @else if (bullets().length > 0) {
       <div class="ew-wp-list">
         @for (bullet of bullets().slice(0, 3); track bullet.id) {
-          @let pct = bullet.budget > 0 ? (bullet.budget - bullet.remaining) / bullet.budget * 100 : 0;
+          @let used = bullet.budget - bullet.remaining;
+          @let pct = bullet.budget > 0 ? used / bullet.budget * 100 : 0;
           <div class="ew-wp-bullet">
             <div class="ew-wp-bn">
               {{ bullet.description }}
-              <small>{{ pct | number:'1.0-0' }}% used</small>
             </div>
             <div class="ew-wp-bar">
               <i [style.width.%]="pct"></i>
             </div>
+            <!-- P2-1: 2-number metric (used / total), matching the design — was
+                 pct% used + remaining/budget (3 numbers total). -->
             <div class="ew-wp-val ew-blur">
-              {{ bullet.remaining | brlCurrency }}
+              {{ used | brlCurrency }}
               <small>/ {{ bullet.budget | brlCurrency }}</small>
             </div>
           </div>

@@ -15,6 +15,8 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 import { Subject } from 'rxjs';
 
+import { PreferencesService } from '@core/services/preferences.service';
+
 export interface ExpenseCreateDialogBullet {
   readonly id: string;
   readonly description: string;
@@ -60,6 +62,7 @@ export class ExpenseCreateDialogComponent {
     MatDialogRef<ExpenseCreateDialogComponent, ExpenseCreateDialogResult>
   >(MatDialogRef);
   private readonly formBuilder = inject(FormBuilder);
+  protected readonly prefs = inject(PreferencesService);
 
   @ViewChild('nameInput') private readonly nameInput?: ElementRef<HTMLInputElement>;
 
@@ -71,12 +74,22 @@ export class ExpenseCreateDialogComponent {
     cost: [0, [Validators.required, Validators.min(0.01)]],
     purchaseDate: [this.today(), Validators.required],
     bulletId: [''],
-    creditCardId: ['', Validators.required],
+    // P2-4: pre-filled from PreferencesService.rememberedCreditCardId when "Remember
+    // the selected card" is on and that card still exists in this wallet's list.
+    creditCardId: [this.resolveInitialCreditCardId(), Validators.required],
     isInstallment: [false],
     installmentCharges: [0],
     keepOpen: [false],
     keepCreditCard: [false],
   });
+
+  private resolveInitialCreditCardId(): string {
+    if (!this.prefs.rememberCard()) return '';
+    const rememberedId = this.prefs.rememberedCreditCardId();
+    if (!rememberedId) return '';
+    const existsInList = (this.data.creditCards ?? []).some((card) => card.id === rememberedId);
+    return existsInList ? rememberedId : '';
+  }
 
   protected get hasBullets(): boolean {
     return (this.data.bullets?.length ?? 0) > 0;
@@ -124,6 +137,10 @@ export class ExpenseCreateDialogComponent {
         : {}),
     };
 
+    if (this.prefs.rememberCard()) {
+      this.prefs.setRememberedCreditCardId(value.creditCardId || null);
+    }
+
     if (value.keepOpen) {
       this.submitted.next(result);
       this.resetForNextTransaction(value.purchaseDate);
@@ -131,6 +148,12 @@ export class ExpenseCreateDialogComponent {
     }
 
     this.dialogRef.close(result);
+  }
+
+  /** "Remember the selected card" toggle (P2-4) — persists via `PreferencesService`,
+   *  independent of this dialog's own `keepOpen`/`keepCreditCard` in-session state. */
+  protected toggleRememberCard(): void {
+    this.prefs.toggleRememberCard();
   }
 
   private resetForNextTransaction(purchaseDate: string): void {

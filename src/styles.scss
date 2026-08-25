@@ -1116,6 +1116,40 @@ body.ew-privacy {
   backdrop-filter: blur(8px);
 }
 
+// P2-2 (post-epic-audit): `MatSnackBar` toast chrome, pinned to the design's tokens —
+// see `ToastService` for the `panelClass: 'ew-toast'` call site. Design specs
+// `position:fixed; bottom:28px; left:50%` with a 12px radius and a "Dismiss" action in
+// `--accent-fg`; `MatSnackBar`'s own `horizontalPosition: 'center'` / `verticalPosition:
+// 'bottom'` config handles the fixed centering, so only the surface/action colors and
+// radius need overriding here (same `!important` pattern `.mat-mdc-dialog-surface`
+// above already uses to win over Material's own inline CDK overlay styles).
+.ew-toast {
+  &.mat-mdc-snack-bar-container {
+    margin-bottom: 28px !important;
+
+    .mdc-snackbar__surface {
+      background: var(--toast-bg) !important;
+      border-radius: 12px !important;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    .mdc-snackbar__label {
+      color: var(--surface) !important;
+      font-family: var(--ew-sans);
+      font-size: 13px;
+    }
+
+    .mat-mdc-snack-bar-action {
+      .mdc-button__label {
+        color: var(--accent-fg) !important;
+        font-family: var(--ew-sans);
+        font-size: 13px;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
 .ew-btn-submit {
   display: flex;
   justify-content: center;
@@ -1890,6 +1924,18 @@ body.ew-privacy {
   &--closed {
     transform: rotate(-90deg);
   }
+}
+
+// P2-3 (post-epic-audit): item count shown in a closed group's head, e.g. "4" or
+// "4 · 2 new" when the group holds pending badges (currently just Inbox). Sits between
+// the label and the chevron — .ew-nav-group-chev keeps its own `margin-left: auto`, so
+// this needs no positioning of its own beyond normal flex flow.
+.ew-nav-group-count {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ew-ink-3);
+  white-space: nowrap;
 }
 
 // Wraps one contiguous run of nav items (the standalone Dashboard row, or one

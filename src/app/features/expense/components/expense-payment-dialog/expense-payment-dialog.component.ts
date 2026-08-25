@@ -71,6 +71,26 @@ export class ExpensePaymentDialogComponent {
     details: [''],
   });
 
+  /**
+   * P2-4 (post-epic-audit): value-shortcut chips (design ~L636-640) — "Full amount" sets
+   * the whole remaining balance, "Half" rounds to cents, "Round down" floors to the
+   * nearest whole currency unit (never rounds UP past the remaining balance, which
+   * `Validators.max` would reject).
+   */
+  protected applyFullAmount(): void {
+    this.form.controls.amount.setValue(this.data.expense.remainingValue);
+  }
+
+  protected applyHalfAmount(): void {
+    const half = Math.round((this.data.expense.remainingValue / 2) * 100) / 100;
+    this.form.controls.amount.setValue(half);
+  }
+
+  protected applyRoundDownAmount(): void {
+    const roundedDown = Math.floor(this.data.expense.remainingValue);
+    this.form.controls.amount.setValue(roundedDown);
+  }
+
   protected submit(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();

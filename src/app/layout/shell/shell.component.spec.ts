@@ -147,6 +147,17 @@ describe('ShellComponent — sidebar nav groups (D4)', () => {
     expect(JSON.parse(localStorage.getItem('bm_nav_closed') ?? 'null')).toEqual({ LEDGER: true });
   });
 
+  it('P2-3: shows an item-count label in the head only while the group is collapsed', () => {
+    const head = groupHead('LEDGER');
+    expect(head.querySelector('.ew-nav-group-count')).toBeFalsy();
+
+    head.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    // LEDGER holds 3 items (Expenses, Subscriptions, Installments), no badges.
+    expect(head.querySelector('.ew-nav-group-count')?.textContent?.trim()).toBe('3');
+  });
+
   it('re-expands a collapsed group on a second header click', () => {
     groupHead('LEDGER').dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
@@ -267,6 +278,20 @@ describe('ShellComponent — Inbox pending-review badge (D4)', () => {
     const link = fixture.nativeElement.querySelector('a.ew-nav-item[data-go="inbox"]') as HTMLAnchorElement;
 
     expect(link.querySelector('.ew-nav-badge')).toBeFalsy();
+  });
+
+  it('P2-3: collapsing MANAGER (holds Inbox) shows "N · M new" instead of hiding the pending count entirely', async () => {
+    const fixture = await setUpShellFixtureWithPendingReviews(2);
+
+    const heads = Array.from(
+      fixture.nativeElement.querySelectorAll('.ew-nav-group-head'),
+    ) as HTMLButtonElement[];
+    const managerHead = heads.find((el) => el.textContent?.trim().startsWith('MANAGER'))!;
+    managerHead.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    // MANAGER holds 4 items (Credit cards, Payments, Inbox, Tags), 2 of them pending.
+    expect(managerHead.querySelector('.ew-nav-group-count')?.textContent?.trim()).toBe('4 · 2 new');
   });
 });
 
@@ -823,6 +848,123 @@ describe('ShellComponent — topbar + theme toggle (D5)', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.ew-wallet-pop')).toBeFalsy();
+  });
+});
+
+describe('ShellComponent — wallet popover (P2-1/P2-5 post-epic-audit)', () => {
+  /** Builds a shell fixture with a selected wallet + bullets so the topbar ticker
+   *  renders and the popover has real content to assert against. */
+  async function setUpShellFixtureWithWallet(): Promise<ComponentFixture<ShellComponent>> {
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+      clear: () => store.clear(),
+    });
+
+    const wallet = {
+      id: 'w1',
+      description: 'Main wallet',
+      budget: 1000,
+      remaining: 400,
+      startDate: '2026-01-01',
+      closedDate: null,
+      closed: false,
+      effectiveMonth: '2026-08',
+      state: 'PRODUCTION' as const,
+    };
+    const bullet = {
+      id: 'b1',
+      description: 'Groceries',
+      budget: 200,
+      remaining: 50,
+      walletId: 'w1',
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [ShellComponent],
+      providers: [
+        provideNoopAnimations(),
+        provideRouter([{ path: 'tags', component: StubTagsPage }]),
+        PreferencesService,
+        {
+          provide: WalletService,
+          useValue: {
+            selectedWallet$: of(wallet),
+            wallets$: of([wallet]),
+            loadWallets: vi.fn(),
+            selectWallet: vi.fn(),
+          },
+        },
+        {
+          provide: BulletService,
+          useValue: { bullets$: of([bullet]), loading$: of(false), loadByWalletId: vi.fn() },
+        },
+        { provide: InstallmentService, useValue: { creditCards$: of([]) } },
+        { provide: ExpenseService, useValue: { loadByWalletId: vi.fn(), create: vi.fn() } },
+        { provide: PendingReviewService, useValue: { pendingReviews$: of([]), applySyncResult: vi.fn() } },
+        { provide: SyncService, useValue: { syncing$: of(false), error$: of(null), ingest: vi.fn() } },
+        {
+          provide: AuthService,
+          useValue: {
+            currentUser$: of({ email: 'v@x.com', name: 'V', initials: 'V', emailVerified: true }),
+            logout: vi.fn(),
+            resendConfirmation: vi.fn(),
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('opens the popover and shows the raised topbar + scrim when the ticker is clicked', async () => {
+    const fixture = await setUpShellFixtureWithWallet();
+
+    const ticker = fixture.nativeElement.querySelector('.ew-ticker') as HTMLButtonElement;
+    ticker.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.ew-wallet-pop')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.ew-wallet-scrim')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.ew-topbar')?.classList.contains('ew-topbar--raised')).toBe(true);
+  });
+
+  it('clicking the scrim closes the popover', async () => {
+    const fixture = await setUpShellFixtureWithWallet();
+
+    const ticker = fixture.nativeElement.querySelector('.ew-ticker') as HTMLButtonElement;
+    ticker.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.ew-wallet-pop')).toBeTruthy();
+
+    const scrim = fixture.nativeElement.querySelector('.ew-wallet-scrim') as HTMLElement;
+    scrim.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.ew-wallet-pop')).toBeFalsy();
+    expect(fixture.nativeElement.querySelector('.ew-wallet-scrim')).toBeFalsy();
+  });
+
+  it('P2-1: bullet row shows a 2-number used/total metric, not a 3-number pct+remaining/budget one', async () => {
+    const fixture = await setUpShellFixtureWithWallet();
+
+    const ticker = fixture.nativeElement.querySelector('.ew-ticker') as HTMLButtonElement;
+    ticker.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    const bulletRow = fixture.nativeElement.querySelector('.ew-wp-bullet') as HTMLElement;
+    expect(bulletRow.textContent).not.toContain('% used');
+    // budget 200, remaining 50 → used = 150
+    expect(bulletRow.querySelector('.ew-wp-val')?.textContent).toContain('150');
+    expect(bulletRow.querySelector('.ew-wp-val small')?.textContent).toContain('200');
   });
 });
 
