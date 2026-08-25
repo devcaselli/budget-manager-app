@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 
 import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
@@ -586,4 +587,436 @@ describe('ExpensePage — unhidden filter checkbox (Task 8a) & share indicator (
     expect(partiallyShared.statusLabel).toBe('OPEN');
     expect(partiallyShared.remaining).toBe(150);
   });
+});
+
+describe('ExpensePage — D6 redesign: stat cards, toolbar, layouts, chips, import banner', () => {
+  let fixture: ComponentFixture<ExpensePage>;
+  let component: ExpensePage;
+  let expenseService: FakeExpenseService;
+  let pendingReviewService: FakePendingReviewService;
+
+  function query<T extends Element = Element>(selector: string): T | null {
+    return fixture.nativeElement.querySelector(selector);
+  }
+
+  function queryAll<T extends Element = Element>(selector: string): T[] {
+    return Array.from(fixture.nativeElement.querySelectorAll(selector));
+  }
+
+  beforeEach(() => {
+    expenseService = new FakeExpenseService();
+    pendingReviewService = new FakePendingReviewService();
+
+    TestBed.configureTestingModule({
+      imports: [ExpensePage],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ExpenseService, useValue: expenseService },
+        { provide: ShareService, useClass: FakeShareService },
+        { provide: PaymentService, useClass: FakePaymentService },
+        { provide: BulletService, useClass: FakeBulletService },
+        { provide: InstallmentService, useClass: FakeInstallmentService },
+        { provide: WalletService, useClass: FakeWalletService },
+        { provide: TagService, useClass: FakeTagService },
+        { provide: SyncService, useClass: FakeSyncService },
+        { provide: PendingReviewService, useValue: pendingReviewService },
+        {
+          provide: MatDialog,
+          useValue: { open: vi.fn().mockReturnValue({ afterClosed: () => of(undefined) }) },
+        },
+        { provide: OmegaViewerLauncher, useClass: FakeOmegaViewerLauncher },
+      ],
+    });
+
+    fixture = TestBed.createComponent(ExpensePage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  // ── Stat cards ─────────────────────────────────────────────────────────
+
+  it('stat cards: total/open/paid and the paid-vs-open percentage derive from loaded expenses', () => {
+    expenseService.expenses$.next([
+      buildExpense({ id: 'e1', cost: 100, remaining: 0 }), // PAID
+      buildExpense({ id: 'e2', cost: 300, remaining: 300 }), // OPEN
+    ]);
+    fixture.detectChanges();
+
+    const c = component as unknown as {
+      totalCost: () => number;
+      totalOpen: () => number;
+      totalPaid: () => number;
+      paidPercent: () => number;
+      openCount: () => number;
+    };
+    expect(c.totalCost()).toBe(400);
+    expect(c.totalOpen()).toBe(300);
+    expect(c.totalPaid()).toBe(100);
+    expect(c.paidPercent()).toBe(25);
+    expect(c.openCount()).toBe(1);
+  });
+
+  it('paidPercent is 0 (not NaN) when there are no expenses at all', () => {
+    expenseService.expenses$.next([]);
+    fixture.detectChanges();
+
+    const c = component as unknown as { paidPercent: () => number };
+    expect(c.paidPercent()).toBe(0);
+  });
+
+  it('binds the paid-bar width via [style.--bar-width.%] — a CSS custom property, not a concatenated inline style object', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', cost: 200, remaining: 50 })]);
+    fixture.detectChanges();
+
+    const fill = query('.ep-stat-bar-fill') as HTMLElement;
+    expect(fill).toBeTruthy();
+    expect(fill.style.getPropertyValue('--bar-width')).toBe('75%');
+  });
+
+  // ── Import-pending banner ─────────────────────────────────────────────
+
+  it('shows the import banner reusing PendingReviewService.pendingReviews$, with the live count', () => {
+    pendingReviewService.pendingReviews$.next([{}, {}] as never);
+    fixture.detectChanges();
+
+    const banner = query('.ep-import-banner');
+    expect(banner).toBeTruthy();
+    expect(banner!.textContent).toContain('2 imported expense(s) waiting for review');
+  });
+
+  it('hides the import banner when there are no pending reviews', () => {
+    pendingReviewService.pendingReviews$.next([]);
+    fixture.detectChanges();
+
+    expect(query('.ep-import-banner')).toBeNull();
+  });
+
+  it('dismissing the banner ("Later") hides it until the pending count changes again', () => {
+    pendingReviewService.pendingReviews$.next([{}] as never);
+    fixture.detectChanges();
+
+    const laterBtn = queryAll('.ep-banner-btn--ghost').find((b) => b.textContent?.trim() === 'Later');
+    laterBtn!.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(query('.ep-import-banner')).toBeNull();
+  });
+
+  // ── Status tabs (sliding thumb) ────────────────────────────────────────
+
+  it('status tabs: clicking Open/Paid/All updates the filters form and the thumb index', () => {
+    const c = component as unknown as { statusTabIndex: () => number };
+    expect(c.statusTabIndex()).toBe(0); // ALL by default
+
+    const openTab = queryAll('.ep-status-tab').find((b) => b.textContent?.trim() === 'Open')!;
+    openTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    expect(c.statusTabIndex()).toBe(1);
+
+    const paidTab = queryAll('.ep-status-tab').find((b) => b.textContent?.trim() === 'Paid')!;
+    paidTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    expect(c.statusTabIndex()).toBe(2);
+  });
+
+  it('status tab click actually filters the ledger by status', () => {
+    expenseService.expenses$.next([
+      buildExpense({ id: 'e1', cost: 100, remaining: 0 }), // PAID
+      buildExpense({ id: 'e2', cost: 100, remaining: 100 }), // OPEN
+    ]);
+    fixture.detectChanges();
+
+    const paidTab = queryAll('.ep-status-tab').find((b) => b.textContent?.trim() === 'Paid')!;
+    paidTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    const filtered = (component as unknown as { filteredExpenseItems: () => readonly { id: string }[] })
+      .filteredExpenseItems();
+    expect(filtered.map((i) => i.id)).toEqual(['e1']);
+  });
+
+  // ── Layout tabs (Table / By day) ────────────────────────────────────────
+
+  it('layout tabs: defaults to Table (ledger) and switches to grouped-by-day on click', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1' })]);
+    fixture.detectChanges();
+
+    expect(query('.ew-table')).toBeTruthy();
+    expect(query('.ep-day-groups')).toBeNull();
+
+    const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
+    byDayTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(query('.ew-table')).toBeNull();
+    expect(query('.ep-day-groups')).toBeTruthy();
+  });
+
+  // ── Filter chips ──────────────────────────────────────────────────────
+
+  function filtersForm() {
+    return (
+      component as unknown as {
+        filtersForm: {
+          controls: {
+            search: { setValue: (v: string) => void };
+            paymentStatus: { setValue: (v: string) => void };
+            sortOrder: { setValue: (v: string) => void };
+            creditCardId: { setValue: (v: string) => void };
+          };
+        };
+      }
+    ).filtersForm;
+  }
+
+  it('shows a removable chip for an active search filter and clears it on click', () => {
+    filtersForm().controls.search.setValue('mercado');
+    fixture.detectChanges();
+
+    const chips = queryAll('.ep-chip');
+    expect(chips.length).toBe(1);
+    expect(chips[0].textContent).toContain('mercado');
+
+    chips[0].dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(queryAll('.ep-chip').length).toBe(0);
+  });
+
+  it('"Clear all" resets every active filter at once', () => {
+    filtersForm().controls.search.setValue('mercado');
+    filtersForm().controls.paymentStatus.setValue('OPEN');
+    fixture.detectChanges();
+
+    expect(queryAll('.ep-chip').length).toBe(2);
+
+    query('.ep-chip-clear-all')!.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(queryAll('.ep-chip').length).toBe(0);
+    const c = component as unknown as { statusTabIndex: () => number };
+    expect(c.statusTabIndex()).toBe(0);
+  });
+
+  it('shows no chips row when no filters are active', () => {
+    expect(query('.ep-chips-row')).toBeNull();
+  });
+
+  // ── Empty state ──────────────────────────────────────────────────────────
+
+  it('renders a designed empty state (not a blank screen) when filters produce zero results', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', name: 'Groceries' })]);
+    fixture.detectChanges();
+
+    filtersForm().controls.search.setValue('no-such-expense-name');
+    fixture.detectChanges();
+
+    const empty = query('.ep-empty-state');
+    expect(empty).toBeTruthy();
+    expect(empty!.textContent).toContain('No expenses match filters');
+
+    query('.ep-empty-clear-btn')!.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(query('.ep-empty-state')).toBeNull();
+    expect(query('.ew-table')).toBeTruthy();
+  });
+
+  it('renders the empty state at 0 items with no filters active', () => {
+    expenseService.expenses$.next([]);
+    fixture.detectChanges();
+
+    expect(query('.ep-empty-state')).toBeTruthy();
+  });
+
+  // ── Day grouping: correctness at 0 / 1 / 500+ items, no O(n·m) lookups ──
+
+  function dayGroups() {
+    return (
+      component as unknown as {
+        dayGroups: () => readonly { date: string; items: readonly { id: string }[]; subtotal: number }[];
+      }
+    ).dayGroups();
+  }
+
+  it('dayGroups is empty when there are no expenses', () => {
+    expenseService.expenses$.next([]);
+    fixture.detectChanges();
+
+    expect(dayGroups()).toEqual([]);
+  });
+
+  it('dayGroups produces a single group with the right subtotal for exactly 1 item', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', purchaseDate: '2026-06-01', cost: 50, remaining: 50 })]);
+    fixture.detectChanges();
+
+    const groups = dayGroups();
+    expect(groups.length).toBe(1);
+    expect(groups[0].date).toBe('2026-06-01');
+    expect(groups[0].items.map((i) => i.id)).toEqual(['e1']);
+    expect(groups[0].subtotal).toBe(50); // OPEN → uses remaining
+  });
+
+  it('dayGroups buckets by purchaseDate, sums subtotals correctly (OPEN uses remaining, PAID uses cost), and sorts groups DATE_DESC by default', () => {
+    expenseService.expenses$.next([
+      buildExpense({ id: 'e1', purchaseDate: '2026-06-01', cost: 100, remaining: 40 }), // OPEN, subtotal uses 40
+      buildExpense({ id: 'e2', purchaseDate: '2026-06-01', cost: 20, remaining: 0 }), // PAID, subtotal uses 20
+      buildExpense({ id: 'e3', purchaseDate: '2026-06-03', cost: 15, remaining: 15 }), // OPEN
+    ]);
+    fixture.detectChanges();
+
+    const groups = dayGroups();
+    expect(groups.map((g) => g.date)).toEqual(['2026-06-03', '2026-06-01']); // DATE_DESC
+    const juneFirst = groups.find((g) => g.date === '2026-06-01')!;
+    expect(juneFirst.items.length).toBe(2);
+    expect(juneFirst.subtotal).toBe(60); // 40 + 20
+  });
+
+  it('dayGroups handles 500 expenses across many dates correctly and without a perf cliff (O(n) bucketing)', () => {
+    const days = 25;
+    const perDay = 20;
+    const expenses = Array.from({ length: days * perDay }, (_, i) => {
+      const day = String((i % days) + 1).padStart(2, '0');
+      return buildExpense({
+        id: `e${i}`,
+        purchaseDate: `2026-01-${day}`,
+        cost: 10,
+        remaining: 10,
+      });
+    });
+    expenseService.expenses$.next(expenses);
+
+    const start = performance.now();
+    fixture.detectChanges();
+    const groups = dayGroups();
+    const elapsedMs = performance.now() - start;
+
+    expect(groups.length).toBe(days);
+    expect(groups.reduce((acc, g) => acc + g.items.length, 0)).toBe(days * perDay);
+    // Every group of 10 same-cost OPEN items sums to 100.
+    expect(groups.every((g) => g.subtotal === perDay * 10)).toBe(true);
+    // Not a strict perf assertion (CI variance), just a smoke check against an O(n·m) cliff.
+    expect(elapsedMs).toBeLessThan(2000);
+  });
+
+  it('renders 500+ grouped rows in the template without error when the By-day layout is active', () => {
+    const expenses = Array.from({ length: 500 }, (_, i) =>
+      buildExpense({ id: `e${i}`, purchaseDate: `2026-02-${String((i % 28) + 1).padStart(2, '0')}` }),
+    );
+    expenseService.expenses$.next(expenses);
+    fixture.detectChanges();
+
+    const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
+    byDayTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(queryAll('.ep-day-row').length).toBe(500);
+  });
+
+  // ── Accessibility fixes (code review) ───────────────────────────────────
+
+  it('layout and status filter buttons use aria-pressed, not the tablist/tab APG pattern (no tabpanel exists)', () => {
+    expect(query('[role="tablist"]')).toBeNull();
+    expect(query('[role="tab"]')).toBeNull();
+
+    const tableTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'Table')!;
+    const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
+    expect(tableTab.getAttribute('aria-pressed')).toBe('true');
+    expect(byDayTab.getAttribute('aria-pressed')).toBe('false');
+
+    byDayTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    expect(tableTab.getAttribute('aria-pressed')).toBe('false');
+    expect(byDayTab.getAttribute('aria-pressed')).toBe('true');
+
+    const allTab = queryAll('.ep-status-tab').find((b) => b.textContent?.trim() === 'All')!;
+    expect(allTab.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('the value-sort options are disabled while the grouped layout is active (groups always order by date)', () => {
+    const valueAsc = query('#ep-filter-sort option[value="VALUE_ASC"]') as HTMLOptionElement;
+    const valueDesc = query('#ep-filter-sort option[value="VALUE_DESC"]') as HTMLOptionElement;
+    expect(valueAsc.disabled).toBe(false);
+    expect(valueDesc.disabled).toBe(false);
+
+    const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
+    byDayTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(valueAsc.disabled).toBe(true);
+    expect(valueDesc.disabled).toBe(true);
+  });
+
+  it('shows a hint when grouped layout is active and a value sort was already selected', () => {
+    filtersForm().controls.sortOrder.setValue('VALUE_ASC' as never);
+    fixture.detectChanges();
+    expect(query('.ep-field-hint')).toBeNull();
+
+    const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
+    byDayTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(query('.ep-field-hint')).toBeTruthy();
+  });
+
+  it('the card filter chip resolves its label from the shared creditCardNameById Map (O(1), not a fresh .find() scan)', () => {
+    const installmentService = TestBed.inject(InstallmentService) as unknown as {
+      creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
+    };
+    installmentService.creditCards$.next([{ id: 'card-9', name: 'Nubank Platinum' }]);
+    fixture.detectChanges();
+
+    filtersForm().controls.creditCardId.setValue('card-9');
+    fixture.detectChanges();
+
+    const chips = queryAll('.ep-chip');
+    expect(chips.some((c) => c.textContent?.includes('Nubank Platinum'))).toBe(true);
+  });
+
+  it('moving focus after chip removal: focuses the next remaining chip', () => {
+    filtersForm().controls.search.setValue('a');
+    filtersForm().controls.paymentStatus.setValue('OPEN');
+    fixture.detectChanges();
+
+    const chips = queryAll<HTMLButtonElement>('.ep-chip');
+    expect(chips.length).toBe(2);
+
+    chips[0].dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    const remaining = queryAll<HTMLButtonElement>('.ep-chip');
+    expect(remaining.length).toBe(1);
+    expect(document.activeElement).toBe(remaining[0]);
+  });
+
+  it('moving focus after removing the last chip: focuses "Clear all" if present, else the search input', () => {
+    filtersForm().controls.search.setValue('a');
+    fixture.detectChanges();
+
+    const chips = queryAll<HTMLButtonElement>('.ep-chip');
+    expect(chips.length).toBe(1);
+
+    chips[0].dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    // No filters remain, so the whole chips row (including Clear all) unmounts —
+    // focus must fall back to the search input rather than being dropped to <body>.
+    expect(query('.ep-chips-row')).toBeNull();
+    expect(document.activeElement).toBe(query('.ep-search-input'));
+  });
+
+  it('announces the removed filter via LiveAnnouncer (polite)', () => {
+    filtersForm().controls.search.setValue('groceries');
+    fixture.detectChanges();
+
+    const announcer = TestBed.inject(LiveAnnouncer);
+    const announceSpy = vi.spyOn(announcer, 'announce');
+
+    query<HTMLButtonElement>('.ep-chip')!.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(announceSpy).toHaveBeenCalledWith(expect.stringContaining('groceries'), 'polite');
+  });
+
 });

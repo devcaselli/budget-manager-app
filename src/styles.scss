@@ -1848,6 +1848,44 @@ body.ew-privacy {
   }
 }
 
+// Generic sliding thumb for animated tab groups (layout/status tabs on the Expenses page,
+// D6) — same technique as .ew-nav-rail above, but width-based (index/count) instead of a
+// fixed per-row height. Position/width driven by --thumb-index / --thumb-count custom
+// properties bound via [style.--thumb-*] (numeric, unavoidable per-instance values) — never
+// a concatenated [style] string.
+.ep-tabs-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--thumb-count, 1));
+  transform: translateX(calc(var(--thumb-index, 0) * 100%));
+  background: var(--ew-panel);
+  border-radius: 9px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+  z-index: 0;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Generic screen-reader-only utility (visually hidden, still announced) — used by the
+// Expenses page's filter chips (D6) and available for reuse elsewhere.
+.ew-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .ew-nav-item {
   position: relative;
   z-index: 1;

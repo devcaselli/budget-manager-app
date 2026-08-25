@@ -230,6 +230,12 @@
   text-transform: uppercase;
 }
 
+.ep-field-hint {
+  margin: 7px 0 0;
+  color: var(--ew-ink-3);
+  font-size: 11.5px;
+}
+
 .expense-tag-chips {
   display: flex;
   flex-wrap: wrap;
@@ -248,4 +254,520 @@
   background: rgba(214, 163, 113, 0.1);
   color: var(--ew-acc);
   border: 1px solid rgba(214, 163, 113, 0.2);
+}
+
+// .ew-sr-only and .ep-tabs-thumb live in the global src/styles.scss partial — the former
+// is a generic a11y primitive, the latter is reused sliding-thumb CSS (layout/status tabs
+// here, same technique as the shell's .ew-nav-rail). Extracted out of this component's
+// styleUrl to stay under the 8kB anyComponentStyle budget (angular.json).
+
+// ── D6: stat cards ─────────────────────────────────────────────────────────
+
+.ep-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 20px 0;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ep-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 16px 18px;
+  background: var(--ew-panel);
+  border: 1px solid var(--ew-line);
+  border-radius: 14px;
+}
+
+.ep-stat-label {
+  font-family: var(--ew-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+}
+
+.ep-stat-value {
+  font-family: var(--ew-mono);
+  font-size: 22px;
+  color: var(--ew-ink);
+
+  &--warn { color: var(--warn-text); }
+  &--ok { color: var(--ok-text); }
+}
+
+.ep-stat-sub {
+  font-size: 12px;
+  color: var(--ew-ink-3);
+}
+
+.ep-stat-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ep-stat-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--ew-panel-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ep-stat-bar-fill {
+  height: 100%;
+  width: var(--bar-width, 0%);
+  background: var(--ok-text);
+  border-radius: 999px;
+  transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ep-stat-bar-pct {
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  color: var(--ew-ink-3);
+}
+
+// ── D6: import-pending banner ───────────────────────────────────────────────
+
+.ep-import-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-radius: 14px;
+  flex-wrap: wrap;
+}
+
+.ep-import-banner-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ep-import-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--warn-dot);
+}
+
+.ep-import-banner-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ew-ink);
+}
+
+.ep-import-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ep-banner-btn {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  border: 1px solid transparent;
+
+  &--ghost {
+    background: transparent;
+    border-color: var(--warn-line);
+    color: var(--warn-text);
+
+    &:hover { background: var(--warn-bg-2); }
+  }
+
+  &--solid {
+    background: var(--warn-solid);
+    color: #fff;
+    font-weight: 500;
+
+    &:hover { background: var(--warn-solid-hover); }
+  }
+}
+
+// ── D6: layout tabs, status tabs (sliding thumb) ────────────────────────────
+
+.ew-panel-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ep-layout-tabs,
+.ep-status-tabs {
+  position: relative;
+  display: grid;
+  background: var(--ew-panel-2);
+  border-radius: 11px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.ep-layout-tabs {
+  grid-template-columns: repeat(2, minmax(72px, 1fr));
+  border-radius: 10px;
+}
+
+.ep-status-tabs {
+  grid-template-columns: repeat(3, minmax(62px, 1fr));
+}
+
+.ep-layout-tab,
+.ep-status-tab {
+  position: relative;
+  z-index: 1;
+  height: 34px;
+  padding: 0 13px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+  white-space: nowrap;
+  color: var(--ew-ink-3);
+  transition: color 0.2s ease;
+
+  &--active {
+    color: var(--ew-ink);
+    font-weight: 500;
+  }
+}
+
+.ep-status-tab {
+  height: 38px;
+  font-size: 13px;
+}
+
+// ── D6: toolbar (search + status tabs) ──────────────────────────────────────
+
+.ep-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px 0;
+  flex-wrap: wrap;
+}
+
+.ep-search-field {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.ep-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ew-ink-3);
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.ep-search-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px 0 36px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  border-radius: 11px;
+  font-size: 14px;
+  color: var(--ew-ink);
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: -1px;
+  }
+}
+
+// ── D6: filter chips ─────────────────────────────────────────────────────────
+
+.ep-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 24px 0;
+}
+
+.ep-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px 0 12px;
+  border: 1px solid var(--ew-line-2);
+  background: var(--ew-acc-soft);
+  color: var(--ew-acc);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12.5px;
+
+  &:hover {
+    background: var(--ew-acc-soft);
+    filter: brightness(0.96);
+  }
+}
+
+.ep-chip-x {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.ep-chip-clear-all {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ew-ink-3);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12.5px;
+
+  &:hover {
+    color: var(--ew-ink);
+  }
+}
+
+// ── D6: empty state ──────────────────────────────────────────────────────────
+
+.ep-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 56px 24px;
+  text-align: center;
+  border-top: 1px solid var(--ew-line);
+}
+
+.ep-empty-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--ew-panel-2);
+}
+
+.ep-empty-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ew-ink);
+}
+
+.ep-empty-sub {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ew-ink-3);
+  max-width: 36ch;
+}
+
+.ep-empty-clear-btn {
+  margin-top: 6px;
+  height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--ew-line-2);
+  background: var(--ew-panel);
+  border-radius: 11px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--ew-acc);
+
+  &:hover {
+    background: var(--ew-acc-soft);
+  }
+}
+
+// ── D6: grouped-by-day layout ─────────────────────────────────────────────────
+
+.ep-day-groups {
+  border-top: 1px solid var(--ew-line);
+}
+
+// Sticky below D5's sticky topbar (68px desktop, see shell.component.scss .ew-topbar) —
+// z-index 5 is well below the topbar's 40/58 so the topbar always wins on overlap.
+.ep-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 11px 18px;
+  background: var(--ew-panel-2);
+  border-bottom: 1px solid var(--ew-line-2);
+  position: sticky;
+  top: 68px;
+  z-index: 5;
+}
+
+.ep-day-label {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--ew-ink-2);
+}
+
+.ep-day-count {
+  font-size: 12px;
+  color: var(--ew-ink-3);
+}
+
+.ep-day-subtotal {
+  margin-left: auto;
+  font-family: var(--ew-mono);
+  font-size: 12.5px;
+  color: var(--ew-ink-2);
+}
+
+.ep-day-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--ew-line-2);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--ew-panel-2);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: -2px;
+  }
+}
+
+.ep-day-row-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ep-day-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--ok-dot);
+
+  &--open {
+    background: var(--warn-dot);
+  }
+}
+
+.ep-day-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ep-day-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.ep-day-row-name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--ew-ink);
+}
+
+.ep-day-badge {
+  font-family: var(--ew-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--ew-acc);
+  background: var(--ew-acc-soft);
+  border-radius: 999px;
+  padding: 3px 7px;
+  cursor: help;
+}
+
+.ep-day-row-meta {
+  font-family: var(--ew-mono);
+  font-size: 11.5px;
+  color: var(--ew-ink-3);
+}
+
+.ep-day-row-amount-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex: 0 0 auto;
+
+  .ep-amount {
+    font-size: 16px;
+  }
+}
+
+.ep-day-row-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.ep-day-action-btn {
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--ew-line-2);
+  background: var(--ew-panel);
+  border-radius: 11px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--ew-acc);
+  font-weight: 500;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+  }
+
+  &--ghost {
+    color: var(--ew-ink-2);
+    font-weight: 400;
+  }
+
+  &--danger {
+    width: 44px;
+    padding: 0;
+    color: var(--ew-ink-3);
+
+    &:hover:not(:disabled) {
+      color: var(--ew-bad);
+      border-color: var(--ew-bad);
+    }
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--ew-acc-soft);
+    border-color: var(--ew-acc);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 }

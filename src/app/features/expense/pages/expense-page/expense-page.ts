@@ -1,18 +1,23 @@
 import {
+  AfterViewChecked,
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   computed,
   effect,
   inject,
   signal,
   untracked,
+  viewChild,
+  viewChildren,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { catchError, of } from 'rxjs';
+import { catchError, map, of } from 'rxjs';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
@@ -85,6 +90,21 @@ interface BulletOption {
   readonly remaining: string;
 }
 
+/** Desktop-only ledger layout toggle (D6). Mobile-forced grouped layout is D8, out of scope. */
+type LedgerLayout = 'ledger' | 'grouped';
+
+interface ExpenseDayGroup {
+  readonly date: string;
+  readonly items: readonly ExpenseListItem[];
+  readonly subtotal: number;
+}
+
+interface FilterChip {
+  readonly id: string;
+  readonly label: string;
+  readonly clear: () => void;
+}
+
 @Component({
   selector: 'app-expense-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -92,8 +112,9 @@ interface BulletOption {
   templateUrl: './expense-page.html',
   styleUrl: './expense-page.scss',
 })
-export class ExpensePage {
+export class ExpensePage implements AfterViewChecked {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly liveAnnouncer = inject(LiveAnnouncer);
   private readonly dialog = inject(MatDialog);
   private readonly formBuilder = inject(FormBuilder);
   private readonly bulletService = inject(BulletService);
@@ -216,6 +237,12 @@ export class ExpensePage {
     () => new Map(this.bullets().map((bullet) => [bullet.id, bullet])),
   );
 
+  // Hoisted out of expenseItems so filterChips (the active-card chip label) can reuse the
+  // same O(1) lookup instead of a fresh .find() over creditCards() on every recompute.
+  private readonly creditCardNameById = computed<ReadonlyMap<string, string>>(
+    () => new Map(this.creditCards().map((card) => [card.id, card.name])),
+  );
+
   private readonly activeExpenseSharesBySourceId = computed<ReadonlyMap<string, Share[]>>(() => {
     const map = new Map<string, Share[]>();
     for (const share of this.shares()) {
@@ -231,7 +258,7 @@ export class ExpensePage {
   });
 
   protected readonly expenseItems = computed<readonly ExpenseListItem[]>(() => {
-    const creditCardNameById = new Map(this.creditCards().map((card) => [card.id, card.name]));
+    const creditCardNameById = this.creditCardNameById();
     const tagMap = this.tagMap();
     const paymentByExpenseId = this.paymentByExpenseId();
     const bulletById = this.bulletById();
@@ -296,6 +323,171 @@ export class ExpensePage {
     this.expenses().reduce((acc, e) => acc + Number(e.remaining), 0),
   );
 
+  // ── D6: stat cards, toolbar, ledger/grouped layout ──────────────────────
+
+  protected readonly totalPaid = computed(() => Math.max(this.totalCost() - this.totalOpen(), 0));
+
+  protected readonly openCount = computed(
+    () => this.expenseItems().filter((item) => item.statusLabel === 'OPEN').length,
+  );
+
+  /** CSS custom-property percentage for the paid-vs-open bar — a bar-width % is the one
+   *  derived value the "no [style] concatenation" rule allows, bound via [style.--bar-width.%]
+   *  rather than a full inline style object. */
+  protected readonly paidPercent = computed(() => {
+    const total = this.totalCost();
+    return total > 0 ? Math.min(Math.round((this.totalPaid() / total) * 100), 100) : 0;
+  });
+
+  /** Reuses the same `pendingReviews$` list the Shell's Inbox badge and the dedicated
+   *  `/review-imports` page already read from — no new data source. */
+  protected readonly pendingReviewCount = toSignal(
+    this.pendingReviewService.pendingReviews$.pipe(map((items) => items.length)),
+    { initialValue: 0 },
+  );
+  protected readonly hasPendingImports = computed(() => this.pendingReviewCount() > 0);
+  protected readonly importBannerDismissed = signal(false);
+  protected readonly showImportBanner = computed(
+    () => this.hasPendingImports() && !this.importBannerDismissed(),
+  );
+
+  protected readonly layout = signal<LedgerLayout>('ledger');
+  protected readonly isGroupedLayout = computed(() => this.layout() === 'grouped');
+
+  /** Exposes the current sortOrder to the template — grouped layout always orders groups
+   *  by date (VALUE_ASC/VALUE_DESC only applies within a day), so the sort <select> disables
+   *  the value options and this drives the explanatory hint when one was already selected. */
+  protected readonly filtersValueSortOrder = computed(() => this.filtersValue().sortOrder);
+
+  private static readonly STATUS_TABS: readonly ExpensePaymentStatus[] = ['ALL', 'OPEN', 'PAID'];
+  protected readonly statusTabIndex = computed(() =>
+    Math.max(ExpensePage.STATUS_TABS.indexOf(this.filtersValue().paymentStatus ?? 'ALL'), 0),
+  );
+
+  /** Buckets filtered items by purchaseDate in one O(n) pass, then sorts the resulting
+   *  group keys O(g log g) — never .find()/.filter() per item, per the epic's ban on
+   *  reintroducing O(n·m) lookups (same pattern as the card/bullet/payment/share Maps
+   *  above). Subtotal is accumulated during the same bucketing pass, not a second scan. */
+  protected readonly dayGroups = computed<readonly ExpenseDayGroup[]>(() => {
+    const byDate = new Map<string, ExpenseListItem[]>();
+    for (const item of this.filteredExpenseItems()) {
+      const bucket = byDate.get(item.purchaseDate);
+      if (bucket) {
+        bucket.push(item);
+      } else {
+        byDate.set(item.purchaseDate, [item]);
+      }
+    }
+
+    const sortOrder = this.filtersValue().sortOrder ?? 'DATE_DESC';
+    const dates = [...byDate.keys()].sort((a, b) =>
+      sortOrder === 'DATE_ASC' ? a.localeCompare(b) : b.localeCompare(a),
+    );
+
+    return dates.map((date) => {
+      const items = byDate.get(date) ?? [];
+      const subtotal = items.reduce(
+        (acc, item) => acc + (item.statusLabel === 'OPEN' ? item.remaining : item.cost),
+        0,
+      );
+      return { date, items, subtotal };
+    });
+  });
+
+  protected readonly filterChips = computed<readonly FilterChip[]>(() => {
+    const value = this.filtersValue();
+    const chips: FilterChip[] = [];
+
+    if (value.creditCardId) {
+      const cardName = this.creditCardNameById().get(value.creditCardId);
+      chips.push({
+        id: 'card',
+        label: `Card · ${cardName ?? value.creditCardId}`,
+        clear: () => this.filtersForm.controls.creditCardId.setValue(''),
+      });
+    }
+    if (value.sortOrder && value.sortOrder !== 'DATE_DESC') {
+      chips.push({
+        id: 'sort',
+        label: `Sort · ${value.sortOrder.toLowerCase().replace('_', ' ')}`,
+        clear: () => this.filtersForm.controls.sortOrder.setValue('DATE_DESC'),
+      });
+    }
+    if (value.paymentStatus && value.paymentStatus !== 'ALL') {
+      chips.push({
+        id: 'status',
+        label: `Status · ${value.paymentStatus.toLowerCase()}`,
+        clear: () => this.filtersForm.controls.paymentStatus.setValue('ALL'),
+      });
+    }
+    if (value.startDate) {
+      chips.push({
+        id: 'startDate',
+        label: `From · ${value.startDate}`,
+        clear: () => this.filtersForm.controls.startDate.setValue(''),
+      });
+    }
+    if (value.endDate) {
+      chips.push({
+        id: 'endDate',
+        label: `To · ${value.endDate}`,
+        clear: () => this.filtersForm.controls.endDate.setValue(''),
+      });
+    }
+    if (value.unhidden) {
+      chips.push({
+        id: 'unhidden',
+        label: 'Hidden items shown',
+        clear: () => this.filtersForm.controls.unhidden.setValue(false),
+      });
+    }
+    if (value.search?.trim()) {
+      chips.push({
+        id: 'search',
+        label: `Search · ${value.search.trim()}`,
+        clear: () => this.filtersForm.controls.search.setValue(''),
+      });
+    }
+
+    return chips;
+  });
+
+  // ── Focus management on chip removal (a11y) ─────────────────────────────
+  // Removing a chip re-renders the chips row; without an explicit focus target the
+  // browser drops focus to <body>, silently stranding keyboard/screen-reader users.
+  // chipButtons()/searchInput() are read imperatively inside chipRemoved(), never as a
+  // reactive computed() dependency — they're DOM refs, not state to derive from.
+  private readonly chipButtons = viewChildren<ElementRef<HTMLButtonElement>>('chipButton');
+  private readonly clearAllButton = viewChild<ElementRef<HTMLButtonElement>>('clearAllButton');
+  private readonly searchInputRef = viewChild<ElementRef<HTMLInputElement>>('searchInput');
+  private pendingChipFocus = false;
+
+  protected chipRemoved(label: string): void {
+    this.pendingChipFocus = true;
+    this.liveAnnouncer.announce(`Removed filter ${label}`, 'polite');
+  }
+
+  /** Runs after the chip row's DOM has settled following a removal (see chipRemoved()):
+   *  focuses the next remaining chip, else "Clear all", else the search input once the row
+   *  is empty. AfterViewChecked (not a computed/effect) because this is an imperative DOM
+   *  side effect keyed to a one-shot flag, not a value to keep in sync every CD cycle. */
+  ngAfterViewChecked(): void {
+    if (!this.pendingChipFocus) return;
+    this.pendingChipFocus = false;
+
+    const nextChip = this.chipButtons()[0]?.nativeElement;
+    if (nextChip) {
+      nextChip.focus();
+      return;
+    }
+    const clearAll = this.clearAllButton()?.nativeElement;
+    if (clearAll) {
+      clearAll.focus();
+      return;
+    }
+    this.searchInputRef()?.nativeElement.focus();
+  }
+
   constructor() {
     // Wallet switch: reloads everything scoped to the wallet and resets the create-expense
     // form. Reads `unhiddenFilter()` with `untracked()` — it needs the *current* value of the
@@ -352,6 +544,30 @@ export class ExpensePage {
         catchError(() => of([])),
       )
       .subscribe((payers) => this.walletPayers.set(payers));
+  }
+
+  protected setLayout(layout: LedgerLayout): void {
+    this.layout.set(layout);
+  }
+
+  protected setStatusTab(status: ExpensePaymentStatus): void {
+    this.filtersForm.controls.paymentStatus.setValue(status);
+  }
+
+  protected dismissImportBanner(): void {
+    this.importBannerDismissed.set(true);
+  }
+
+  protected clearAllFilters(): void {
+    this.filtersForm.patchValue({
+      creditCardId: '',
+      sortOrder: 'DATE_DESC',
+      paymentStatus: 'ALL',
+      startDate: '',
+      endDate: '',
+      unhidden: false,
+      search: '',
+    });
   }
 
   protected toggleInstallment(): void {
@@ -478,7 +694,7 @@ export class ExpensePage {
       });
   }
 
-  private openPendingReviewDialog(): void {
+  protected openPendingReviewDialog(): void {
     this.dialog
       .open(PendingReviewDialogComponent, {
         width: '60rem',
