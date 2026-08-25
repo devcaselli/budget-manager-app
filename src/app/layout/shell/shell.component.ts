@@ -29,6 +29,8 @@ import { formatBrl } from '@shared/utils/currency';
 import { AuthService } from '@core/auth/auth.service';
 import { NavGroupLabel, PreferencesService } from '@core/services/preferences.service';
 import { PendingReviewService } from '@features/pending-review/services/pending-review.service';
+import { PendingReviewDialogComponent } from '@features/pending-review/components/pending-review-dialog/pending-review-dialog.component';
+import { SyncService } from '@features/sync/services/sync.service';
 
 interface PopoverCoords {
   top: number;
@@ -50,7 +52,6 @@ const RESEND_COOLDOWN_SECONDS = 60;
 interface NavEntry {
   readonly label: string;
   readonly route: string;
-  readonly num: string;
 }
 
 interface RenderedNavEntry extends NavEntry {
@@ -76,40 +77,40 @@ const NAV_GROUP_DEFS: readonly { label: NavGroupLabel; items: readonly NavEntry[
   {
     label: 'BUDGET',
     items: [
-      { label: 'Wallets', route: '/wallets', num: '02' },
-      { label: 'Bullets', route: '/bullets', num: '03' },
-      { label: 'Extra budgets', route: '/extra-budgets', num: '04' },
-      { label: 'Reserved budgets', route: '/reserved-budgets', num: '05' },
+      { label: 'Wallets', route: '/wallets' },
+      { label: 'Bullets', route: '/bullets' },
+      { label: 'Extra budgets', route: '/extra-budgets' },
+      { label: 'Reserved budgets', route: '/reserved-budgets' },
     ],
   },
   {
     label: 'LEDGER',
     items: [
-      { label: 'Expenses', route: '/expenses', num: '06' },
-      { label: 'Subscriptions', route: '/subscriptions', num: '07' },
-      { label: 'Installments', route: '/installments', num: '08' },
+      { label: 'Expenses', route: '/expenses' },
+      { label: 'Subscriptions', route: '/subscriptions' },
+      { label: 'Installments', route: '/installments' },
     ],
   },
   {
     label: 'MANAGER',
     items: [
-      { label: 'Credit cards', route: '/credit-cards', num: '09' },
-      { label: 'Payments', route: '/payments', num: '10' },
-      { label: 'Inbox', route: '/review-imports', num: '11' },
-      { label: 'Tags', route: '/tags', num: '12' },
+      { label: 'Credit cards', route: '/credit-cards' },
+      { label: 'Payments', route: '/payments' },
+      { label: 'Inbox', route: '/review-imports' },
+      { label: 'Tags', route: '/tags' },
     ],
   },
   {
     label: 'EXTERNAL',
     items: [
-      { label: 'Payers', route: '/payers', num: '13' },
-      { label: 'Shares', route: '/shares', num: '14' },
+      { label: 'Payers', route: '/payers' },
+      { label: 'Shares', route: '/shares' },
     ],
   },
 ];
 
 /** Standalone Settings entry — footer icon button next to the theme toggle (design), not part of any group. */
-const SETTINGS_NAV: NavEntry = { label: 'Settings', route: '/settings', num: '15' };
+const SETTINGS_NAV: NavEntry = { label: 'Settings', route: '/settings' };
 
 @Component({
   selector: 'app-shell',
@@ -128,6 +129,7 @@ export class ShellComponent {
   private readonly installmentService = inject(InstallmentService);
   private readonly authService = inject(AuthService);
   private readonly pendingReviewService = inject(PendingReviewService);
+  private readonly syncService = inject(SyncService);
   protected readonly prefs = inject(PreferencesService);
 
   protected readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
@@ -141,6 +143,11 @@ export class ShellComponent {
 
   protected readonly walletPopOpen = signal(false);
   protected readonly walletPopCoords = signal<PopoverCoords>({ top: 0, left: 0 });
+
+  /** Post-epic-audit P1-3: moved here from ExpensePage — the design puts the Sync
+   *  trigger in the topbar (global, next to the wallet ticker), not inside the
+   *  Expenses page panel head. */
+  protected readonly isSyncing = toSignal(this.syncService.syncing$, { initialValue: false });
 
   protected readonly tweaksPos = signal<TweaksPos>(
     (JSON.parse(localStorage.getItem('bm_tweaks_pos') ?? 'null') as TweaksPos | null)
@@ -201,7 +208,7 @@ export class ShellComponent {
 
   protected readonly currentRouteLabel = signal('Dashboard');
 
-  protected readonly dashboardNav: NavEntry = { label: 'Dashboard', route: '/dashboard', num: '01' };
+  protected readonly dashboardNav: NavEntry = { label: 'Dashboard', route: '/dashboard' };
   protected readonly settingsNav: NavEntry = SETTINGS_NAV;
   protected readonly settingsActive = computed(() => this.currentRouteLabel() === SETTINGS_NAV.label);
 
@@ -409,6 +416,41 @@ export class ShellComponent {
     this.walletService.loadWallets();
     this.bulletService.loadByWalletId(walletId);
     this.expenseService.loadByWalletId(walletId);
+  }
+
+  /** Moved from ExpensePage (post-epic-audit P1-3). Ingests bank-SMS expenses, applies the
+   *  result to PendingReviewService (feeds the shell's own Inbox badge and the dedicated
+   *  /review-imports page), then opens the review dialog for confirmation. */
+  protected syncNow(): void {
+    if (this.isSyncing()) return;
+
+    this.syncService
+      .ingest()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.pendingReviewService.applySyncResult(result);
+          this.openPendingReviewDialog();
+        },
+        error: () => undefined,
+      });
+  }
+
+  private openPendingReviewDialog(): void {
+    this.dialog
+      .open(PendingReviewDialogComponent, {
+        width: '60rem',
+        maxWidth: 'calc(100vw - 2rem)',
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        // Unconditional reload: Expense creation happens on confirm *inside* the modal,
+        // not at sync time, so a zero `created` count at sync time doesn't mean nothing
+        // needs reloading — items may have been confirmed during the dialog session.
+        const walletId = this.selectedWallet()?.id ?? null;
+        this.expenseService.loadByWalletId(walletId);
+      });
   }
 
   protected openTransactionDialog(): void {

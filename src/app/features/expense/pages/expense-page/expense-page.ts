@@ -40,7 +40,6 @@ import { Payer } from '@features/payer/models/payer';
 import { Share } from '@features/share/models/share';
 import { ShareService } from '@features/share/services/share.service';
 import { TagService } from '@features/tag/services/tag.service';
-import { SyncService } from '@features/sync/services/sync.service';
 import { PendingReviewService } from '@features/pending-review/services/pending-review.service';
 import { PendingReviewDialogComponent } from '@features/pending-review/components/pending-review-dialog/pending-review-dialog.component';
 import {
@@ -143,7 +142,6 @@ export class ExpensePage implements AfterViewChecked {
   private readonly installmentService = inject(InstallmentService);
   private readonly shareService = inject(ShareService);
   private readonly tagService = inject(TagService);
-  private readonly syncService = inject(SyncService);
   private readonly pendingReviewService = inject(PendingReviewService);
   private readonly omegaViewerLauncher = inject(OmegaViewerLauncher);
 
@@ -172,10 +170,14 @@ export class ExpensePage implements AfterViewChecked {
   protected readonly paymentErrorMessage = toSignal(this.paymentService.error$, {
     initialValue: null,
   });
-  protected readonly isSyncing = toSignal(this.syncService.syncing$, { initialValue: false });
-  protected readonly syncErrorMessage = toSignal(this.syncService.error$, { initialValue: null });
-  protected readonly syncResultMessage = signal<string | null>(null);
   protected readonly hasCreditCards = computed(() => this.creditCards().length > 0);
+  /** Post-epic-audit P1-2: `CYCLE {{ YYYY-MM }} · WALLET {{ MONTH }}` eyebrow — the YYYY-MM
+   *  cycle code is sliced from the wallet's ISO `startDate`, the month name reuses the
+   *  same `effectiveMonth` field the shell's topbar ticker already displays. */
+  protected readonly currentCycle = computed(() => this.selectedWallet()?.startDate?.slice(0, 7) ?? '');
+  protected readonly currentWalletMonth = computed(
+    () => (this.selectedWallet()?.effectiveMonth ?? '').toUpperCase(),
+  );
   protected readonly createExpenseBlockerMessage = computed(() => {
     if (!this.wallet()) {
       return 'Selecione uma wallet para cadastrar uma expense.';
@@ -761,30 +763,10 @@ export class ExpensePage implements AfterViewChecked {
       });
   }
 
-  protected syncNow(): void {
-    if (this.isSyncing()) return;
-
-    this.syncResultMessage.set(null);
-    this.syncService
-      .ingest()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (result) => {
-          const { report } = result;
-          // `report.fallback` is always 0 in the staging-only flow (card resolution moved
-          // to confirm time — backend commit 38cab7e) and `created` now means "staged for
-          // review", not "Expense created" (that happens on confirm inside the dialog that
-          // opens next) — omitted/reworded here so the summary doesn't imply either.
-          this.syncResultMessage.set(
-            `${report.created} staged for review, ${report.skipped} skipped, ${report.errors} errors`,
-          );
-          this.pendingReviewService.applySyncResult(result);
-          this.openPendingReviewDialog();
-        },
-        error: () => undefined,
-      });
-  }
-
+  // Post-epic-audit P1-3: syncNow() moved to ShellComponent — the design puts the Sync
+  // trigger in the topbar (global, next to the wallet ticker), not in this page's panel
+  // head. openPendingReviewDialog() stays here: it's also called directly from the
+  // import-pending banner's "Review" button, independent of the sync flow.
   protected openPendingReviewDialog(): void {
     this.dialog
       .open(PendingReviewDialogComponent, {

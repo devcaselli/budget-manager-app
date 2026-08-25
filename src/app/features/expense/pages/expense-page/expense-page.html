@@ -1,11 +1,15 @@
 <div class="expense-page">
   <!-- ── Page header ──────────────────────────────────────────────── -->
-  <div class="ew-page-head">
+  <!-- ep-page-head: Expenses-only overrides of the shared .ew-page-head pattern
+       (post-epic-audit P1-2) — eyebrow copy/size/color, <em> accent color, title
+       size and subtitle max-width all diverge from the design here specifically;
+       the other 15 feature pages keep the shared defaults untouched. -->
+  <div class="ew-page-head ep-page-head">
     <div>
-      <div class="ew-eyebrow">04 · Expenses</div>
-      <h1 class="ew-page-title">Where it <em>went.</em></h1>
-      <p class="ew-page-sub">
-        Every purchase that hit the active wallet, with status and bullet.
+      <div class="ew-eyebrow ep-eyebrow">CYCLE {{ currentCycle() }} · WALLET {{ currentWalletMonth() }}</div>
+      <h1 class="ew-page-title ep-page-title">Where it <em>went.</em></h1>
+      <p class="ew-page-sub ep-page-sub">
+        Every purchase that hit the active wallet, with status, bullet and card.
       </p>
     </div>
     <div class="ew-head-meta">
@@ -68,11 +72,6 @@
   @if (paymentErrorMessage()) {
     <div class="ew-alert" role="alert">{{ paymentErrorMessage() }}</div>
   }
-  @if (syncErrorMessage()) {
-    <div class="ew-alert" role="alert">{{ syncErrorMessage() }}</div>
-  } @else if (syncResultMessage()) {
-    <div class="ep-sync-note" role="status">{{ syncResultMessage() }}</div>
-  }
 
   <!-- Expense ledger — full-width card (P0-1 fix: no more 2-column grid with a
        sidebar quick-add panel; quick-add now lives as a footer strip inside this
@@ -110,17 +109,6 @@
             By day
           </button>
         </div>
-        <button
-          class="ep-sync-btn"
-          type="button"
-          [disabled]="isSyncing()"
-          (click)="syncNow()"
-          aria-label="Sync bank SMS expenses"
-          title="Sync bank SMS expenses"
-        >
-          <mat-icon aria-hidden="true">sync</mat-icon>
-          {{ isSyncing() ? 'Syncing...' : 'Sync' }}
-        </button>
       </div>
     </div>
 

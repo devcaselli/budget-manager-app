@@ -145,7 +145,6 @@ describe('ExpensePage — share derivation & split button visibility', () => {
   let component: ExpensePage;
   let expenseService: FakeExpenseService;
   let shareService: FakeShareService;
-  let syncService: FakeSyncService;
   let pendingReviewService: FakePendingReviewService;
   let dialog: { open: ReturnType<typeof vi.fn> };
   let dialogAfterClosed: BehaviorSubject<unknown>;
@@ -154,7 +153,6 @@ describe('ExpensePage — share derivation & split button visibility', () => {
   beforeEach(() => {
     expenseService = new FakeExpenseService();
     shareService = new FakeShareService();
-    syncService = new FakeSyncService();
     pendingReviewService = new FakePendingReviewService();
     omegaViewerLauncher = new FakeOmegaViewerLauncher();
     dialogAfterClosed = new BehaviorSubject<unknown>(undefined);
@@ -176,7 +174,6 @@ describe('ExpensePage — share derivation & split button visibility', () => {
         { provide: InstallmentService, useClass: FakeInstallmentService },
         { provide: WalletService, useClass: FakeWalletService },
         { provide: TagService, useClass: FakeTagService },
-        { provide: SyncService, useValue: syncService },
         { provide: PendingReviewService, useValue: pendingReviewService },
         { provide: MatDialog, useValue: dialog },
         { provide: OmegaViewerLauncher, useValue: omegaViewerLauncher },
@@ -299,70 +296,6 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     (component as unknown as { onTagsClick: (e: unknown) => void }).onTagsClick(item);
 
     expect(expenseService.assignTags).not.toHaveBeenCalled();
-  });
-
-  it('calls SyncService.ingest, applies the result to PendingReviewService, and opens the review dialog', () => {
-    const walletService = TestBed.inject(WalletService) as unknown as {
-      selectedWallet$: BehaviorSubject<Wallet | null>;
-    };
-    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
-    fixture.detectChanges();
-
-    const result = buildSyncIngestResult({ created: 3, skipped: 1 });
-    syncService.ingest.mockReturnValue(of(result));
-
-    (component as unknown as { syncNow: () => void }).syncNow();
-
-    expect(syncService.ingest).toHaveBeenCalled();
-    expect(pendingReviewService.applySyncResult).toHaveBeenCalledWith(result);
-    expect(dialog.open).toHaveBeenCalledTimes(1);
-  });
-
-  it('reloads the wallet expenses when the review dialog closes, even with no new items at sync time', () => {
-    const walletService = TestBed.inject(WalletService) as unknown as {
-      selectedWallet$: BehaviorSubject<Wallet | null>;
-    };
-    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
-    fixture.detectChanges();
-
-    // Expense creation now happens inside the modal on confirm, not at sync time, so
-    // `report.created === 0` must still reload once the dialog closes — items may have
-    // been confirmed during the dialog session (CA #6). The fake dialog's `afterClosed()`
-    // is a BehaviorSubject, so closing is observed synchronously on subscribe here.
-    syncService.ingest.mockReturnValue(of(buildSyncIngestResult({ created: 0, skipped: 4 })));
-    expenseService.loadByWalletId.mockClear();
-
-    (component as unknown as { syncNow: () => void }).syncNow();
-
-    expect(expenseService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
-  });
-
-  it('reloads again if the dialog is closed a second time (no stale unconditional-reload guard)', () => {
-    const walletService = TestBed.inject(WalletService) as unknown as {
-      selectedWallet$: BehaviorSubject<Wallet | null>;
-    };
-    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
-    fixture.detectChanges();
-
-    syncService.ingest.mockReturnValue(of(buildSyncIngestResult({ created: 0 })));
-    expenseService.loadByWalletId.mockClear();
-
-    (component as unknown as { syncNow: () => void }).syncNow();
-    expect(expenseService.loadByWalletId).toHaveBeenCalledTimes(1);
-
-    dialogAfterClosed.next(undefined);
-
-    expect(expenseService.loadByWalletId).toHaveBeenCalledTimes(2);
-  });
-
-  it('is a no-op when a sync is already in flight', () => {
-    syncService.syncing$.next(true);
-    fixture.detectChanges();
-
-    (component as unknown as { syncNow: () => void }).syncNow();
-
-    expect(syncService.ingest).not.toHaveBeenCalled();
-    expect(dialog.open).not.toHaveBeenCalled();
   });
 
   describe('openViewer — Omega Viewer launcher integration (F-14)', () => {

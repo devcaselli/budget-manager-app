@@ -28,7 +28,6 @@
             [attr.aria-label]="dashboardNav.label"
             [attr.data-go]="dashboardNav.label.toLowerCase()"
           >
-            <span class="ew-nav-num">{{ dashboardNav.num }}</span>
             {{ dashboardNav.label }}
           </a>
         </div>
@@ -69,7 +68,6 @@
                     [attr.aria-label]="item.label"
                     [attr.data-go]="item.label.toLowerCase()"
                   >
-                    <span class="ew-nav-num">{{ item.num }}</span>
                     {{ item.label }}
                     @if (item.badgeCount > 0) {
                       <span class="ew-nav-badge">{{ item.badgeCount }}</span>
@@ -196,12 +194,25 @@
             aria-label="Wallet summary"
             (click)="toggleWalletPop($event)"
           >
-            <span>{{ wallet.effectiveMonth }} · <b [class.ew-up]="utilizationRate() < 80">{{ utilizationRate() }}%</b> used</span>
+            <span class="ew-ticker-dot" aria-hidden="true"></span>
+            <span class="ew-ticker-month">{{ wallet.effectiveMonth }}</span>
+            <span class="ew-ticker-meta">{{ utilizationRate() }}% used</span>
             <svg class="ew-ticker-chev" [class.ew-ticker-chev--open]="walletPopOpen()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </button>
         }
+
+        <button
+          class="ew-sync-btn"
+          type="button"
+          [disabled]="isSyncing()"
+          (click)="syncNow()"
+          aria-label="Sync bank SMS expenses"
+          title="Sync bank SMS expenses"
+        >
+          <span aria-hidden="true">↻</span><span>{{ isSyncing() ? 'Syncing…' : 'Sync' }}</span>
+        </button>
 
         <button
           class="ew-btn ew-btn--ghost"
@@ -226,7 +237,7 @@
           [disabled]="!selectedWallet()"
           (click)="openTransactionDialog()"
         >
-          + New transaction
+          New transaction
         </button>
       </div>
     </header>

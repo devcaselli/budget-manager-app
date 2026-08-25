@@ -16,6 +16,7 @@ import { ExpenseService } from '@features/expense/services/expense.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
 import { PendingReviewService } from '@features/pending-review/services/pending-review.service';
 import { WalletService } from '@features/wallet/services/wallet.service';
+import { SyncService } from '@features/sync/services/sync.service';
 
 import { ShellComponent } from './shell.component';
 
@@ -73,6 +74,15 @@ async function setUpShellFixture(): Promise<ComponentFixture<ShellComponent>> {
         provide: PendingReviewService,
         useValue: {
           pendingReviews$: of([]),
+          applySyncResult: vi.fn(),
+        },
+      },
+      {
+        provide: SyncService,
+        useValue: {
+          syncing$: of(false),
+          error$: of(null),
+          ingest: vi.fn(),
         },
       },
       {
@@ -408,19 +418,19 @@ describe('ShellComponent — nav (D4 regroup)', () => {
     expect(link?.getAttribute('href')).toBe('/review-imports');
   });
 
-  it('has no duplicate `num` values across all nav groups plus Dashboard/Settings', () => {
+  it('has no duplicate routes across all nav groups plus Dashboard/Settings', () => {
     const instance = fixture.componentInstance as unknown as {
-      navGroups: () => readonly { items: readonly { num: string }[] }[];
-      dashboardNav: { num: string };
-      settingsNav: { num: string };
+      navGroups: () => readonly { items: readonly { route: string }[] }[];
+      dashboardNav: { route: string };
+      settingsNav: { route: string };
     };
-    const nums = [
-      instance.dashboardNav.num,
-      ...instance.navGroups().flatMap((g) => g.items.map((i) => i.num)),
-      instance.settingsNav.num,
+    const routes = [
+      instance.dashboardNav.route,
+      ...instance.navGroups().flatMap((g) => g.items.map((i) => i.route)),
+      instance.settingsNav.route,
     ];
 
-    expect(new Set(nums).size).toBe(nums.length);
+    expect(new Set(routes).size).toBe(routes.length);
   });
 });
 

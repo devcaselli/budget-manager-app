@@ -733,8 +733,11 @@ body.ew-privacy {
 
   &--preview { color: var(--ew-acc); }
   &--prod    { color: var(--ew-teal); }
-  &--paid    { color: var(--ew-teal); }
-  &--open    { color: var(--ew-bad); }
+  // D-post-epic P1-1: was --ew-teal / --ew-bad (hardcoded teal, and --danger red)
+  // — design calls for the semantic warn/ok status tokens instead (already defined
+  // correctly for both themes, just unused here).
+  &--paid    { color: var(--ok-text); }
+  &--open    { color: var(--warn-text); }
   &--active  { color: var(--ew-teal); }
 }
 
@@ -1796,20 +1799,22 @@ body.ew-privacy {
   padding: 0 4px;
 }
 
+// Post-epic-audit P1-5: was a 36px circle with a radial-gradient fill and an
+// italic 24px mark — design wants a solid 34px square, radius 10px, plain
+// --primary-bg fill, upright (non-italic) 19px mark.
 .ew-brand-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, var(--ew-acc-2), var(--ew-acc) 70%);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--primary-bg);
   display: grid;
   place-items: center;
   font-family: var(--ew-serif);
-  font-size: 24px;
-  font-style: italic;
+  font-size: 19px;
   font-weight: 500;
-  color: #1c1814;
+  color: #fff;
   line-height: 1;
-  flex: 0 0 36px;
+  flex: 0 0 34px;
 }
 
 .ew-brand-name {
@@ -1821,10 +1826,10 @@ body.ew-privacy {
 
   span {
     display: block;
-    font-family: var(--ew-sans);
-    font-size: 10px;
+    font-family: var(--ew-mono);
+    font-size: 9px;
     color: var(--ew-ink-3);
-    letter-spacing: 0.18em;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
     margin-top: 6px;
   }
@@ -2023,22 +2028,7 @@ body.ew-privacy {
   &--active {
     color: var(--ew-ink);
     font-weight: 500;
-
-    // D10: was --ew-acc (3.88:1 on --bg in light mode, below AA at 10px) — see
-    // --ew-acc-deep definition in the token block for full rationale.
-    .ew-nav-num {
-      color: var(--ew-acc-deep);
-    }
   }
-}
-
-.ew-nav-num {
-  font-family: var(--ew-mono);
-  font-size: 10px;
-  color: var(--ew-ink-3);
-  width: 18px;
-  letter-spacing: 0.04em;
-  flex: 0 0 18px;
 }
 
 .ew-nav-badge {

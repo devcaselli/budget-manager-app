@@ -91,29 +91,22 @@
   flex: 1;
 }
 
+// Post-epic-audit P1-3: restored the design's button chrome (border + surface
+// background + radius) — was transparent/borderless, missing the accent dot.
 .ew-ticker {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  font-family: var(--ew-mono);
-  font-size: 11px;
-  color: var(--ew-ink-3);
-  letter-spacing: 0.04em;
+  gap: 10px;
+  height: 38px;
+  padding: 0 13px;
+  border-radius: 10px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
 
-  b {
-    color: var(--ew-ink);
-    font-weight: 500;
-  }
-
   &:hover {
-    border-color: var(--ew-line);
-    background: var(--ew-panel-2);
+    border-color: var(--ew-line-2);
   }
 
   &[aria-expanded='true'] {
@@ -128,8 +121,52 @@
   }
 }
 
-.ew-up {
-  color: var(--ew-teal);
+.ew-ticker-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 999px;
+  background: var(--ew-acc);
+}
+
+.ew-ticker-month {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ew-ink);
+}
+
+.ew-ticker-meta {
+  font-family: var(--ew-mono);
+  font-size: 10.5px;
+  color: var(--ew-ink-3);
+}
+
+// Post-epic-audit P1-3: Sync trigger, moved here from the Expenses panel head —
+// same rounded-rect chrome as .ew-ticker (not the pill-shaped .ew-btn), per design.
+.ew-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 13px;
+  border-radius: 10px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-line-2);
+    background: var(--ew-panel-2);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 .ew-ticker-chev {
@@ -862,10 +899,6 @@
     }
   }
 
-  .ew-nav-num {
-    display: none;
-  }
-
   .ew-brand {
     justify-content: center;
     padding: 0;
@@ -936,11 +969,6 @@
     &::before {
       display: none;
     }
-  }
-
-  .ew-nav-num {
-    display: inline;
-    font-size: 10px;
   }
 
   .ew-side-spacer,
