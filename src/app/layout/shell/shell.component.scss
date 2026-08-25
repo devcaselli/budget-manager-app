@@ -83,21 +83,60 @@
 }
 
 .ew-ticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
   font-family: var(--ew-mono);
   font-size: 11px;
   color: var(--ew-ink-3);
-  display: flex;
-  gap: 18px;
   letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 
   b {
     color: var(--ew-ink);
     font-weight: 500;
   }
+
+  &:hover {
+    border-color: var(--ew-line);
+    background: var(--ew-panel-2);
+  }
+
+  &[aria-expanded='true'] {
+    border-color: rgba(214, 163, 113, 0.35);
+    background: var(--ew-panel);
+    color: var(--ew-ink);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
+  }
 }
 
 .ew-up {
   color: var(--ew-teal);
+}
+
+.ew-ticker-chev {
+  width: 12px;
+  height: 12px;
+  color: var(--ew-ink-3);
+  flex: 0 0 12px;
+  transition: transform 0.2s, color 0.15s;
+
+  .ew-ticker[aria-expanded='true'] & {
+    color: var(--ew-acc);
+  }
+
+  &--open {
+    transform: rotate(180deg);
+  }
 }
 
 // ── Buttons ───────────────────────────────────────────────────────────────────
