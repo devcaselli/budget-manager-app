@@ -799,3 +799,44 @@ describe('ShellComponent — topbar + theme toggle (D5)', () => {
     expect(fixture.nativeElement.querySelector('.ew-wallet-pop')).toBeFalsy();
   });
 });
+
+describe('ShellComponent — user-chip restructuring (D10 a11y fix)', () => {
+  let fixture: ComponentFixture<ShellComponent>;
+
+  beforeEach(async () => {
+    fixture = await setUpShellFixture();
+  });
+
+  // D10: .ew-user-chip previously carried role="button"/tabindex="0" plus a
+  // click/Enter handler that only toggled a userMenuOpen signal nothing else
+  // read (no dropdown ever existed) — invalid ARIA nesting around the 3 real
+  // controls inside it (theme toggle, Settings link, Sign-out button),
+  // flagged by D5. The chip is now a plain non-interactive container; these
+  // tests guard the removal so a future edit doesn't silently reintroduce it.
+  it('renders the user chip with no role/tabindex — it is a non-interactive container', () => {
+    const chip = fixture.nativeElement.querySelector('.ew-user-chip') as HTMLElement;
+
+    expect(chip).toBeTruthy();
+    expect(chip.hasAttribute('role')).toBe(false);
+    expect(chip.hasAttribute('tabindex')).toBe(false);
+    expect(chip.hasAttribute('aria-expanded')).toBe(false);
+  });
+
+  it('renders the Settings link with its own routerLink, independently focusable', () => {
+    const settingsLink = fixture.nativeElement.querySelector('.ew-user-settings') as HTMLAnchorElement;
+
+    expect(settingsLink).toBeTruthy();
+    expect(settingsLink.getAttribute('href')).toBe('/settings');
+    expect(settingsLink.getAttribute('aria-label')).toBe('Settings');
+  });
+
+  it('clicking Sign-out invokes AuthService.logout()', () => {
+    const authService = TestBed.inject(AuthService);
+    const signOutButton = fixture.nativeElement.querySelector('.ew-user-logout') as HTMLButtonElement;
+
+    signOutButton.dispatchEvent(new MouseEvent('click'));
+    fixture.detectChanges();
+
+    expect(authService.logout).toHaveBeenCalledTimes(1);
+  });
+});

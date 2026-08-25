@@ -57,7 +57,7 @@
                 <div
                   class="ew-nav-rail"
                   [class.ew-nav-rail--hidden]="group.railIndex === null"
-                  [style.transform]="'translateY(' + ((group.railIndex ?? 0) * 46) + 'px)'"
+                  [style.--rail-index]="group.railIndex ?? 0"
                 ></div>
 
                 @for (item of group.items; track item.route) {
@@ -108,15 +108,14 @@
     }
 
     <!-- User chip -->
-    <div
-      class="ew-user-chip"
-      (click)="toggleUserMenu()"
-      [attr.aria-expanded]="userMenuOpen()"
-      role="button"
-      tabindex="0"
-      (keydown.enter)="toggleUserMenu()"
-      aria-label="User menu"
-    >
+    <!-- D10: was role="button"/tabindex="0" with a click/Enter handler that only
+         toggled a userMenuOpen signal nothing else read (no dropdown ever existed) —
+         invalid ARIA nesting (interactive-in-interactive) around the 3 real controls
+         below it (theme toggle, Settings link, Sign-out button), flagged by D5.
+         The chip has no function of its own beyond housing those controls, so it's
+         now a plain non-interactive container; each control keeps its own focus
+         stop and label. -->
+    <div class="ew-user-chip">
       <div class="ew-user-av">{{ userInitials() }}</div>
       <div class="ew-user-info">
         @if (userName()) {

@@ -659,11 +659,16 @@
   border: 1px solid var(--ew-line);
   border-radius: 14px;
   background: var(--ew-panel-2);
-  cursor: pointer;
   transition: border-color 0.15s;
   position: relative;
 
-  &:hover {
+  // D10 review fix (M1): was `&:hover` — the chip itself is a non-interactive
+  // container (see the D10 comment in shell.component.html), so hovering it
+  // (e.g. passing the mouse over the avatar/name) is not a real affordance.
+  // `:focus-within` reacts when one of the actual controls inside (theme
+  // toggle, Settings, Sign-out) receives focus, keeping the visual grouping
+  // cue but tying it to something real.
+  &:focus-within {
     border-color: var(--ew-line-2);
   }
 }

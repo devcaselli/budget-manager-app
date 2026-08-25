@@ -62,12 +62,14 @@ interface NavGroup {
   readonly items: readonly RenderedNavEntry[];
   readonly open: boolean;
   readonly holdsActive: boolean;
-  /** `translateY(index * 46px)` offset for the active rail, or `null` when no item in this group is active (rail hidden via opacity). */
+  /**
+   * Row index for the active rail (bound to `.ew-nav-rail`'s `--rail-index` custom
+   * property; the `translateY(index * --nav-rail-step)` math lives in
+   * `styles.scss`, not here — D10 review fix, was a concatenated `[style.transform]`
+   * string), or `null` when no item in this group is active (rail hidden via opacity).
+   */
   readonly railIndex: number | null;
 }
-
-/** Rail row height (px) — matches the design's `translateY(index * 46px)` step and each item's 44px height + 2px gap. */
-const NAV_RAIL_STEP_PX = 46;
 
 /** Static group→item route map (D4 regroup: BUDGET / LEDGER / MANAGER / EXTERNAL). */
 const NAV_GROUP_DEFS: readonly { label: NavGroupLabel; items: readonly NavEntry[] }[] = [
@@ -139,7 +141,6 @@ export class ShellComponent {
 
   protected readonly walletPopOpen = signal(false);
   protected readonly walletPopCoords = signal<PopoverCoords>({ top: 0, left: 0 });
-  protected readonly userMenuOpen = signal(false);
 
   protected readonly tweaksPos = signal<TweaksPos>(
     (JSON.parse(localStorage.getItem('bm_tweaks_pos') ?? 'null') as TweaksPos | null)
@@ -332,10 +333,6 @@ export class ShellComponent {
 
     this.walletService.selectWallet(wallet);
     this.walletPopOpen.set(false);
-  }
-
-  protected toggleUserMenu(): void {
-    this.userMenuOpen.update((v) => !v);
   }
 
   /** Whether the resend button is currently clickable — mirrors `CheckEmailPage.canResend`. */

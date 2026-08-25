@@ -40,7 +40,20 @@ html {
   --text:           #1f1a15;
   --text-2:         #6d6257;
   --text-3:         #6d6257;
-  --text-4:         #857566;
+  // D10 contrast fix: was #857566 (4.27:1 on --surface, 4.10:1 on --bg, 4.28:1 on
+  // --surface-2, 4.09:1 on --surface-3 — all below the 4.5:1 AA text minimum; this
+  // token was ported verbatim from the design in D1 and never contrast-checked).
+  // Darkened until it clears AA against every background it's actually used on
+  // (34 call sites app-wide, mostly 9-12px labels/sub-captions): 6.06:1 / 5.51:1 /
+  // 5.10:1 / 4.87:1 respectively.
+  // Reviewed by Victor: this makes --text-4 *darker* than --text-2/--text-3
+  // (#6d6257) in light mode — a real hierarchy inversion, not mere convergence.
+  // Kept as-is, not reverted (the old value failed AA on all 4 surfaces above).
+  // Accepted and documented: light mode effectively has 2 usable text tiers
+  // (--text, --text-2/--text-3 sharing one value), not 4 — --text-4 being the
+  // darkest "tertiary" tone is a known, intentional consequence of the AA fix,
+  // not a bug to chase further.
+  --text-4:         #6a5e52;
   --accent:         #a86935;
   --accent-deep:    #8a5429;
   --accent-fg:      #e0b382;
@@ -66,6 +79,11 @@ html {
   --danger-bg:      #f7e5e1;
   --danger-text:    #8f382f;
   --scrim:          rgba(31, 26, 21, .45);
+  // D10: on-primary text for filled/primary-colored surfaces where the existing
+  // --surface / --text pairing can't clear AA (see dark [data-theme] block for the
+  // gap this closes — light mode's own on-primary pairing, --surface on
+  // --primary-bg, already passes at 5.98:1 and keeps using --surface).
+  --on-primary-strong: var(--surface);
   color-scheme: light;
 
   // Legacy `--ew-*` alias layer — 60+ existing templates/styles still
@@ -85,22 +103,34 @@ html {
   --ew-acc:       var(--accent);
   --ew-acc-2:     var(--accent-fg);
   --ew-acc-soft:  var(--accent-soft);
-  --ew-teal:      #277f71;
+  // D10: darker accent tone for small text sitting directly on --bg/--surface (not
+  // on a filled accent surface — see --ew-on-acc below for that case). --ew-acc
+  // itself is 3.88:1 on --bg in light mode, under the 4.5:1 AA text minimum for
+  // anything below the ~24px large-text threshold (eyebrow labels, nav index
+  // numbers, filter-chip labels all sit well under that). --accent-deep already
+  // existed as a D1 token and clears both palettes: 5.06:1 light / 7.36:1 dark
+  // against --accent-soft (chip bg), 5.43:1 light / 10.77:1 dark against --bg.
+  --ew-acc-deep:  var(--accent-deep);
+  // D10 contrast fix: was #277f71 (4.21:1 against --bg in light mode, below the
+  // 4.5:1 AA text minimum — used at 11px in the topbar wallet-utilization ticker,
+  // D5). Darkened to clear AA with margin: 5.01:1 on --bg, 5.51:1 on --surface.
+  // Dark value (#5fb6a5, defined in the [data-theme="dark"] block) was already
+  // fine at 6.47-7.35:1, untouched.
+  --ew-teal:      #237266;
   --ew-bad:       var(--danger);
   --ew-serif:     'Newsreader', Georgia, serif;
   --ew-sans:      'Inter Tight', system-ui, sans-serif;
   --ew-mono:      'JetBrains Mono', ui-monospace, monospace;
 
-  // D9 code review Minor-2: replaces the `#1c1814` hardcoded in 3 dialog stylesheets
-  // (expense-filters-dialog, tag-picker-dialog, expense-page's filters-count badge) for
-  // text/icons drawn on top of `var(--ew-acc)` fills. Same value as before (zero visual
-  // regression) — just promoted to a token so a future palette change to `--accent`
-  // doesn't silently strand dark-ink-on-accent assumptions in component-local CSS.
-  // Contrast: 7.50:1 against dark `--accent` (#6fb3c4) — well past AA. Against light
-  // `--accent` (#a86935) it's 3.98:1 — under the 4.5:1 AA text threshold, same class of
-  // pre-existing gap D2 already flagged for `--mat-sys-on-primary` above and deferred to
-  // D10's dedicated contrast pass; not invented or fixed here.
-  --ew-on-acc:    #1c1814;
+  // D9 code review Minor-2 (D10 update: light value fixed below).
+  // Text/icons drawn on top of `var(--ew-acc)` fills (filled accent surfaces —
+  // filter-count badge, tag/filters dialog swatches).
+  // Contrast: 7.50:1 against dark `--accent` (#6fb3c4) — well past AA, unchanged.
+  // D10: light value was #1c1814, 3.98:1 against light `--accent` (#a86935) — under
+  // the 4.5:1 AA text minimum, the gap D9 flagged and explicitly deferred here.
+  // Darkened to pure black: 4.74:1, clears AA with a small margin while staying in
+  // the same "near-black ink" family as the value it replaces.
+  --ew-on-acc:    #000000;
 
   // Material system tokens (Redesign v1 — D2) — pin `mat.theme()`'s M3
   // `--mat-sys-*` color roots to the D1 semantic tokens above. Every
@@ -112,14 +142,15 @@ html {
   // against `--primary-bg`) rather than `--accent-fg`, which is a *lighter
   // accent tint* token (used for text/icon accents on a plain surface, not
   // as an "on-filled-color" pairing) — `--accent`/`--accent-fg` measures
-  // 2.31:1 (light) / 1.43:1 (dark), well under WCAG AA. Dark-mode
-  // `--primary-bg`/`--surface` still only reaches 3.17:1; no existing D1
-  // token clears 4.5:1 here (closest is `--text` at 4.25:1, used below) —
-  // flagged as a known contrast gap for D10 (dark palette explicitly
-  // "unverified until D10" per the epic's acceptance criteria), not
-  // resolved here since D2 is token alignment, not new token creation.
+  // 2.31:1 (light) / 1.43:1 (dark), well under WCAG AA.
+  // D10: dark-mode `--primary-bg`/`--surface` only reached 3.17:1 — no existing
+  // D1 token cleared 4.5:1 there (closest was `--text` at 4.25:1). Closed via the
+  // new `--on-primary-strong` token (see `:root` above) instead of changing
+  // `--primary-bg` itself, to avoid a wider visual ripple across every filled-
+  // button/primary surface. Light mode is unaffected — `--on-primary-strong`
+  // resolves to `--surface` there too, same 5.98:1 as before.
   --mat-sys-primary:                 var(--primary-bg);
-  --mat-sys-on-primary:               var(--surface);
+  --mat-sys-on-primary:               var(--on-primary-strong);
   --mat-sys-primary-container:        var(--accent-soft);
   --mat-sys-on-primary-container:     var(--accent-deep);
   --mat-sys-secondary-container:      var(--accent-soft-2);
@@ -153,7 +184,7 @@ html {
   --mat-dialog-supporting-text-color:  var(--text-2);
 
   --mat-button-filled-container-color:    var(--primary-bg);
-  --mat-button-filled-label-text-color:   var(--surface);
+  --mat-button-filled-label-text-color:   var(--on-primary-strong);
   --mat-button-outlined-label-text-color: var(--accent);
   --mat-button-outlined-outline-color:    var(--line);
   --mat-button-protected-container-color: var(--surface);
@@ -179,7 +210,11 @@ html {
   --text:           #e8f0f1;
   --text-2:         #bacbd0;
   --text-3:         #93a9b0;
-  --text-4:         #7c939a;
+  // D10 contrast fix: was #7c939a (4.82:1 on --surface, passing, but 4.37:1 on
+  // --surface-2 and 3.81:1 on --surface-3 — below 4.5:1 AA). Lightened to clear
+  // AA on every surface this token is actually painted on: 6.48:1 / 5.71:1 /
+  // 5.17:1 / 4.51:1 against bg/surface/surface-2/surface-3 respectively.
+  --text-4:         #8ca0a6;
   --accent:         #6fb3c4;
   --accent-deep:    #9bd3e0;
   --accent-fg:      #9bd3e0;
@@ -205,6 +240,10 @@ html {
   --danger-bg:      #3a211d;
   --danger-text:    #f2b5aa;
   --scrim:          rgba(4, 12, 15, .62);
+  // D10: closes the dark-mode on-primary gap (3.17:1 with --surface) — see the
+  // `--mat-sys-on-primary` comment in the `:root` block for the full rationale.
+  // White reaches 4.90:1 against dark `--primary-bg` (#2e7a8c).
+  --on-primary-strong: #ffffff;
   color-scheme: dark;
 
   // Legacy `--ew-*` alias layer — see the `:root` block above for rationale.
@@ -220,15 +259,20 @@ html {
   --ew-acc:       var(--accent);
   --ew-acc-2:     var(--accent-fg);
   --ew-acc-soft:  var(--accent-soft);
+  // D10: see `:root` block above — same rationale, dark already passed (10.77:1
+  // on --bg, 7.36:1 on --accent-soft), no value change needed here.
+  --ew-acc-deep:  var(--accent-deep);
   --ew-teal:      #5fb6a5;
   --ew-bad:       var(--danger);
+  // D10: dark already passed at 7.50:1 against dark `--accent` — no value change,
+  // see `:root` block above for the light-mode fix and full rationale.
   --ew-on-acc:    #1c1814;
 
   // Material system tokens (Redesign v1 — D2) — see `:root` block above for
   // rationale (incl. the `on-primary`/contrast note); same override set,
   // resolved against this scope's dark values.
   --mat-sys-primary:                 var(--primary-bg);
-  --mat-sys-on-primary:               var(--surface);
+  --mat-sys-on-primary:               var(--on-primary-strong);
   --mat-sys-primary-container:        var(--accent-soft);
   --mat-sys-on-primary-container:     var(--accent-deep);
   --mat-sys-secondary-container:      var(--accent-soft-2);
@@ -258,7 +302,7 @@ html {
   --mat-dialog-supporting-text-color:  var(--text-2);
 
   --mat-button-filled-container-color:    var(--primary-bg);
-  --mat-button-filled-label-text-color:   var(--surface);
+  --mat-button-filled-label-text-color:   var(--on-primary-strong);
   --mat-button-outlined-label-text-color: var(--accent);
   --mat-button-outlined-outline-color:    var(--line);
   --mat-button-protected-container-color: var(--surface);
@@ -360,7 +404,9 @@ body.ew-privacy {
   font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--ew-acc);
+  // D10: was --ew-acc (3.88:1 on --bg in light mode, below AA at this size) —
+  // see --ew-acc-deep definition in the token block for full rationale.
+  color: var(--ew-acc-deep);
 }
 
 .ew-page-title {
@@ -612,7 +658,10 @@ body.ew-privacy {
   }
 
   .ew-tabs-on {
-    color: var(--ew-acc);
+    // D10: was --ew-acc (3.61:1 on --ew-bg-2 in light mode, below AA at this
+    // size — cheap fix bundled while closing the epic, same token/rationale
+    // used elsewhere in this file for small accent-colored text).
+    color: var(--ew-acc-deep);
     border-color: var(--ew-line-2);
     background: var(--ew-bg-2);
   }
@@ -743,7 +792,10 @@ body.ew-privacy {
   top: -26px;
   font-family: var(--ew-mono);
   font-size: 10px;
-  color: var(--ew-acc);
+  // D10: was --ew-acc (3.88:1 in light mode, below AA at 10px) — cheap fix
+  // bundled while closing the epic, same token/rationale used elsewhere in
+  // this file for small accent-colored text.
+  color: var(--ew-acc-deep);
   letter-spacing: 0.1em;
 }
 
@@ -984,9 +1036,18 @@ body.ew-privacy {
   outline: none;
   font-weight: 500;
   letter-spacing: -0.015em;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, outline-color 0.15s;
 
   &:focus { border-color: var(--ew-acc); }
+  // D10: the border-color-only change above is too subtle to satisfy WCAG 2.4.7
+  // (focus indicator) on its own — used across every D9 dialog's text/select
+  // fields (expense-create/-payment/-filters/-share dialogs, tag picker, pending-
+  // review). Adds a real focus ring on top, without disturbing the existing
+  // border-color affordance.
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
+  }
   &::placeholder { color: var(--ew-ink-3); font-style: italic; }
 
   option {
@@ -1834,8 +1895,16 @@ body.ew-privacy {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  // Rail row step (44px item height + 2px gap) — read by .ew-nav-rail's
+  // transform below. Scoped here (the rail's positioning parent) rather than
+  // :root since it's meaningless outside this component's nav rows.
+  --nav-rail-step: 46px;
 }
 
+// D10 review fix (m2): position driven by a --rail-index custom property
+// (bound via [style.--rail-index], a numeric per-instance value — never a
+// concatenated [style] string) instead of a computed `translateY(...)` string
+// built in the template. Same technique .ep-tabs-thumb already uses below.
 .ew-nav-rail {
   position: absolute;
   left: 0;
@@ -1845,6 +1914,7 @@ body.ew-privacy {
   border-radius: 10px;
   background: var(--ew-acc-soft);
   box-shadow: inset 2px 0 0 var(--ew-acc);
+  transform: translateY(calc(var(--rail-index, 0) * var(--nav-rail-step)));
   transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
   pointer-events: none;
   z-index: 0;
@@ -1859,6 +1929,33 @@ body.ew-privacy {
     transition: none;
   }
 }
+
+// D10: global reduced-motion floor. The rail (above) and tab-thumb (below) already
+// had their own explicit opt-outs; this catches everything else animated across
+// D1-D9's surface that didn't (notably the interactive-share-dialog's 3-step wizard
+// — its step-in keyframe and progress-bar width transition, `interactive-share-
+// dialog.component.scss`) without having to hunt down and touch every component
+// file individually (CSS-budget-conscious: one global rule vs. N component edits).
+// `!important` is deliberate here — this is a user OS-level accessibility
+// preference, not a design opinion a component's own specificity should be able to
+// override.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// D10 review note: this rule, and the `:focus-visible` ring added to
+// `.ew-input`/`.ew-select` below, aren't meaningfully assertable in jsdom
+// (no real paint/media-query evaluation) — same limitation D5 already
+// documented for `position: sticky`/`backdrop-filter` on the topbar.
+// Verified instead via `ng build` (compiles clean, budget-checked) and manual
+// review of the CSS diff.
 
 // Generic sliding thumb for animated tab groups (layout/status tabs on the Expenses page,
 // D6) — same technique as .ew-nav-rail above, but width-based (index/count) instead of a
@@ -1927,8 +2024,10 @@ body.ew-privacy {
     color: var(--ew-ink);
     font-weight: 500;
 
+    // D10: was --ew-acc (3.88:1 on --bg in light mode, below AA at 10px) — see
+    // --ew-acc-deep definition in the token block for full rationale.
     .ew-nav-num {
-      color: var(--ew-acc);
+      color: var(--ew-acc-deep);
     }
   }
 }

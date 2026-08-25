@@ -274,7 +274,11 @@
   height: 8px;
   flex: 0 0 auto;
   border-radius: 999px;
-  background: var(--warn-dot);
+  // D10: was --warn-dot (2.60:1 light / 6.86:1 dark against this banner's
+  // --warn-bg — light fails the 3:1 UI-component minimum). --warn-text clears
+  // both (6.19:1 light / 9.01:1 dark) — see .ep-day-dot above for the matching
+  // fix on the grouped-by-day status dot.
+  background: var(--warn-text);
 }
 
 .ep-import-banner-title {
@@ -477,7 +481,9 @@
   padding: 0 8px 0 12px;
   border: 1px solid var(--ew-line-2);
   background: var(--ew-acc-soft);
-  color: var(--ew-acc);
+  // D10: was --ew-acc (3.61:1 against --ew-acc-soft in light mode, below AA at
+  // 12.5px) — --ew-acc-deep clears both palettes (5.06:1 light / 7.36:1 dark).
+  color: var(--ew-acc-deep);
   border-radius: 999px;
   cursor: pointer;
   font-size: 12.5px;
@@ -625,10 +631,19 @@
   flex: 0 0 8px;
   margin-top: 7px;
   border-radius: 999px;
-  background: var(--ok-dot);
+  // D10: was --ok-dot/--warn-dot — both fail the 3:1 UI-component contrast
+  // minimum against this dot's actual background (--ew-panel/--ew-panel-2, the
+  // day-row surface): --ok-dot as low as 1.39:1 light / 2.34:1 dark, --warn-dot
+  // 2.52-2.99:1 light (dark was already fine at 6.2-6.9:1). Reused the existing
+  // --ok-text/--warn-text tokens instead of inventing new ones — same status
+  // colors already used as text elsewhere on this page, and both clear 3:1 with
+  // comfortable margin (5.03-9.03:1 across every surface/surface-2 combination
+  // in both themes — also the pairing used by .ep-import-dot below, so status
+  // color stays consistent across the whole page regardless of background).
+  background: var(--ok-text);
 
   &--open {
-    background: var(--warn-dot);
+    background: var(--warn-text);
   }
 }
 
