@@ -42,8 +42,11 @@ describe('OmegaViewerLauncher', () => {
 
     expect(dialogOpenSpy).toHaveBeenCalledTimes(1);
     const [, config] = dialogOpenSpy.mock.calls[0] as [unknown, MatDialogConfig];
-    expect(config.width).toBe('720px');
-    expect(config.maxWidth).toBe('95vw');
+    // D9: desktop dialog width dropped from 720px to the design's 544px (34rem) standard,
+    // shared by every desktop modal in the Redesign v1 epic (DESKTOP_DIALOG_WIDTH). Review
+    // Minor-1: maxWidth now also comes from the shared constant (was hardcoded '95vw').
+    expect(config.width).toBe('34rem');
+    expect(config.maxWidth).toBe('calc(100vw - 2rem)');
     expect(config.data).toEqual({ kind: 'EXPENSE', id: 'expense-1' });
   });
 

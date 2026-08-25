@@ -321,6 +321,17 @@
   gap: 4px;
 }
 
+.isd__warn {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  color: var(--warn-text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 // ── Success state (step 2) ───────────────────────────────────────────────
 
 .isd__step--success {

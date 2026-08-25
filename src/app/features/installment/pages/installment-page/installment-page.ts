@@ -21,6 +21,7 @@ import {
   TagPickerDialogData,
   TagPickerDialogResult,
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
+import { DESKTOP_DIALOG_MAX_WIDTH, DESKTOP_DIALOG_WIDTH } from '@shared/constants/dialog.constants';
 import { matchesNameOrTag } from '@shared/utils/search-filter';
 import { TagChip, toTagChips } from '@shared/utils/tag-chips';
 import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
@@ -390,7 +391,7 @@ export class InstallmentPage {
     this.dialog
       .open<TagPickerDialogComponent, TagPickerDialogData, TagPickerDialogResult>(
         TagPickerDialogComponent,
-        { width: '26rem', maxWidth: 'calc(100vw - 2rem)', data },
+        { width: DESKTOP_DIALOG_WIDTH, maxWidth: DESKTOP_DIALOG_MAX_WIDTH, data },
       )
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))

@@ -17,6 +17,7 @@ import {
   ExpenseCreateDialogData,
   ExpenseCreateDialogResult,
 } from '@features/expense/components/expense-create-dialog/expense-create-dialog.component';
+import { DESKTOP_DIALOG_MAX_WIDTH, DESKTOP_DIALOG_WIDTH } from '@shared/constants/dialog.constants';
 import { ExpenseService } from '@features/expense/services/expense.service';
 import { Wallet } from '@features/wallet/models/wallet';
 import { WalletService } from '@features/wallet/services/wallet.service';
@@ -439,8 +440,8 @@ export class ShellComponent {
       ExpenseCreateDialogData,
       ExpenseCreateDialogResult
     >(ExpenseCreateDialogComponent, {
-      width: '30rem',
-      maxWidth: 'calc(100vw - 2rem)',
+      width: DESKTOP_DIALOG_WIDTH,
+      maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
       data,
     });
 

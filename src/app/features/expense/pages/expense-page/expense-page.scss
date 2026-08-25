@@ -48,87 +48,6 @@
   font-size: 0.85rem;
 }
 
-.ep-filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  column-gap: 12px;
-  row-gap: 10px;
-  align-items: end;
-  padding: 14px 24px 16px;
-  border-bottom: 1px solid var(--ew-line-2);
-}
-
-.ep-filter-field {
-  display: grid;
-  gap: 6px;
-
-  label {
-    font-family: var(--ew-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ew-ink-3);
-    margin: 0;
-  }
-}
-
-.ep-filter-field--range {
-  min-width: 0;
-  grid-column: span 2;
-
-  @media (max-width: 480px) {
-    grid-column: span 1;
-  }
-}
-
-.ep-date-range {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.ep-date-field {
-  display: grid;
-  gap: 6px;
-
-  span {
-    font-family: var(--ew-mono);
-    font-size: 9px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ew-ink-3);
-  }
-}
-
-.ep-filters .ew-input,
-.ep-filters .ew-select {
-  font-family: var(--ew-sans);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0;
-  padding: 6px 0;
-}
-
-.ep-filter-field--checkbox {
-  label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-family: var(--ew-sans);
-    font-size: 13px;
-    font-weight: 500;
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--ew-ink);
-    cursor: pointer;
-  }
-
-  input[type='checkbox'] {
-    accent-color: var(--ew-ink);
-    cursor: pointer;
-  }
-}
-
 .ep-amount-cell {
   text-align: right;
 }
@@ -228,12 +147,6 @@
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.ep-field-hint {
-  margin: 7px 0 0;
-  color: var(--ew-ink-3);
-  font-size: 11.5px;
 }
 
 .expense-tag-chips {
@@ -495,6 +408,56 @@
     outline: 2px solid var(--ew-acc);
     outline-offset: -1px;
   }
+}
+
+// ── D9: "Filters" button — opens the filters modal that replaced D6's inline panel ────
+
+.ep-filters-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  border-radius: 11px;
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+
+  mat-icon {
+    font-size: 17px;
+    width: 17px;
+    height: 17px;
+  }
+
+  &:hover {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  &--active {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+}
+
+.ep-filters-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--ew-acc);
+  color: var(--ew-on-acc);
+  font-size: 10.5px;
+  font-weight: 600;
 }
 
 // ── D6: filter chips ─────────────────────────────────────────────────────────

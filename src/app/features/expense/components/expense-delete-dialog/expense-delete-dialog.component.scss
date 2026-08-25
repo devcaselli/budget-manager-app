@@ -52,15 +52,25 @@
 
 .edd-message {
   margin: 0;
-  color: var(--ew-ink-2);
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--danger-bg);
+  color: var(--danger-text);
   font-family: var(--ew-sans);
   font-size: 14px;
   line-height: 1.6;
 
   strong {
-    color: var(--ew-ink);
     font-weight: 600;
   }
+}
+
+.edd-hint {
+  margin: 14px 0 0;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-sans);
+  font-size: 13.5px;
+  line-height: 1.6;
 }
 
 .edd-actions {

@@ -27,6 +27,7 @@ import {
   TagPickerDialogData,
   TagPickerDialogResult,
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
+import { DESKTOP_DIALOG_MAX_WIDTH, DESKTOP_DIALOG_WIDTH } from '@shared/constants/dialog.constants';
 
 export interface InstallmentCreateDialogCreditCard {
   readonly id: string;
@@ -121,7 +122,7 @@ export class InstallmentCreateDialogComponent {
     this.dialog
       .open<TagPickerDialogComponent, TagPickerDialogData, TagPickerDialogResult>(
         TagPickerDialogComponent,
-        { width: '26rem', maxWidth: 'calc(100vw - 2rem)', data },
+        { width: DESKTOP_DIALOG_WIDTH, maxWidth: DESKTOP_DIALOG_MAX_WIDTH, data },
       )
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))

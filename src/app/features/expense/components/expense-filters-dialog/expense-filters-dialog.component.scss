@@ -1,4 +1,4 @@
-.tpd-head {
+.efd-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -11,14 +11,15 @@
   }
 }
 
-.tpd-title {
+.efd-title {
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 32px;
+  font-size: 34px;
   line-height: 1;
   letter-spacing: -0.02em;
   font-weight: 500;
   color: var(--ew-ink);
+  font-variation-settings: 'opsz' 32;
 
   em {
     font-style: italic;
@@ -27,16 +28,16 @@
   }
 }
 
-.tpd-subtitle {
+.efd-subtitle {
   margin: 8px 0 0;
   font-family: var(--ew-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--ew-ink-3);
   text-transform: uppercase;
   letter-spacing: 0.18em;
 }
 
-.tpd-close {
+.efd-close {
   flex: 0 0 34px;
   color: var(--ew-ink-2);
 
@@ -45,58 +46,81 @@
   }
 }
 
-.tpd-body {
-  padding: 20px 28px;
-  min-width: min(24rem, calc(100vw - 4rem));
-  max-height: 60vh;
-  overflow-y: auto;
+.efd-body {
+  display: grid;
+  gap: 16px;
+  padding: 24px 28px;
 }
 
-.tpd-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.efd-date-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.efd-hint {
+  margin: 7px 0 0;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.efd-toggle-row {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--ew-line);
+  border-radius: 12px;
+  cursor: pointer;
+  min-height: 56px;
+  box-sizing: border-box;
 
-.tpd-row {
-  &--subtag {
-    padding-left: 22px;
+  &:hover {
+    border-color: var(--ew-line-2);
   }
 }
 
-.tpd-checkbox {
+.efd-toggle-text {
+  flex: 1;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 6px;
-  border-radius: 8px;
-  cursor: pointer;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.efd-toggle-title {
   font-family: var(--ew-sans);
   font-size: 14px;
   color: var(--ew-ink);
-  transition: background 0.15s;
-
-  &:hover {
-    background: rgba(214, 163, 113, 0.06);
-  }
-
-  input[type='checkbox'] {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--ew-acc);
-    cursor: pointer;
-  }
 }
 
-.tpd-actions {
+.efd-toggle-sub {
+  font-family: var(--ew-sans);
+  font-size: 12.5px;
+  color: var(--ew-ink-3);
+  line-height: 1.4;
+}
+
+.efd-toggle-row input[type='checkbox'] {
+  accent-color: var(--ew-acc);
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.efd-actions {
   gap: 10px;
   padding: 18px 28px 24px;
   border-top: 1px solid var(--ew-line);
 }
 
+// Same local `.ew-btn` block every other expense dialog defines (payment/delete/share) —
+// not yet extracted to a shared stylesheet, kept consistent with that existing convention
+// rather than introducing a new pattern in this one component.
 .ew-btn {
   display: inline-flex;
   align-items: center;
@@ -126,9 +150,5 @@
       border-color: var(--ew-acc-2);
       color: var(--ew-on-acc);
     }
-  }
-
-  &--ghost {
-    border-color: transparent;
   }
 }

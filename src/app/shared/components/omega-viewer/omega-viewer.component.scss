@@ -50,7 +50,10 @@
 .ovw__body {
   padding: 24px 28px;
   max-height: 65vh;
-  min-width: min(48rem, calc(100vw - 4rem));
+  // D9: dialog panel width dropped from 720px to the design's 544px (34rem) desktop
+  // standard — this min-width must not exceed that or it fights the container and
+  // forces the dialog wider than the panel config, breaking the desktop layout.
+  min-width: min(34rem, calc(100vw - 4rem));
 }
 
 .ovw__actions {

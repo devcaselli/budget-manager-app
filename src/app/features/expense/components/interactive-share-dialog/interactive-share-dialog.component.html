@@ -158,6 +158,13 @@
           </div>
         </div>
 
+        @if (isFullyPassedOn()) {
+          <p class="isd__warn">
+            100% passed on — this expense will be hidden from the cycle. Turn on
+            "Show hidden items" in Filters to find it.
+          </p>
+        }
+
         @if (errorMessage()) {
           <p class="isd__error">{{ errorMessage() }}</p>
         }

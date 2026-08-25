@@ -3,6 +3,8 @@ import { inject, Injectable } from '@angular/core';
 import { MatDialog, MatDialogConfig } from '@angular/material/dialog';
 import { Observable, switchMap } from 'rxjs';
 
+import { DESKTOP_DIALOG_MAX_WIDTH, DESKTOP_DIALOG_WIDTH } from '@shared/constants/dialog.constants';
+
 import { OmegaViewerRef } from './models/omega-viewer-ref';
 import { OmegaViewerResult } from './models/omega-viewer-result';
 
@@ -27,9 +29,11 @@ export class OmegaViewerLauncher {
   open(ref: OmegaViewerRef): Observable<OmegaViewerResult> {
     return this.breakpointObserver.observe(Breakpoints.XSmall).pipe(
       switchMap(({ matches: isBelow600 }) => {
+        // Desktop width matches the design's 544px modal shell (D9); mobile stays
+        // full-screen — out of this epic's scope (D7/v1.1 owns the mobile variant).
         const config: MatDialogConfig<OmegaViewerRef> = isBelow600
           ? { width: '100vw', height: '100vh', maxWidth: '100vw', data: ref }
-          : { width: '720px', maxWidth: '95vw', data: ref };
+          : { width: DESKTOP_DIALOG_WIDTH, maxWidth: DESKTOP_DIALOG_MAX_WIDTH, data: ref };
 
         return new Observable<OmegaViewerResult>((subscriber) => {
           import('./omega-viewer.component').then(({ OmegaViewerComponent }) => {

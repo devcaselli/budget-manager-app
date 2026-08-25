@@ -128,6 +128,14 @@ export class InteractiveShareDialogComponent {
     Math.max(Number((this.data.expense.cost - (this.amountValue() || 0)).toFixed(2)), 0),
   );
 
+  /** Mirrors the design's `splitFull` state: once the payer's share covers the whole cost,
+   *  the owner's remaining `ownerAmount()` hits 0 and `Expense.pay()`'s 100%-passed-on rule
+   *  (see the class doc above re: cent-exact debt) hides the expense from the active cycle —
+   *  surfaced here so the user isn't surprised when it vanishes from the ledger after submit. */
+  protected readonly isFullyPassedOn = computed(
+    () => this.amountValue() > 0 && this.ownerAmount() === 0,
+  );
+
   protected readonly selectedPayer = computed<Payer | null>(
     () => this.data.payers.find((payer) => payer.id === this.payerIdValue()) ?? null,
   );

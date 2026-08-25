@@ -47,6 +47,7 @@ import {
   TagPickerDialogResult,
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
+import { DESKTOP_DIALOG_MAX_WIDTH, DESKTOP_DIALOG_WIDTH } from '@shared/constants/dialog.constants';
 
 import {
   ExpenseDeleteDialogComponent,
@@ -61,6 +62,10 @@ import {
   InteractiveShareDialogData,
   InteractiveShareDialogResult,
 } from '../../components/interactive-share-dialog/interactive-share-dialog.component';
+import {
+  ExpenseFiltersDialogComponent,
+  ExpenseFiltersDialogData,
+} from '../../components/expense-filters-dialog/expense-filters-dialog.component';
 import { ExpenseService } from '../../services/expense.service';
 
 interface ExpenseListItem {
@@ -354,11 +359,6 @@ export class ExpensePage implements AfterViewChecked {
   protected readonly layout = signal<LedgerLayout>('ledger');
   protected readonly isGroupedLayout = computed(() => this.layout() === 'grouped');
 
-  /** Exposes the current sortOrder to the template — grouped layout always orders groups
-   *  by date (VALUE_ASC/VALUE_DESC only applies within a day), so the sort <select> disables
-   *  the value options and this drives the explanatory hint when one was already selected. */
-  protected readonly filtersValueSortOrder = computed(() => this.filtersValue().sortOrder);
-
   private static readonly STATUS_TABS: readonly ExpensePaymentStatus[] = ['ALL', 'OPEN', 'PAID'];
   protected readonly statusTabIndex = computed(() =>
     Math.max(ExpensePage.STATUS_TABS.indexOf(this.filtersValue().paymentStatus ?? 'ALL'), 0),
@@ -611,6 +611,25 @@ export class ExpensePage implements AfterViewChecked {
       .subscribe({ next: () => this.resetForm(), error: () => undefined });
   }
 
+  /** D9: replaces the inline filters panel with the desktop 544px modal. Passes the live
+   *  `filtersForm` by reference (not a copy) — see `ExpenseFiltersDialogData` for why the
+   *  dialog needs no "apply"/"cancel" distinction: every edit inside it already updates
+   *  `filteredExpenseItems()` instantly, exactly like the panel it replaces did. */
+  protected openFiltersDialog(): void {
+    this.dialog.open<ExpenseFiltersDialogComponent, ExpenseFiltersDialogData>(
+      ExpenseFiltersDialogComponent,
+      {
+        width: DESKTOP_DIALOG_WIDTH,
+        maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
+        data: {
+          form: this.filtersForm,
+          creditCards: this.creditCards(),
+          isGroupedLayout: this.isGroupedLayout,
+        },
+      },
+    );
+  }
+
   protected openPaymentDialog(expense: ExpenseListItem): void {
     const wallet = this.selectedWallet();
     if (!wallet || expense.remainingValue <= 0 || this.bulletOptions().length === 0) return;
@@ -621,8 +640,8 @@ export class ExpensePage implements AfterViewChecked {
         { expense: ExpenseListItem; bullets: readonly BulletOption[] },
         ExpensePaymentDialogResult
       >(ExpensePaymentDialogComponent, {
-        width: '32rem',
-        maxWidth: 'calc(100vw - 2rem)',
+        width: DESKTOP_DIALOG_WIDTH,
+        maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
         data: { expense, bullets: this.bulletOptions() },
       })
       .afterClosed()
@@ -642,8 +661,8 @@ export class ExpensePage implements AfterViewChecked {
       .open<InteractiveShareDialogComponent, InteractiveShareDialogData, InteractiveShareDialogResult>(
         InteractiveShareDialogComponent,
         {
-          width: '32rem',
-          maxWidth: 'calc(100vw - 2rem)',
+          width: DESKTOP_DIALOG_WIDTH,
+          maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
           data: {
             walletId: wallet.id,
             expense: { id: expense.id, name: expense.name, cost: expense.cost, currency: 'BRL' },
@@ -721,7 +740,7 @@ export class ExpensePage implements AfterViewChecked {
     this.dialog
       .open<TagPickerDialogComponent, TagPickerDialogData, TagPickerDialogResult>(
         TagPickerDialogComponent,
-        { width: '26rem', maxWidth: 'calc(100vw - 2rem)', data },
+        { width: DESKTOP_DIALOG_WIDTH, maxWidth: DESKTOP_DIALOG_MAX_WIDTH, data },
       )
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -752,8 +771,13 @@ export class ExpensePage implements AfterViewChecked {
       .open<ExpenseDeleteDialogComponent, ExpenseDeleteDialogData, boolean>(
         ExpenseDeleteDialogComponent,
         {
-          width: '32rem',
-          maxWidth: 'calc(100vw - 2rem)',
+          width: DESKTOP_DIALOG_WIDTH,
+          maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
+          // Review D9-Major-2: the only destructive/irreversible dialog in this epic —
+          // Escape/backdrop-click are disabled so a stray keypress or misclick can't delete
+          // an expense unattended. Every other dialog keeps Material's close-on-Escape
+          // default (see dialog.constants.ts for the full baseline rationale).
+          disableClose: true,
           data: { expenseName: expense.name, cost: expense.cost },
         },
       )

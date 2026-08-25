@@ -91,6 +91,17 @@ html {
   --ew-sans:      'Inter Tight', system-ui, sans-serif;
   --ew-mono:      'JetBrains Mono', ui-monospace, monospace;
 
+  // D9 code review Minor-2: replaces the `#1c1814` hardcoded in 3 dialog stylesheets
+  // (expense-filters-dialog, tag-picker-dialog, expense-page's filters-count badge) for
+  // text/icons drawn on top of `var(--ew-acc)` fills. Same value as before (zero visual
+  // regression) — just promoted to a token so a future palette change to `--accent`
+  // doesn't silently strand dark-ink-on-accent assumptions in component-local CSS.
+  // Contrast: 7.50:1 against dark `--accent` (#6fb3c4) — well past AA. Against light
+  // `--accent` (#a86935) it's 3.98:1 — under the 4.5:1 AA text threshold, same class of
+  // pre-existing gap D2 already flagged for `--mat-sys-on-primary` above and deferred to
+  // D10's dedicated contrast pass; not invented or fixed here.
+  --ew-on-acc:    #1c1814;
+
   // Material system tokens (Redesign v1 — D2) — pin `mat.theme()`'s M3
   // `--mat-sys-*` color roots to the D1 semantic tokens above. Every
   // component-level `--mat-*` token (dialog, button, icon, ripple,
@@ -211,6 +222,7 @@ html {
   --ew-acc-soft:  var(--accent-soft);
   --ew-teal:      #5fb6a5;
   --ew-bad:       var(--danger);
+  --ew-on-acc:    #1c1814;
 
   // Material system tokens (Redesign v1 — D2) — see `:root` block above for
   // rationale (incl. the `on-primary`/contrast note); same override set,

@@ -934,30 +934,60 @@ describe('ExpensePage — D6 redesign: stat cards, toolbar, layouts, chips, impo
     expect(allTab.getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('the value-sort options are disabled while the grouped layout is active (groups always order by date)', () => {
-    const valueAsc = query('#ep-filter-sort option[value="VALUE_ASC"]') as HTMLOptionElement;
-    const valueDesc = query('#ep-filter-sort option[value="VALUE_DESC"]') as HTMLOptionElement;
-    expect(valueAsc.disabled).toBe(false);
-    expect(valueDesc.disabled).toBe(false);
+  // D9: the inline `.ep-filters` panel (search/card/status/sort/date-range/hidden) was
+  // replaced by a "Filters" button that opens `ExpenseFiltersDialogComponent` as a 544px
+  // modal — the value-sort-disabled-while-grouped behavior these two tests used to assert
+  // against the inline `<select>` now lives entirely in that component and is covered by
+  // its own spec (`expense-filters-dialog.component.spec.ts`). What stays ExpensePage's
+  // responsibility is wiring: the button renders, is enabled, and opens the dialog with
+  // the live isGroupedLayout() accessor so the dialog can react to layout toggles itself.
+
+  it('the Filters button opens the filters dialog with the live isGroupedLayout accessor', () => {
+    const dialog = TestBed.inject(MatDialog) as unknown as { open: ReturnType<typeof vi.fn> };
+    const filtersBtn = query('.ep-filters-btn') as HTMLButtonElement;
+    expect(filtersBtn).toBeTruthy();
+
+    filtersBtn.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const [, config] = dialog.open.mock.calls[0] as [unknown, { data: { isGroupedLayout: () => boolean } }];
+    expect(config.data.isGroupedLayout()).toBe(false);
 
     const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
     byDayTab.dispatchEvent(new Event('click'));
     fixture.detectChanges();
 
-    expect(valueAsc.disabled).toBe(true);
-    expect(valueDesc.disabled).toBe(true);
+    // Same accessor reference — reflects the layout toggle without a second dialog.open call.
+    expect(config.data.isGroupedLayout()).toBe(true);
   });
 
-  it('shows a hint when grouped layout is active and a value sort was already selected', () => {
-    filtersForm().controls.sortOrder.setValue('VALUE_ASC' as never);
-    fixture.detectChanges();
-    expect(query('.ep-field-hint')).toBeNull();
+  it('the Filters button shows an active-count badge once a filter chip is present', () => {
+    expect(query('.ep-filters-count')).toBeNull();
 
-    const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
-    byDayTab.dispatchEvent(new Event('click'));
+    filtersForm().controls.creditCardId.setValue('card-1');
     fixture.detectChanges();
 
-    expect(query('.ep-field-hint')).toBeTruthy();
+    expect(query('.ep-filters-count')?.textContent?.trim()).toBe('1');
+  });
+
+  // D9 code review Major-2: the delete dialog is the one modal in this epic that disables
+  // Escape/backdrop-click, since it's the only destructive/irreversible action — asserted
+  // here so a future edit can't silently drop it back to Material's plain default.
+  it('onDeleteClick opens the delete dialog with disableClose: true (the one destructive-action exception)', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', name: 'Mercado' })]);
+    fixture.detectChanges();
+
+    const dialog = TestBed.inject(MatDialog) as unknown as { open: ReturnType<typeof vi.fn> };
+    const deleteBtn = query('.ep-icon-btn--danger') as HTMLButtonElement;
+    expect(deleteBtn).toBeTruthy();
+
+    deleteBtn.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const [, config] = dialog.open.mock.calls[0] as [unknown, { disableClose?: boolean }];
+    expect(config.disableClose).toBe(true);
   });
 
   it('the card filter chip resolves its label from the shared creditCardNameById Map (O(1), not a fresh .find() scan)', () => {

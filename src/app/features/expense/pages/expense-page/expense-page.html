@@ -141,6 +141,19 @@
           <button type="button" class="ep-status-tab" [attr.aria-pressed]="statusTabIndex() === 1" [class.ep-status-tab--active]="statusTabIndex() === 1" (click)="setStatusTab('OPEN')">Open</button>
           <button type="button" class="ep-status-tab" [attr.aria-pressed]="statusTabIndex() === 2" [class.ep-status-tab--active]="statusTabIndex() === 2" (click)="setStatusTab('PAID')">Paid</button>
         </div>
+        <button
+          type="button"
+          class="ep-filters-btn"
+          [class.ep-filters-btn--active]="filterChips().length > 0"
+          (click)="openFiltersDialog()"
+          aria-haspopup="dialog"
+        >
+          <mat-icon aria-hidden="true">tune</mat-icon>
+          Filters
+          @if (filterChips().length > 0) {
+            <span class="ep-filters-count">{{ filterChips().length }}</span>
+          }
+        </button>
       </div>
 
       @if (filterChips().length > 0) {
@@ -159,87 +172,6 @@
           <button #clearAllButton type="button" class="ep-chip-clear-all" (click)="clearAllFilters()">Clear all</button>
         </div>
       }
-
-      <!-- D9 TODO: once the "Filters" affordance opens the desktop modal (D9 scope), the
-           search and status fields below become redundant with the toolbar's search input
-           and status tabs above — remove `search`/`paymentStatus` from this inline panel
-           at that point and keep only card/sort/date-range/hidden here (or fold the whole
-           panel into the modal). Left duplicated for D6 since the modal doesn't exist yet. -->
-      <div class="ep-filters" [formGroup]="filtersForm">
-        <div class="ep-filter-field">
-          <label for="ep-filter-search">Name</label>
-          <input
-            id="ep-filter-search"
-            class="ew-input"
-            type="text"
-            formControlName="search"
-            placeholder="Search expense or tag"
-          />
-        </div>
-        <div class="ep-filter-field">
-          <label for="ep-filter-card">Card</label>
-          <select id="ep-filter-card" class="ew-select" formControlName="creditCardId">
-            <option value="">All cards</option>
-            @for (card of creditCards(); track card.id) {
-              <option [value]="card.id">{{ card.name }}</option>
-            }
-          </select>
-        </div>
-        <div class="ep-filter-field">
-          <label for="ep-filter-status">Status</label>
-          <select id="ep-filter-status" class="ew-select" formControlName="paymentStatus">
-            <option value="ALL">All</option>
-            <option value="OPEN">Open</option>
-            <option value="PAID">Paid</option>
-          </select>
-        </div>
-        <div class="ep-filter-field">
-          <label for="ep-filter-sort">Sort</label>
-          <select id="ep-filter-sort" class="ew-select" formControlName="sortOrder">
-            <option value="DATE_DESC">Date · newest</option>
-            <option value="DATE_ASC">Date · oldest</option>
-            <option
-              value="VALUE_ASC"
-              [disabled]="isGroupedLayout()"
-              [title]="isGroupedLayout() ? 'Groups are always ordered by date — switch to Table to sort by value' : ''"
-            >
-              Value · lowest
-            </option>
-            <option
-              value="VALUE_DESC"
-              [disabled]="isGroupedLayout()"
-              [title]="isGroupedLayout() ? 'Groups are always ordered by date — switch to Table to sort by value' : ''"
-            >
-              Value · highest
-            </option>
-          </select>
-          @if (isGroupedLayout() && (filtersValueSortOrder() === 'VALUE_ASC' || filtersValueSortOrder() === 'VALUE_DESC')) {
-            <p class="ep-field-hint">Groups are ordered by date; value sort applies inside each day.</p>
-          }
-        </div>
-        <div class="ep-filter-field ep-filter-field--range">
-          <label>Date range</label>
-          <div class="ep-date-range">
-            <div class="ep-date-field">
-              <span>From</span>
-              <input id="ep-filter-start" class="ew-input" type="date" formControlName="startDate" />
-            </div>
-            <div class="ep-date-field">
-              <span>To</span>
-              <input id="ep-filter-end" class="ew-input" type="date" formControlName="endDate" />
-            </div>
-          </div>
-        </div>
-        <div class="ep-filter-field ep-filter-field--checkbox">
-          <label
-            for="ep-filter-unhidden"
-            title="Hidden expenses include purchases that became an installment plan, or that were 100% passed on via a share."
-          >
-            <input type="checkbox" id="ep-filter-unhidden" formControlName="unhidden" />
-            Show hidden items
-          </label>
-        </div>
-      </div>
 
       @if (isLoading()) {
         <div class="ew-empty">Loading...</div>
