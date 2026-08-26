@@ -1952,9 +1952,10 @@ body.ew-privacy {
 
 .ew-brand-name {
   font-family: var(--ew-serif);
-  font-size: 22px;
+  // Typographic audit: design specifies 19px / -.01em (was 22px / -.015em).
+  font-size: 19px;
   line-height: 1;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
   font-weight: 500;
 
   span {
@@ -1991,7 +1992,8 @@ body.ew-privacy {
   border: 0;
   background: transparent;
   font-family: var(--ew-mono);
-  font-size: 10px;
+  // Typographic audit: design specifies 9px for the sidebar group eyebrow.
+  font-size: 9px;
   letter-spacing: 0.17em;
   text-transform: uppercase;
   padding: 18px 8px 6px;

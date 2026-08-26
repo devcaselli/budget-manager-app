@@ -20,6 +20,10 @@
 
 .ep-page-title {
   font-size: 58px;
+  // Design: 58px / line-height 1.02 / -.02em (shared base is 1 / -.025em, kept
+  // for the other 14 page titles).
+  line-height: 1.02;
+  letter-spacing: -0.02em;
 
   em {
     font-style: italic;
@@ -41,12 +45,22 @@
   text-align: right;
 }
 
+// Design specifies the ledger amount in mono 15px (table) / 16px (grouped-day),
+// not the serif display face the shared .ew-table base applies to its last cell.
 .ep-amount {
   color: var(--ew-ink) !important;
-  font-family: var(--ew-serif);
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: -0.015em;
+  font-family: var(--ew-mono);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+// Design's ledger status pill is mono 9.5px/.16em; the shared .ew-pill base is
+// 10px/.18em, which stays correct for its other 6 consumers.
+.ep-status-pill {
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
 }
 
 .ep-amount-original {
@@ -99,6 +113,29 @@
 // the semantic <table> markup (colgroup + col widths instead of CSS grid).
 .ep-table {
   table-layout: fixed;
+
+  // ── Typographic audit (systematic pass) ───────────────────────────────────
+  // The shared .ew-table base (styles.scss) dresses the first/last cells in
+  // --ew-serif 18px/20px, which is right for the other 6 consumers (credit-card,
+  // extra-budget, payer, payment, tag, wallet-list) but NOT for the expense
+  // ledger: the design specifies the row name in sans 14.5px/500 and the amount
+  // in mono 15px. Same class of leak as the .ew-input/.ew-select hero-field bug
+  // — a shared display style inherited into a context that needs plain chrome.
+  // Overridden locally (base left untouched for its other consumers), matching
+  // the .ep-eyebrow/.ep-page-title local-override pattern used above.
+  th {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+
+  // Only the name cell needs re-dressing here; the amount lives in .ep-amount
+  // (the trailing <td> is the actions column, which carries no text of its own).
+  td:first-child {
+    font-family: var(--ew-sans);
+    font-size: 14.5px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
 }
 
 .ep-col-name { width: auto; }
