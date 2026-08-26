@@ -749,15 +749,38 @@
   border-top: 1px solid var(--ew-line);
 }
 
+// P0-5 fix: strip fields no longer inherit `.ew-input` (borderless dialog-field
+// style, serif italic placeholder) — real bordered/filled chrome per design.
+.ep-quick-add-name,
+.ep-quick-add-cost {
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: var(--ew-sans);
+  font-style: normal;
+  color: var(--ew-ink);
+
+  &::placeholder {
+    color: var(--ew-ink-3);
+    font-style: normal;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 1px;
+  }
+}
+
 .ep-quick-add-name {
   flex: 2;
   min-width: 180px;
-  height: 42px;
 }
 
 .ep-quick-add-cost {
   flex: 0 0 120px;
-  height: 42px;
   font-family: var(--ew-mono);
 }
 
@@ -766,7 +789,9 @@
   padding: 0 16px;
   border: 1px solid var(--ew-acc);
   background: var(--ew-panel);
-  color: var(--ew-acc);
+  // --ew-acc-deep (not --ew-acc) for AA contrast on this plain surface — same
+  // rule as the --ew-acc-deep token doc above.
+  color: var(--ew-acc-deep);
   border-radius: 10px;
   cursor: pointer;
   font-size: 13.5px;

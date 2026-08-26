@@ -1110,6 +1110,44 @@ describe('ExpensePage — post-epic-audit P0 fixes (no 2-col grid, quick-add str
     expect(payload.walletId).toBe('wallet-1');
   });
 
+  it('P0-5: auto-defaults creditCardId to the first available card, so the "Add" button is enabled from name + cost alone (no manual card selection in the strip)', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    const installmentService = TestBed.inject(InstallmentService) as unknown as {
+      creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
+    };
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+
+    const c = component as unknown as {
+      form: { patchValue: (v: Record<string, unknown>) => void; get: (k: string) => { value: unknown } };
+    };
+    // Deliberately does NOT patch creditCardId — the effect under test must have
+    // already defaulted it once creditCards() emitted.
+    c.form.patchValue({ name: 'Padaria', cost: 12.5 });
+    fixture.detectChanges();
+
+    expect(c.form.get('creditCardId')?.value).toBe('card-1');
+
+    const addBtn = query<HTMLButtonElement>('.ep-quick-add-btn');
+    expect(addBtn).toBeTruthy();
+    expect(addBtn!.disabled).toBe(false);
+  });
+
+  it('P0-5: quick-add name/cost inputs render with real field chrome (border), not the borderless dialog `.ew-input` look', () => {
+    const nameInput = query<HTMLInputElement>('.ep-quick-add-name');
+    const costInput = query<HTMLInputElement>('.ep-quick-add-cost');
+    expect(nameInput).toBeTruthy();
+    expect(costInput).toBeTruthy();
+    // Regression guard: these fields must not carry the shared `.ew-input` class,
+    // which renders borderless with a serif italic placeholder (dialog-field style).
+    expect(nameInput!.classList.contains('ew-input')).toBe(false);
+    expect(costInput!.classList.contains('ew-input')).toBe(false);
+    expect(costInput!.placeholder).toBe('R$ 0,00');
+  });
+
   it('"More options →" opens the full expense-create-dialog with bullets and credit cards', () => {
     const walletService = TestBed.inject(WalletService) as unknown as {
       selectedWallet$: BehaviorSubject<Wallet | null>;

@@ -399,18 +399,18 @@
          credit card, installments) for anything beyond that. -->
     <form class="ep-quick-add" [formGroup]="form" (ngSubmit)="createExpense()">
       <input
-        class="ew-input ep-quick-add-name"
+        class="ep-quick-add-name"
         formControlName="name"
         placeholder="Quick add an expense…"
         aria-label="Expense name"
       />
       <input
-        class="ew-input ep-quick-add-cost"
+        class="ep-quick-add-cost"
         type="number"
         min="0.01"
         step="0.01"
         formControlName="cost"
-        placeholder="R$ 0.00"
+        placeholder="R$ 0,00"
         aria-label="Cost"
       />
       <button

@@ -555,6 +555,21 @@ export class ExpensePage implements AfterViewChecked {
       this.reloadWalletPayers(walletId);
     });
 
+    // P0-5 fix (post-consolidated-review): the quick-add strip has no credit-card
+    // selector, but `form.creditCardId` is Validators.required — left at its default
+    // '', the form was PERMANENTLY invalid, so canSubmitExpense() never went true and
+    // the "Add" button stayed disabled even with a valid name + cost typed in. Defaults
+    // the control to the wallet's first available card, and re-defaults it whenever the
+    // currently-selected card disappears from the list (e.g. wallet switch) — never
+    // overwrites a still-valid user/dialog selection.
+    effect(() => {
+      const cards = this.creditCards();
+      const current = untracked(() => this.form.controls.creditCardId.value);
+      if (cards.length === 0) return;
+      if (current && cards.some((card) => card.id === current)) return;
+      this.form.controls.creditCardId.setValue(cards[0].id);
+    });
+
     this.tagService.loadAll();
   }
 
@@ -896,11 +911,14 @@ export class ExpensePage implements AfterViewChecked {
   private resetForm(): void {
     this.form.controls.installmentCharges.clearValidators();
     this.form.controls.installmentCharges.updateValueAndValidity();
+    // P0-5 fix: re-defaults to the wallet's first card (same default the creditCards()
+    // effect applies) rather than '' — otherwise every successful quick-add would
+    // re-disable the "Add" button until something else changed creditCards().
     this.form.reset({
       name: '',
       cost: 0,
       purchaseDate: this.today(),
-      creditCardId: '',
+      creditCardId: this.creditCards()[0]?.id ?? '',
       isInstallment: false,
       installmentCharges: 0,
     });
