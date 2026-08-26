@@ -1096,7 +1096,7 @@ describe('ExpensePage — post-epic-audit P0 fixes (no 2-col grid, quick-add str
     const c = component as unknown as {
       form: { patchValue: (v: Record<string, unknown>) => void };
     };
-    c.form.patchValue({ name: 'Padaria', cost: 12.5, creditCardId: 'card-1' });
+    c.form.patchValue({ name: 'Padaria', cost: 12.5 });
     fixture.detectChanges();
 
     const form = query('form.ep-quick-add') as HTMLFormElement;
