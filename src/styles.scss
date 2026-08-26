@@ -1132,9 +1132,13 @@ body.ew-privacy {
 .cdk-overlay-backdrop.cdk-overlay-backdrop-showing {
   // P2-4 (post-epic-audit): was hardcoded to rgba(8,7,5,.7) — a near-opaque black that
   // read as a "dark theme leaking into light mode" bug behind every Material dialog
-  // (expense-create-dialog etc). The design's own overlay uses the theme-aware
-  // `--scrim` token (warm-brown 45% in light, near-black-blue 62% in dark) with a 3px
-  // blur — matching that here fixes every CDK-backed dialog at once, not just this one.
+  // (expense-create-dialog etc).
+  //
+  // Deliberate departure from the design mock (design/direction-c.html:930 uses a
+  // hardcoded rgba(8,7,5,.7) + blur(8px) with no theme awareness). We use the
+  // theme-aware `--scrim` token instead, consistent with the mobile drawer scrim
+  // (shell.component.scss), so the backdrop responds correctly to light/dark theme —
+  // fixing every CDK-backed dialog at once, not just this one.
   background: var(--scrim);
   backdrop-filter: blur(3px);
 }

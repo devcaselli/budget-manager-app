@@ -59,6 +59,11 @@
     background: var(--ew-panel-2);
     color: var(--ew-ink);
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
+  }
 }
 
 .ecd-form {
@@ -159,6 +164,11 @@
 
   &:hover {
     background: var(--ew-panel-2);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
   }
 }
 

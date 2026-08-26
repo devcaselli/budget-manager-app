@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
@@ -12,6 +13,7 @@ import { AuthService } from '@core/auth/auth.service';
 import { AuthUser } from '@core/auth/auth.model';
 import { PreferencesService } from '@core/services/preferences.service';
 import { BulletService } from '@features/bullet/services/bullet.service';
+import { ExpenseCreateDialogData } from '@features/expense/components/expense-create-dialog/expense-create-dialog.component';
 import { ExpenseService } from '@features/expense/services/expense.service';
 import { InstallmentService } from '@features/installment/services/installment.service';
 import { PendingReviewService } from '@features/pending-review/services/pending-review.service';
@@ -1032,5 +1034,104 @@ describe('ShellComponent — user-chip restructuring (D10 a11y fix)', () => {
     fixture.detectChanges();
 
     expect(authService.logout).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ShellComponent — openTransactionDialog (post-review coverage gap)', () => {
+  /** Same wallet/bullet fixture shape as the wallet-popover describe above, so the
+   *  "New transaction" trigger has a selected wallet + bullets to open against. */
+  async function setUpShellFixtureWithWallet(): Promise<ComponentFixture<ShellComponent>> {
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+      clear: () => store.clear(),
+    });
+
+    const wallet = {
+      id: 'w1',
+      description: 'Main wallet',
+      budget: 1000,
+      remaining: 400,
+      startDate: '2026-09-15',
+      closedDate: null,
+      closed: false,
+      effectiveMonth: 'september',
+      state: 'PRODUCTION' as const,
+    };
+    const bullet = {
+      id: 'b1',
+      description: 'Groceries',
+      budget: 200,
+      remaining: 50,
+      walletId: 'w1',
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [ShellComponent],
+      providers: [
+        provideNoopAnimations(),
+        provideRouter([{ path: 'tags', component: StubTagsPage }]),
+        PreferencesService,
+        {
+          provide: WalletService,
+          useValue: {
+            selectedWallet$: of(wallet),
+            wallets$: of([wallet]),
+            loadWallets: vi.fn(),
+            selectWallet: vi.fn(),
+          },
+        },
+        {
+          provide: BulletService,
+          useValue: { bullets$: of([bullet]), loading$: of(false), loadByWalletId: vi.fn() },
+        },
+        { provide: InstallmentService, useValue: { creditCards$: of([]) } },
+        { provide: ExpenseService, useValue: { loadByWalletId: vi.fn(), create: vi.fn() } },
+        { provide: PendingReviewService, useValue: { pendingReviews$: of([]), applySyncResult: vi.fn() } },
+        { provide: SyncService, useValue: { syncing$: of(false), error$: of(null), ingest: vi.fn() } },
+        {
+          provide: AuthService,
+          useValue: {
+            currentUser$: of({ email: 'v@x.com', name: 'V', initials: 'V', emailVerified: true }),
+            logout: vi.fn(),
+            resendConfirmation: vi.fn(),
+          },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(ShellComponent);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  // Guards the second call site of the "WALLET {MONTH} · CYCLE {YYYY-MM}" subtitle
+  // derivation (expense-page has its own, covered by expense-page.spec.ts) — this
+  // one lives in ShellComponent.openTransactionDialog and had no direct test before
+  // this fix, so a future refactor could silently break it without any suite failing.
+  it('passes walletMonth uppercased and cycle sliced to YYYY-MM into the dialog data', async () => {
+    const fixture = await setUpShellFixtureWithWallet();
+    const dialog = TestBed.inject(MatDialog);
+    const openSpy = vi.spyOn(dialog, 'open').mockReturnValue({
+      componentInstance: { submitted: { pipe: () => ({ subscribe: vi.fn() }) } },
+      afterClosed: () => of(null),
+    } as unknown as ReturnType<MatDialog['open']>);
+
+    (fixture.componentInstance as unknown as { openTransactionDialog: () => void }).openTransactionDialog();
+
+    expect(openSpy).toHaveBeenCalledTimes(1);
+    const [, config] = openSpy.mock.calls[0];
+    const data = config?.data as ExpenseCreateDialogData;
+
+    expect(data.walletMonth).toBe('SEPTEMBER');
+    expect(data.cycle).toBe('2026-09');
+    expect(data.walletDescription).toBe('Main wallet');
+    expect(data.bullets).toEqual([{ id: 'b1', description: 'Groceries', remaining: expect.any(String) }]);
   });
 });

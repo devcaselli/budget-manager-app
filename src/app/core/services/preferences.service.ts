@@ -86,11 +86,11 @@ export class PreferencesService {
   readonly favoriteWalletId = signal<string | null>(readStored('bm_favorite_wallet'));
   /**
    * P2-4 (post-epic-audit): whether `expense-create-dialog`'s "Remember the selected
-   * card" toggle is on — distinct from that same dialog's existing `keepCreditCard`
-   * form control, which only carries the card forward across "Keep modal open"
-   * resets within one dialog session. This preference instead persists the last-used
-   * credit card ID across dialog OPENINGS (new session, new page load), same
-   * `bm_*`-prefixed localStorage pattern as `favoriteWalletId` above.
+   * card" toggle is on — distinct from that same dialog's `keepOpen` control, which
+   * only carries the card forward across "Keep adding after saving" resets within one
+   * dialog session. This preference instead persists the last-used credit card ID
+   * across dialog OPENINGS (new session, new page load), same `bm_*`-prefixed
+   * localStorage pattern as `favoriteWalletId` above.
    */
   readonly rememberCard = signal(readStored('bm_remember_card') === 'on');
   /** Credit card ID to pre-fill when `rememberCard` is on; null when none saved yet. */

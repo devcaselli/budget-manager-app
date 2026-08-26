@@ -156,7 +156,7 @@ export class ExpenseCreateDialogComponent {
   }
 
   /** "Remember the selected card" toggle (P2-4) — persists via `PreferencesService`,
-   *  independent of this dialog's own `keepOpen`/`keepCreditCard` in-session state. */
+   *  independent of this dialog's own `keepOpen` in-session state. */
   protected toggleRememberCard(): void {
     this.prefs.toggleRememberCard();
   }
