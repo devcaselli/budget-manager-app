@@ -10,8 +10,14 @@
 // sidebar regroup/rail/collapse CSS lives in the global `ew-*` partial instead
 // of growing this file further. See the "Sidebar (D4)" section in styles.scss.
 
+// The spacer no longer grows. `.ew-side-inner` already carries `flex: 1` and
+// pushes the footer (wallet + user chip) to the bottom on its own. When BOTH
+// were `flex: 1` they split the free space evenly, so the spacer stole ~370px
+// of height that the nav needed and squeezed `.ew-side-inner` far below its
+// content height — that, not any width rule, is what produced the visible
+// vertical scrollbar in the sidebar.
 .ew-side-spacer {
-  flex: 1;
+  flex: 0 0 0;
 }
 
 // ── Topbar ────────────────────────────────────────────────────────────────────
@@ -404,6 +410,8 @@
 }
 
 // ── Wallet quick-view ─────────────────────────────────────────────────────────
+// No explicit width: as a flex child of the now-padded `.ew-side` it stretches
+// to the shared 221px content box automatically, matching `.ew-user-chip`.
 .ew-wallet-wrap {
   position: relative;
 }
@@ -737,13 +745,20 @@
 }
 
 // ── User chip ─────────────────────────────────────────────────────────────────
+// Same deal as `.ew-wallet-wrap`: the shared padding on `.ew-side` gives this
+// the identical 221px content box, so no `width`/`box-sizing` override is
+// needed to line it up with the wallet button above it.
 .ew-user-chip {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 4px 8px 11px;
+  padding: 8px 11px;
   border-radius: 12px;
   position: relative;
+  // The 3 icon buttons on the right are fixed-size; the name/email block is the
+  // only flexible part, so it must be allowed to shrink instead of pushing the
+  // chip wider than its container.
+  min-width: 0;
 }
 
 .ew-user-av {
