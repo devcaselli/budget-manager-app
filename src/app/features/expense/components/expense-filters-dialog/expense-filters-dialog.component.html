@@ -11,7 +11,7 @@
 <mat-dialog-content class="efd-body" [formGroup]="form">
   <div class="ew-field">
     <label for="efd-card">Card</label>
-    <select id="efd-card" class="ew-select" formControlName="creditCardId">
+    <select id="efd-card" class="ew-select ew-select--boxed" formControlName="creditCardId">
       <option value="">All cards</option>
       @for (card of creditCards; track card.id) {
         <option [value]="card.id">{{ card.name }}</option>
@@ -21,7 +21,7 @@
 
   <div class="ew-field">
     <label for="efd-sort">Sort</label>
-    <select id="efd-sort" class="ew-select" formControlName="sortOrder">
+    <select id="efd-sort" class="ew-select ew-select--boxed" formControlName="sortOrder">
       <option value="DATE_DESC">Date · newest</option>
       <option value="DATE_ASC">Date · oldest</option>
       <option
@@ -47,11 +47,11 @@
   <div class="efd-date-range">
     <div class="ew-field">
       <label for="efd-start">From</label>
-      <input id="efd-start" class="ew-input" type="date" formControlName="startDate" />
+      <input id="efd-start" class="ew-input ew-input--boxed" type="date" formControlName="startDate" />
     </div>
     <div class="ew-field">
       <label for="efd-end">To</label>
-      <input id="efd-end" class="ew-input" type="date" formControlName="endDate" />
+      <input id="efd-end" class="ew-input ew-input--boxed" type="date" formControlName="endDate" />
     </div>
   </div>
 

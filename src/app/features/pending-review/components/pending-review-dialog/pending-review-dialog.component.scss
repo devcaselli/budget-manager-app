@@ -10,14 +10,14 @@
 }
 
 .prd__title {
+  // Typographic audit: design modal header is serif 23px/1.15/-.015em.
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 34px;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   font-weight: 500;
   color: var(--ew-ink);
-  font-variation-settings: 'opsz' 32;
 
   em {
     font-style: italic;

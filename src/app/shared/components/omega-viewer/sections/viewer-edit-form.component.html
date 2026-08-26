@@ -7,7 +7,7 @@
 
   <div class="ew-field">
     <label for="vef-name">Descrição</label>
-    <input id="vef-name" class="ew-input" formControlName="name" placeholder="e.g. Mercado" />
+    <input id="vef-name" class="ew-input ew-input--boxed" formControlName="name" placeholder="e.g. Mercado" />
     @if (form.controls.name.touched && form.controls.name.invalid) {
       <p class="vef__error">Informe uma descrição.</p>
     }
@@ -17,7 +17,7 @@
     <label for="vef-cost">Valor</label>
     <input
       id="vef-cost"
-      class="ew-input"
+      class="ew-input ew-input--boxed ew-input--money"
       type="number"
       [attr.min]="minCost()"
       step="0.01"
@@ -30,7 +30,7 @@
 
   <div class="ew-field">
     <label for="vef-date">Data</label>
-    <input id="vef-date" class="ew-input" type="date" formControlName="purchaseDate" />
+    <input id="vef-date" class="ew-input ew-input--boxed" type="date" formControlName="purchaseDate" />
     @if (form.controls.purchaseDate.touched && form.controls.purchaseDate.invalid) {
       <p class="vef__error">Informe uma data.</p>
     }
@@ -38,7 +38,7 @@
 
   <div class="ew-field">
     <label for="vef-card">Cartão</label>
-    <select id="vef-card" class="ew-select" formControlName="creditCardId">
+    <select id="vef-card" class="ew-select ew-select--boxed" formControlName="creditCardId">
       <option value="">— Dinheiro / débito —</option>
       @for (card of creditCards(); track card.id) {
         <option [value]="card.id">{{ card.name }}</option>

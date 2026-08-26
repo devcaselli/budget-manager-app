@@ -78,7 +78,7 @@
                 <label for="isd-new-payer-name">Payer name *</label>
                 <input
                   id="isd-new-payer-name"
-                  class="ew-input"
+                  class="ew-input ew-input--boxed"
                   type="text"
                   formControlName="newPayerName"
                   maxlength="120"
@@ -99,7 +99,7 @@
                 <label for="isd-transient-name">Payer name *</label>
                 <input
                   id="isd-transient-name"
-                  class="ew-input"
+                  class="ew-input ew-input--boxed"
                   type="text"
                   formControlName="transientName"
                   maxlength="120"
@@ -112,7 +112,7 @@
                 <label for="isd-transient-date">Payment date (optional)</label>
                 <input
                   id="isd-transient-date"
-                  class="ew-input"
+                  class="ew-input ew-input--boxed"
                   type="date"
                   formControlName="transientPaymentDate"
                 />
@@ -133,7 +133,7 @@
           <label for="isd-amount">Amount {{ payerDisplayName() }} pays *</label>
           <input
             id="isd-amount"
-            class="ew-input"
+            class="ew-input ew-input--boxed ew-input--money"
             type="number"
             min="0.01"
             step="0.01"

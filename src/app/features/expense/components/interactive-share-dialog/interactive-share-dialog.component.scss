@@ -12,14 +12,14 @@
 }
 
 .isd__title {
+  // Typographic audit: design modal header is serif 23px/1.15/-.015em.
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 34px;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   font-weight: 500;
   color: var(--ew-ink);
-  font-variation-settings: 'opsz' 32;
 
   em {
     font-style: italic;
@@ -29,12 +29,13 @@
 }
 
 .isd__subtitle {
+  // Typographic audit: design modal sub is mono 9.5px/.14em.
   margin: 8px 0 0;
   font-family: var(--ew-mono);
-  font-size: 11px;
+  font-size: 9.5px;
   color: var(--ew-ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
 }
 
 .isd__close {
@@ -59,6 +60,14 @@
 .isd__body {
   padding: 24px 28px;
   min-width: min(26rem, calc(100vw - 4rem));
+
+  // Typographic audit: modal field labels are mono 9px/.15em in the design; the
+  // shared .ew-field base stays 10px/.2em for its out-of-scope consumers.
+  .ew-field label {
+    margin-bottom: 7px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+  }
 }
 
 .isd__error {

@@ -30,7 +30,7 @@
 
     <div class="ew-field">
       <label for="pay-bullet">Bullet *</label>
-      <select id="pay-bullet" class="ew-select" formControlName="bulletId">
+      <select id="pay-bullet" class="ew-select ew-select--boxed" formControlName="bulletId">
         <option value="" disabled>Choose a bullet...</option>
         @for (bullet of data.bullets; track bullet.id) {
           <option [value]="bullet.id">
@@ -44,10 +44,10 @@
     </div>
 
     <div class="ew-field">
-      <label for="pay-amount">Amount *</label>
+      <label for="pay-amount">Amount to pay *</label>
       <input
         id="pay-amount"
-        class="ew-input"
+        class="ew-input ew-input--boxed ew-input--money"
         type="number"
         min="0.01"
         step="0.01"
@@ -62,7 +62,7 @@
       <label for="pay-note">Description</label>
       <input
         id="pay-note"
-        class="ew-input"
+        class="ew-input ew-input--boxed"
         formControlName="details"
         placeholder="optional note"
       />

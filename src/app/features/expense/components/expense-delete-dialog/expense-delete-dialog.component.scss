@@ -13,11 +13,12 @@
 }
 
 .edd-title {
+  // Typographic audit: design modal header is serif 23px/1.15/-.015em.
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 28px;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   font-weight: 500;
   color: var(--ew-ink);
 
@@ -29,12 +30,13 @@
 }
 
 .edd-subtitle {
+  // Typographic audit: design modal sub is mono 9.5px/.14em.
   margin: 8px 0 0;
   font-family: var(--ew-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--ew-ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
 }
 
 .edd-close {

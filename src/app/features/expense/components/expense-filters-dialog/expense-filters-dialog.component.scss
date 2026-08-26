@@ -44,6 +44,14 @@
   display: grid;
   gap: 16px;
   padding: 20px 22px;
+
+  // Typographic audit: modal field labels are mono 9px/.15em in the design; the
+  // shared .ew-field base stays 10px/.2em for its out-of-scope consumers.
+  .ew-field label {
+    margin-bottom: 7px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+  }
 }
 
 .efd-date-range {
