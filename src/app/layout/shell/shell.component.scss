@@ -801,14 +801,14 @@
 .ew-user-settings,
 .ew-user-theme,
 .ew-user-logout {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   border: 1px solid var(--ew-line-2);
   display: grid;
   place-items: center;
   color: var(--ew-ink-3);
-  flex: 0 0 30px;
+  flex: 0 0 34px;
   transition: color 0.12s, border-color 0.12s;
   background: transparent;
   cursor: pointer;
@@ -823,6 +823,12 @@
     outline: 2px solid var(--ew-acc);
     outline-offset: 2px;
   }
+}
+
+.ew-user-logout span {
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  line-height: 1;
 }
 
 .ew-user-settings {
