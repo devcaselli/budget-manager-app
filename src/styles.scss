@@ -1077,6 +1077,50 @@ body.ew-privacy {
   }
 }
 
+// ── Boxed field variant — dialog/modal form fields ───────────────────────────
+// The `.ew-input`/`.ew-select` base above is the page-level "hero field" style:
+// borderless, underline-only, large serif. That is correct for page forms, but
+// the design's modal fields (`Budget Redesign.dc.html`, isNew section ~L520-560)
+// are fully-bordered boxes: 1px border, 11px radius, surface fill, and a
+// non-serif/non-italic value. Without this modifier a dialog silently inherits
+// the hero style — the same class of bug fixed for the Expenses quick-add in
+// 3bc9889. Opt dialog fields in via `.ew-input.ew-input--boxed`; the 25 other
+// `.ew-input` consumers keep the underline base untouched.
+.ew-input--boxed,
+.ew-select--boxed {
+  height: 46px;
+  padding: 0 13px;
+  border: 1px solid var(--ew-line);
+  border-bottom: 1px solid var(--ew-line);
+  border-radius: 11px;
+  background: var(--ew-panel);
+  font-family: var(--ew-sans);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: normal;
+
+  &:focus {
+    border-color: var(--ew-acc);
+  }
+
+  &::placeholder {
+    font-style: normal;
+  }
+}
+
+// Select needs its own padding + room for the native chevron.
+.ew-select--boxed {
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+// Money field: taller box, mono numerals — design uses 54px/22px JetBrains Mono.
+.ew-input--money {
+  height: 54px;
+  font-family: var(--ew-mono);
+  font-size: 22px;
+}
+
 .ew-row-form {
   display: grid;
   grid-template-columns: 1fr 1fr;

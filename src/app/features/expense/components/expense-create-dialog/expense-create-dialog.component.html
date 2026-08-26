@@ -15,7 +15,7 @@
       <input
         id="ecd-name"
         #nameInput
-        class="ew-input"
+        class="ew-input ew-input--boxed"
         formControlName="name"
         placeholder="e.g. Mercado"
       />
@@ -28,7 +28,7 @@
       <label for="ecd-cost">Cost</label>
       <input
         id="ecd-cost"
-        class="ew-input ecd-cost-input"
+        class="ew-input ew-input--boxed ew-input--money"
         type="number"
         min="0.01"
         step="0.01"
@@ -43,13 +43,13 @@
     <div class="ew-row-form">
       <div class="ew-field">
         <label for="ecd-date">Purchase date</label>
-        <input id="ecd-date" class="ew-input" type="date" formControlName="purchaseDate" />
+        <input id="ecd-date" class="ew-input ew-input--boxed" type="date" formControlName="purchaseDate" />
       </div>
 
       @if (hasBullets) {
         <div class="ew-field">
           <label for="ecd-bullet">Bullet</label>
-          <select id="ecd-bullet" class="ew-select" formControlName="bulletId">
+          <select id="ecd-bullet" class="ew-select ew-select--boxed" formControlName="bulletId">
             <option value="">— none —</option>
             @for (bullet of data.bullets; track bullet.id) {
               <option [value]="bullet.id">
@@ -64,7 +64,7 @@
     @if (hasCreditCards) {
       <div class="ew-field">
         <label for="ecd-card">Credit card *</label>
-        <select id="ecd-card" class="ew-select" formControlName="creditCardId">
+        <select id="ecd-card" class="ew-select ew-select--boxed" formControlName="creditCardId">
           <option value="">Select card...</option>
           @for (card of data.creditCards; track card.id) {
             <option [value]="card.id">{{ card.name }}</option>
@@ -94,7 +94,7 @@
             <label for="ecd-charges">Charges (min. 2)</label>
             <input
               id="ecd-charges"
-              class="ew-input"
+              class="ew-input ew-input--boxed"
               type="number"
               min="2"
               step="1"
@@ -139,8 +139,8 @@
     </div>
   </mat-dialog-content>
 
-  <mat-dialog-actions class="ecd-actions" align="end">
-    <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
-    <button class="ew-btn ew-btn--primary" type="submit">Create expense</button>
+  <mat-dialog-actions class="ecd-actions">
+    <button class="ecd-btn ecd-btn--ghost" type="button" mat-dialog-close>Cancel</button>
+    <button class="ecd-btn ecd-btn--primary" type="submit">Create expense</button>
   </mat-dialog-actions>
 </form>

@@ -8,7 +8,7 @@
   // Override mat-dialog-title margin/padding
   &[mat-dialog-title] {
     margin: 0;
-    padding: 26px 28px 18px;
+    padding: 20px 22px 16px; // design ref L510
   }
 }
 
@@ -71,10 +71,27 @@
   min-width: min(28rem, calc(100vw - 4rem));
 }
 
+// Design ref L520: modal body is `padding:20px 22px` with `gap:16px` between
+// fields (boxed fields are self-contained, so they need less separation than
+// the underline fields the 20/24px rhythm was tuned for).
 .ecd-body {
   display: grid;
-  gap: 20px;
-  padding: 24px 28px;
+  gap: 16px;
+  padding: 20px 22px;
+}
+
+// Boxed fields sit closer to their label than underline fields do (design
+// ref: `gap:7px` on each field label wrapper, and `gap:12px` on the 2-col row).
+.ecd-body {
+  .ew-field label {
+    margin-bottom: 7px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+  }
+
+  .ew-row-form {
+    gap: 12px;
+  }
 }
 
 .ecd-error {
@@ -86,53 +103,62 @@
   text-transform: uppercase;
 }
 
+// ── Footer — design ref `Budget Redesign.dc.html` L802-807: a tinted action bar
+// (`--surface-2`) with Cancel at natural width and the primary CTA taking the
+// remaining space (`flex:1`). Not a right-aligned pill pair: the design's
+// `primaryStyle` (L1180) is `flex:1;height:46px;border-radius:11px`. ──────────
 .ecd-actions {
+  display: flex;
+  align-items: center;
   gap: 10px;
-  padding: 18px 28px 24px;
+  padding: 16px 22px;
   border-top: 1px solid var(--ew-line);
-  flex-wrap: wrap;
+  background: var(--ew-panel-2);
+  min-height: 0;
 }
 
-.ew-btn {
+.ecd-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 16px;
-  border-radius: 99px;
-  font-size: 13px;
-  border: 1px solid var(--ew-line-2);
-  color: var(--ew-ink-2);
+  justify-content: center;
+  height: 46px;
+  padding: 0 18px;
+  border-radius: 11px;
+  font-size: 14px;
   font-family: var(--ew-sans);
   font-weight: 500;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 
-  &:hover:not(:disabled) {
-    border-color: var(--ew-acc);
-    color: var(--ew-ink);
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
   }
 
+  // Primary fills the remaining width, per the design's `flex:1`.
   &--primary {
+    flex: 1;
+    border: 0;
     background: var(--ew-acc);
     color: var(--ew-on-acc);
-    border-color: var(--ew-acc);
-    font-weight: 600;
 
     &:hover:not(:disabled) {
       background: var(--ew-acc-2);
-      border-color: var(--ew-acc-2);
-      color: var(--ew-on-acc);
     }
   }
 
+  // "Cancel" is a real bordered button in the design, not a borderless ghost.
   &--ghost {
-    border-color: transparent;
-  }
-}
+    flex: 0 0 auto;
+    border: 1px solid var(--ew-line);
+    background: var(--ew-panel);
+    color: var(--ew-ink-2);
 
-// ── Cost field — JetBrains Mono, larger size, matches the design's money-field style ──
-.ecd-cost-input {
-  font-family: var(--ew-mono);
-  font-size: 18px;
+    &:hover:not(:disabled) {
+      background: var(--ew-panel-2);
+      color: var(--ew-ink);
+    }
+  }
 }
 
 // ── Switch group — 3 toggles in one bordered box with dividers, per design's
