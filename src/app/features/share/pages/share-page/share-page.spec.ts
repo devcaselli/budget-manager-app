@@ -138,7 +138,7 @@ describe('SharePage', () => {
     fixture.detectChanges();
   }
 
-  type ListItem = { id: string; sourceLabel: string; active: boolean; stopped: boolean; totalAmount: number };
+  interface ListItem { id: string; sourceLabel: string; active: boolean; stopped: boolean; totalAmount: number }
 
   function activeShareItems(): readonly ListItem[] {
     return (component as unknown as { activeShareItems: () => readonly ListItem[] }).activeShareItems();

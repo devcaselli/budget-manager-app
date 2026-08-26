@@ -55,15 +55,16 @@
         <div class="ew-panel-body">
           <form class="ew-form set-form" [formGroup]="profileForm" (ngSubmit)="saveProfile()">
             <div class="ew-field">
-              <label>Display name</label>
-              <input class="ew-input" formControlName="name" placeholder="e.g. Lucas" />
+              <label for="set-profile-name">Display name</label>
+              <input id="set-profile-name" class="ew-input" formControlName="name" placeholder="e.g. Lucas" />
               @if (profileForm.controls.name.invalid && profileForm.controls.name.touched) {
                 <p class="set-field-err">Name must be between 2 and 50 characters.</p>
               }
             </div>
             <div class="ew-field">
-              <label>Email</label>
+              <label for="set-profile-email">Email</label>
               <input
+                id="set-profile-email"
                 class="ew-input"
                 formControlName="email"
                 type="email"
@@ -140,12 +141,12 @@
         <div class="ew-panel-body">
           <form class="ew-form set-form" [formGroup]="passwordForm" (ngSubmit)="updatePassword()">
             <div class="ew-field">
-              <label>Current password</label>
-              <input class="ew-input" formControlName="current" type="password" placeholder="••••••••" />
+              <label for="set-pw-current">Current password</label>
+              <input id="set-pw-current" class="ew-input" formControlName="current" type="password" placeholder="••••••••" />
             </div>
             <div class="ew-field">
-              <label>New password</label>
-              <input class="ew-input" formControlName="newPw" type="password" placeholder="••••••••" />
+              <label for="set-pw-new">New password</label>
+              <input id="set-pw-new" class="ew-input" formControlName="newPw" type="password" placeholder="••••••••" />
             </div>
 
             <!-- Strength bar -->
@@ -164,8 +165,8 @@
             </div>
 
             <div class="ew-field">
-              <label>Confirm new password</label>
-              <input class="ew-input" formControlName="confirm" type="password" placeholder="••••••••" />
+              <label for="set-pw-confirm">Confirm new password</label>
+              <input id="set-pw-confirm" class="ew-input" formControlName="confirm" type="password" placeholder="••••••••" />
             </div>
 
             <div class="set-form-actions">
@@ -338,15 +339,27 @@
 
 <!-- ── Delete account dialog ────────────────────────────────────── -->
 @if (showDeleteDialog()) {
-  <div class="set-overlay" (click)="closeDeleteDialog()" aria-modal="true" role="dialog">
-    <div class="set-dialog" (click)="$event.stopPropagation()">
+  <!-- Fix (post-consolidated-review Major 5): overlay carries its own click-to-dismiss and
+       Escape handling — role="dialog"/aria-modal was already declared here but the element
+       had no keyboard path to trigger its own click handler and wasn't focusable. -->
+  <div
+    class="set-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Delete account"
+    tabindex="-1"
+    (click)="closeDeleteDialog()"
+    (keydown.escape)="closeDeleteDialog()"
+  >
+    <div class="set-dialog" tabindex="-1" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
       <div class="set-dialog-title">Delete account</div>
       <p class="set-dialog-p">
         This will permanently erase all your data. Type your email to confirm.
       </p>
       <div class="ew-field" style="margin: 20px 0">
-        <label>Your email</label>
+        <label for="set-delete-email">Your email</label>
         <input
+          id="set-delete-email"
           class="ew-input"
           type="email"
           [value]="deleteEmailInput()"

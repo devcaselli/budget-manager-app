@@ -63,6 +63,21 @@ html {
   --primary-bg:       #8a5429;
   --primary-bg-hover: #6f4320;
   --toast-bg:       #1f1a15;
+  // Fix (post-consolidated-review Critical 1): the toast surface never inverts
+  // between themes (`--toast-bg` is dark in both light `#1f1a15` and dark
+  // `#22383f`), but `.mdc-snackbar__label` was reading `--surface`, which DOES
+  // invert — light 16.61:1 (fine by accident), dark 1.27:1 (invisible). The
+  // design fixes the label color at white regardless of theme; this token
+  // captures that intent explicitly instead of borrowing an inverting token.
+  --toast-fg:       #fff;
+  // Fix (post-consolidated-review Minor 6): text/icon color for solid warn/danger-filled
+  // surfaces (e.g. the day-row delete/pay action buttons) — both `--warn-solid` values
+  // (#7a4a24 light / #8a6b3a dark) are dark enough that white clears AA in both themes,
+  // so this is a fixed value like --toast-fg, not an inverting one. NOTE: ~11 delete-
+  // confirmation dialogs across the app hardcode this exact same `#fff !important` pairing
+  // against `--ew-bad`; only the 2 sites this review flagged were migrated to this token —
+  // consolidating the rest is future cleanup, not in this fix's scope.
+  --on-solid:       #fff;
   --disabled:       #c9b79f;
   --warn-text:      #8a5429;
   --warn-bg:        #f6e9d6;
@@ -224,6 +239,9 @@ html {
   --primary-bg:       #2e7a8c;
   --primary-bg-hover: #3a8a9d;
   --toast-bg:       #22383f;
+  // See `:root` block above — same fixed-white rationale, dark was the broken case.
+  --toast-fg:       #fff;
+  --on-solid:       #fff;
   --disabled:       #3a5158;
   --warn-text:      #e3c08a;
   --warn-bg:        #2a2317;
@@ -1134,7 +1152,7 @@ body.ew-privacy {
     }
 
     .mdc-snackbar__label {
-      color: var(--surface) !important;
+      color: var(--toast-fg) !important;
       font-family: var(--ew-sans);
       font-size: 13px;
     }

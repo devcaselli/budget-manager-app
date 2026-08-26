@@ -966,6 +966,32 @@ describe('ShellComponent — wallet popover (P2-1/P2-5 post-epic-audit)', () => 
     expect(bulletRow.querySelector('.ew-wp-val')?.textContent).toContain('150');
     expect(bulletRow.querySelector('.ew-wp-val small')?.textContent).toContain('200');
   });
+
+  // NOVO-2 (post-verification-review): regression coverage for the gap that let Major 3
+  // remove the sidebar wallet trigger without any test failing, leaving mobile with zero
+  // way to open the wallet popover (the topbar `.ew-ticker` trigger is `display:none` under
+  // 640px per shell.component.scss, and jsdom doesn't evaluate media queries — so the
+  // reachable assertion here is that BOTH triggers exist in the DOM simultaneously,
+  // which guarantees at least one is visible at every breakpoint by construction.
+  it('renders both the sidebar and topbar wallet triggers, so no breakpoint is left without one', async () => {
+    const fixture = await setUpShellFixtureWithWallet();
+
+    const sidebarTrigger = fixture.nativeElement.querySelector('.ew-wallet-btn');
+    const topbarTrigger = fixture.nativeElement.querySelector('.ew-ticker');
+
+    expect(sidebarTrigger).toBeTruthy();
+    expect(topbarTrigger).toBeTruthy();
+  });
+
+  it('both wallet triggers open the same popover via toggleWalletPop', async () => {
+    const fixture = await setUpShellFixtureWithWallet();
+
+    const sidebarTrigger = fixture.nativeElement.querySelector('.ew-wallet-btn') as HTMLButtonElement;
+    sidebarTrigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.ew-wallet-pop')).toBeTruthy();
+  });
 });
 
 describe('ShellComponent — user-chip restructuring (D10 a11y fix)', () => {

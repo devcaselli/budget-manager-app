@@ -292,8 +292,12 @@
 
 <!-- ── Wallet popover — rendered outside sidebar to escape overflow:auto ── -->
 @if (walletPopOpen() && selectedWallet(); as wallet) {
-  <!-- P2-5: scrim behind the popover, click closes it (design: fixed inset:0, --scrim). -->
-  <div class="ew-wallet-scrim" (click)="closeWalletPop()"></div>
+  <!-- P2-5: decorative scrim behind the popover, click closes it (design: fixed
+       inset:0, --scrim). Plain non-interactive div — it carries no content of its
+       own and isn't a real focusable control, so aria-hidden alone (no tabindex)
+       is correct. Keyboard dismissal is covered separately by the global Escape
+       listener registered in ngOnInit's `closeOnEsc`. -->
+  <div class="ew-wallet-scrim" aria-hidden="true" (click)="closeWalletPop()"></div>
 
   <div
     class="ew-wallet-pop"
@@ -302,6 +306,7 @@
     [style.top.px]="walletPopCoords().top"
     [style.left.px]="walletPopCoords().left"
     (click)="$event.stopPropagation()"
+    (keydown)="$event.stopPropagation()"
   >
     <div class="ew-wp-head">
       <div class="ew-wp-eyebrow">Wallet · {{ wallet.description }}</div>

@@ -315,20 +315,22 @@ export class ShellComponent {
   }
 
   /**
-   * P2-1 (post-epic-audit): coords are now anchored relative to the topbar itself
-   * (design: `top:48px; right:0` off the topbar's ticker) rather than the clicked
-   * button's own rect — the old per-button math produced an inconsistent popover
-   * position depending on which of the two redundant triggers (sidebar button vs.
-   * topbar ticker) opened it, and needed the arrow/upward-flip hack this fix removes.
-   * `right` is computed from the viewport edge so the popover's fixed 344px width
-   * (see shell.component.scss `.ew-wallet-pop`) lines up with the topbar's own right
-   * edge regardless of trigger, matching the design's `right:0` intent.
+   * P2-1 (post-epic-audit) / Major 4 (post-consolidated-review, revised after
+   * verification review restored the sidebar trigger): coords are anchored
+   * relative to the topbar (design: `top:48px; right:0` off the topbar's ticker).
+   * The popover always anchors to the topbar per design, regardless of which of
+   * the 3 wallet triggers (sidebar, topbar desktop, topbar mobile) opened it —
+   * so this reads the topbar's own rect directly instead of resolving it from
+   * `event.currentTarget`, which would give the wrong anchor when the sidebar
+   * button is the one clicked. `right` is computed from the viewport edge so the
+   * popover's fixed 344px width (see shell.component.scss `.ew-wallet-pop`) lines
+   * up with the topbar's own right edge, matching the design's `right:0` intent.
    */
   protected toggleWalletPop(event: MouseEvent): void {
     event.stopPropagation();
     if (!this.walletPopOpen()) {
       const topbar = (event.currentTarget as HTMLElement).closest('.ew-app')?.querySelector('.ew-topbar-inner');
-      const rect = (topbar ?? (event.currentTarget as HTMLElement)).getBoundingClientRect();
+      const rect = (topbar as HTMLElement | null)?.getBoundingClientRect() ?? (event.currentTarget as HTMLElement).getBoundingClientRect();
       this.walletPopCoords.set({
         top: rect.bottom + 12,
         left: rect.right - WALLET_POP_WIDTH_PX,

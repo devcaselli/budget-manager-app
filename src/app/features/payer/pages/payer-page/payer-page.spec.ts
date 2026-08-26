@@ -96,7 +96,6 @@ describe('shareBadgeState (pure helper)', () => {
 
 describe('PayerPage — activeShareAmount badge', () => {
   let fixture: ComponentFixture<PayerPage>;
-  let component: PayerPage;
   let payerService: FakePayerService;
   let walletService: FakeWalletService;
   let shareService: FakeShareService;
@@ -119,7 +118,6 @@ describe('PayerPage — activeShareAmount badge', () => {
     });
 
     fixture = TestBed.createComponent(PayerPage);
-    component = fixture.componentInstance;
     fixture.detectChanges();
   });
 

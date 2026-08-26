@@ -120,7 +120,12 @@
   justify-content: center;
   border: 1.5px solid var(--ew-line-2);
   background: var(--ew-panel);
-  color: #fff;
+  // Fix (post-consolidated-review Minor 6): the check icon only renders once this box is
+  // filled with `--ew-acc` (see `:checked` rule below), so its color is really an
+  // "icon-on-filled-accent" pairing — exactly what `--ew-on-acc` documents and was
+  // contrast-fixed for (D9/D10), not a plain white icon. The old flat `#fff` measured
+  // ~2.3:1 against light-mode `--ew-acc` (#a86935), under the 4.5:1 AA minimum.
+  color: var(--ew-on-acc);
   transition: background 0.15s, border-color 0.15s;
 
   mat-icon {

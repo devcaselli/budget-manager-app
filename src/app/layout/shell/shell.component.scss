@@ -14,32 +14,6 @@
   flex: 1;
 }
 
-.ew-side-card {
-  background: linear-gradient(160deg, #1f1a14 0%, #15120e 100%);
-  border: 1px solid var(--ew-line);
-  border-radius: 12px;
-  padding: 14px;
-  font-size: 12px;
-  color: var(--ew-ink-2);
-
-  b {
-    display: block;
-    color: var(--ew-acc);
-    font-family: var(--ew-serif);
-    font-size: 22px;
-    font-style: italic;
-    margin-bottom: 4px;
-    font-weight: 500;
-    letter-spacing: -0.015em;
-  }
-
-  span {
-    color: var(--ew-ink-3);
-    font-size: 11px;
-    font-family: var(--ew-mono);
-  }
-}
-
 // ── Topbar ────────────────────────────────────────────────────────────────────
 .ew-main {
   min-width: 0;
@@ -130,7 +104,10 @@
   }
 
   &[aria-expanded='true'] {
-    border-color: rgba(214, 163, 113, 0.35);
+    // Fix (post-consolidated-review Minor 6): was a hardcoded amber
+    // rgba(214,163,113,*) left over from the pre-redesign palette, leaking the wrong
+    // hue into the dark teal theme's focus/hover ring.
+    border-color: var(--ew-acc-soft);
     background: var(--ew-panel);
     color: var(--ew-ink);
   }
@@ -621,8 +598,11 @@
   transition: border-color 0.15s, background 0.15s, transform 0.15s;
 
   &:hover {
-    border-color: rgba(214, 163, 113, 0.45);
-    background: rgba(214, 163, 113, 0.08);
+    // Fix (post-consolidated-review Minor 6): same leftover pre-redesign amber as the
+    // ticker's aria-expanded ring above — replaced with the accent-soft token so the
+    // hover state actually reads as the theme's own accent, dark included.
+    border-color: var(--ew-acc);
+    background: var(--ew-acc-soft);
     transform: translateX(2px);
   }
 }
@@ -906,7 +886,6 @@
 
   .ew-brand-name,
   .ew-nav-group-head,
-  .ew-side-card,
   .ew-wallet-wrap {
     display: none;
   }
@@ -1000,7 +979,6 @@
   }
 
   .ew-side-spacer,
-  .ew-side-card,
   .ew-wallet-wrap {
     display: none;
   }

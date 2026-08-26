@@ -259,34 +259,41 @@
                   class="ep-icon-btn"
                   type="button"
                   [matMenuTriggerFor]="rowMenu"
+                  [matMenuTriggerData]="{ expense }"
                   (click)="$event.stopPropagation()"
                   aria-label="More actions"
                 >
                   <mat-icon aria-hidden="true">more_horiz</mat-icon>
                 </button>
-                <mat-menu #rowMenu="matMenu">
-                  <button mat-menu-item type="button" (click)="openViewer(expense)">View expense</button>
-                  <button mat-menu-item type="button" (click)="onTagsClick(expense)">Manage tags</button>
-                  @if (!expense.hasShare) {
-                    <button mat-menu-item type="button" (click)="openShareDialog(expense)">Split expense</button>
-                  }
-                  <mat-divider></mat-divider>
-                  <button
-                    mat-menu-item
-                    type="button"
-                    class="ep-menu-item--danger"
-                    [disabled]="deletingExpenseId() === expense.id"
-                    (click)="onDeleteClick(expense)"
-                  >
-                    {{ deletingExpenseId() === expense.id ? 'Deleting…' : 'Delete' }}
-                  </button>
-                </mat-menu>
               </td>
             </tr>
           }
         </tbody>
       </table>
       </div>
+      <!-- P0-2 (post-consolidated-review Critical 2): single shared row-actions
+           menu, hoisted out of the @for so it isn't re-instantiated per row (was
+           500 mat-menu component instances at 500 rows). matMenuTriggerData
+           passes the clicked row's `expense` in; matMenuContent reads it back. -->
+      <mat-menu #rowMenu="matMenu">
+        <ng-template matMenuContent let-expense="expense">
+          <button mat-menu-item type="button" (click)="openViewer(expense)">View expense</button>
+          <button mat-menu-item type="button" (click)="onTagsClick(expense)">Manage tags</button>
+          @if (!expense.hasShare) {
+            <button mat-menu-item type="button" (click)="openShareDialog(expense)">Split expense</button>
+          }
+          <mat-divider></mat-divider>
+          <button
+            mat-menu-item
+            type="button"
+            class="ep-menu-item--danger"
+            [disabled]="deletingExpenseId() === expense.id"
+            (click)="onDeleteClick(expense)"
+          >
+            {{ deletingExpenseId() === expense.id ? 'Deleting…' : 'Delete' }}
+          </button>
+        </ng-template>
+      </mat-menu>
     } @else {
       <!-- Grouped-by-day layout (D6 desktop). Sticky group headers sit at top: 68px,
            flush below D5's sticky topbar (see .ep-day-head in expense-page.scss) so the

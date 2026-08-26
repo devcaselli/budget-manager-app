@@ -75,7 +75,7 @@ export function mapDetailToFieldRows(
     case 'SUBSCRIPTION':
       return mapSubscriptionRows(detail, ctx);
     case 'RESERVED_BUDGET_MIGRATION':
-      return mapReservedBudgetMigrationRows(detail, ctx);
+      return mapReservedBudgetMigrationRows(detail);
   }
 }
 
@@ -139,12 +139,12 @@ function mapSubscriptionRows(
 }
 
 // ctx (tagNameById/creditCardNameById) is unused by this mapper — a migration has neither tags
-// nor a credit card. Kept as a parameter anyway to match the dispatch's uniform per-kind
-// signature (mapDetailToFieldRows's switch calls all four mapXRows the same way); not
-// destructured here since nothing in it is read.
+// nor a credit card. Fix (post-consolidated-review Major 5): previously kept as an unread
+// parameter to match the dispatch's per-kind call shape, which `no-unused-vars` correctly
+// flagged; dropped from the signature and from this one call site in `mapDetailToFieldRows`
+// instead of carrying dead lint debt forward.
 function mapReservedBudgetMigrationRows(
   detail: OmegaViewerReservedBudgetMigrationDetail,
-  _ctx: OmegaViewerFieldMapperContext,
 ): readonly OmegaViewerFieldRow[] {
   return [
     row('reservedBudget', 'Reserva de origem', detail.reservedBudgetDescription),

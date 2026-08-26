@@ -175,15 +175,6 @@
   }
 }
 
-.ep-field-error {
-  margin: 7px 0 0;
-  color: var(--ew-bad);
-  font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .expense-tag-chips {
   display: flex;
   flex-wrap: wrap;
@@ -352,7 +343,7 @@
 
   &--solid {
     background: var(--warn-solid);
-    color: #fff;
+    color: var(--on-solid);
     font-weight: 500;
 
     &:hover { background: var(--warn-solid-hover); }
