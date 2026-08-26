@@ -15,33 +15,48 @@
 .ecd-title {
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 32px;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   font-weight: 500;
   color: var(--ew-ink);
-
-  em {
-    font-style: italic;
-    color: var(--ew-ink-2);
-    font-weight: 300;
-  }
 }
 
 .ecd-subtitle {
-  margin: 8px 0 0;
+  margin: 5px 0 0;
   font-family: var(--ew-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--ew-ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
 }
 
+// Square 38×38 close button — same chrome as expense-filters-dialog's `.efd-close`
+// pattern update (post-epic-audit): border + surface fill + 11px radius, matching
+// the design's `panelStyle` close control instead of a bare circular icon-button.
 .ecd-close {
-  flex: 0 0 34px;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  border-radius: 11px;
   color: var(--ew-ink-2);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  transition: background 0.15s;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
 
   &:hover {
+    background: var(--ew-panel-2);
     color: var(--ew-ink);
   }
 }
@@ -93,18 +108,123 @@
 
   &--primary {
     background: var(--ew-acc);
-    color: #1c1814;
+    color: var(--ew-on-acc);
     border-color: var(--ew-acc);
     font-weight: 600;
 
     &:hover:not(:disabled) {
       background: var(--ew-acc-2);
       border-color: var(--ew-acc-2);
-      color: #1c1814;
+      color: var(--ew-on-acc);
     }
   }
 
   &--ghost {
     border-color: transparent;
+  }
+}
+
+// ── Cost field — JetBrains Mono, larger size, matches the design's money-field style ──
+.ecd-cost-input {
+  font-family: var(--ew-mono);
+  font-size: 18px;
+}
+
+// ── Switch group — 3 toggles in one bordered box with dividers, per design's
+// "Installment purchase" / "Remember the selected card" / "Keep adding after
+// saving" block (design ref: `panelStyle` isNew section, ~L554-582). Switch
+// track/knob CSS matches expense-filters-dialog's `.efd-switch` exactly, so both
+// dialogs share the same visual language for this control. ─────────────────────
+.ecd-switch-group {
+  border: 1px solid var(--ew-line);
+  border-radius: 13px;
+  overflow: hidden;
+}
+
+.ecd-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  background: var(--ew-panel);
+  cursor: pointer;
+  text-align: left;
+  min-height: 56px;
+
+  &:not(:first-child) {
+    border-top: 1px solid var(--ew-line);
+  }
+
+  &:hover {
+    background: var(--ew-panel-2);
+  }
+}
+
+.ecd-switch-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ecd-switch-title {
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ew-ink);
+}
+
+.ecd-switch-sub {
+  font-family: var(--ew-sans);
+  font-size: 12.5px;
+  color: var(--ew-ink-3);
+}
+
+.ecd-switch-detail {
+  padding: 0 14px 14px;
+  background: var(--ew-panel-2);
+  border-top: 1px solid var(--ew-line);
+
+  .ew-field {
+    padding-top: 14px;
+  }
+}
+
+.ecd-switch {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+
+  i {
+    width: 44px;
+    height: 26px;
+    background: var(--ew-line-2);
+    border-radius: 99px;
+    position: relative;
+    transition: background 0.2s;
+    display: block;
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--ew-ink-2);
+      transition: left 0.2s, background 0.2s;
+    }
+  }
+
+  &--on i {
+    background: var(--ew-acc);
+
+    &::after {
+      left: 22px;
+      background: var(--ew-on-acc);
+    }
   }
 }

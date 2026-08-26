@@ -1193,7 +1193,12 @@ describe('ExpensePage — post-epic-audit P0 fixes (no 2-col grid, quick-add str
     const walletService = TestBed.inject(WalletService) as unknown as {
       selectedWallet$: BehaviorSubject<Wallet | null>;
     };
-    walletService.selectedWallet$.next({ id: 'wallet-1', description: 'Main' } as Wallet);
+    walletService.selectedWallet$.next({
+      id: 'wallet-1',
+      description: 'Main',
+      effectiveMonth: 'september',
+      startDate: '2026-09-01',
+    } as Wallet);
     const installmentService = TestBed.inject(InstallmentService) as unknown as {
       creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
     };
@@ -1214,9 +1219,20 @@ describe('ExpensePage — post-epic-audit P0 fixes (no 2-col grid, quick-add str
     expect(dialog.open).toHaveBeenCalledTimes(1);
     const [, config] = dialog.open.mock.calls[0] as [
       unknown,
-      { data: { walletDescription: string; creditCards: readonly { id: string }[] } },
+      {
+        data: {
+          walletDescription: string;
+          walletMonth: string;
+          cycle: string;
+          creditCards: readonly { id: string }[];
+        };
+      },
     ];
     expect(config.data.walletDescription).toBe('Main');
+    // P2-4 (post-epic-audit): "WALLET {MONTH} · CYCLE {YYYY-MM}" eyebrow inputs —
+    // derived from the wallet's own effectiveMonth/startDate, no hardcoded string.
+    expect(config.data.walletMonth).toBe('SEPTEMBER');
+    expect(config.data.cycle).toBe('2026-09');
     expect(config.data.creditCards).toEqual([{ id: 'card-1', name: 'Nubank' }]);
   });
 

@@ -1,9 +1,9 @@
 <div class="ecd-head" mat-dialog-title>
   <div>
-    <h2 class="ecd-title">New <em>transaction</em></h2>
-    <p class="ecd-subtitle">Wallet · {{ data.walletDescription }}</p>
+    <h2 class="ecd-title">New transaction</h2>
+    <p class="ecd-subtitle">{{ subtitle }}</p>
   </div>
-  <button class="ecd-close" type="button" mat-icon-button mat-dialog-close aria-label="Close">
+  <button class="ecd-close" type="button" mat-dialog-close aria-label="Close">
     <mat-icon>close</mat-icon>
   </button>
 </div>
@@ -11,29 +11,29 @@
 <form class="ecd-form" [formGroup]="form" (ngSubmit)="submit()">
   <mat-dialog-content class="ecd-body">
     <div class="ew-field">
-      <label for="ecd-name">Description</label>
+      <label for="ecd-name">Name</label>
       <input
         id="ecd-name"
         #nameInput
         class="ew-input"
         formControlName="name"
-        placeholder="e.g. Groceries"
+        placeholder="e.g. Mercado"
       />
       @if (form.controls.name.touched && form.controls.name.invalid) {
-        <p class="ecd-error">Enter a description.</p>
+        <p class="ecd-error">Enter a name.</p>
       }
     </div>
 
     <div class="ew-field">
-      <label for="ecd-cost">Amount</label>
+      <label for="ecd-cost">Cost</label>
       <input
         id="ecd-cost"
-        class="ew-input"
+        class="ew-input ecd-cost-input"
         type="number"
         min="0.01"
         step="0.01"
         formControlName="cost"
-        placeholder="R$ 0.00"
+        placeholder="0,00"
       />
       @if (form.controls.cost.touched && form.controls.cost.invalid) {
         <p class="ecd-error">Enter an amount greater than zero.</p>
@@ -42,7 +42,7 @@
 
     <div class="ew-row-form">
       <div class="ew-field">
-        <label for="ecd-date">Date</label>
+        <label for="ecd-date">Purchase date</label>
         <input id="ecd-date" class="ew-input" type="date" formControlName="purchaseDate" />
       </div>
 
@@ -63,80 +63,84 @@
 
     @if (hasCreditCards) {
       <div class="ew-field">
-        <label for="ecd-card">Credit card</label>
+        <label for="ecd-card">Credit card *</label>
         <select id="ecd-card" class="ew-select" formControlName="creditCardId">
-          <option value="">— Cash / debit —</option>
+          <option value="">Select card...</option>
           @for (card of data.creditCards; track card.id) {
             <option [value]="card.id">{{ card.name }}</option>
           }
         </select>
       </div>
+    }
+
+    <div class="ecd-switch-group">
+      <button
+        class="ecd-switch-row"
+        type="button"
+        role="switch"
+        [attr.aria-checked]="showInstallments"
+        (click)="toggleInstallment()"
+      >
+        <span class="ecd-switch-text">
+          <span class="ecd-switch-title">Installment purchase</span>
+          <span class="ecd-switch-sub">Creates one entry per charge</span>
+        </span>
+        <span class="ecd-switch" [class.ecd-switch--on]="showInstallments"><i></i></span>
+      </button>
+
+      @if (showInstallments) {
+        <div class="ecd-switch-detail">
+          <div class="ew-field">
+            <label for="ecd-charges">Charges (min. 2)</label>
+            <input
+              id="ecd-charges"
+              class="ew-input"
+              type="number"
+              min="2"
+              step="1"
+              formControlName="installmentCharges"
+              placeholder="e.g. 12"
+            />
+            @if (form.controls.installmentCharges.touched && form.controls.installmentCharges.invalid) {
+              <p class="ecd-error">Enter a number of charges (min. 2).</p>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- P2-4: "Remember the selected card" — persists via PreferencesService (bm_remember_card)
+           across dialog openings, distinct from "Keep adding after saving" below (which only
+           carries the card forward within one dialog session via keepOpen). -->
+      <button
+        class="ecd-switch-row"
+        type="button"
+        role="switch"
+        [attr.aria-checked]="prefs.rememberCard()"
+        (click)="toggleRememberCard()"
+      >
+        <span class="ecd-switch-text">
+          <span class="ecd-switch-title">Remember the selected card</span>
+        </span>
+        <span class="ecd-switch" [class.ecd-switch--on]="prefs.rememberCard()"><i></i></span>
+      </button>
 
       <button
-        class="ew-checkbox"
+        class="ecd-switch-row"
         type="button"
-        [class.ew-checkbox--on]="form.controls.keepCreditCard.value"
-        (click)="form.controls.keepCreditCard.setValue(!form.controls.keepCreditCard.value)"
+        role="switch"
+        [attr.aria-checked]="form.controls.keepOpen.value"
+        (click)="form.controls.keepOpen.setValue(!form.controls.keepOpen.value)"
       >
-        <i></i>
-        <span>Keep selected credit card</span>
+        <span class="ecd-switch-text">
+          <span class="ecd-switch-title">Keep adding after saving</span>
+        </span>
+        <span class="ecd-switch" [class.ecd-switch--on]="form.controls.keepOpen.value"><i></i></span>
       </button>
-    }
-
-    <button
-      class="ew-checkbox"
-      type="button"
-      [class.ew-checkbox--on]="showInstallments"
-      (click)="toggleInstallment()"
-    >
-      <i></i>
-      <span>Installment purchase</span>
-    </button>
-
-    @if (showInstallments) {
-      <div class="ew-field">
-        <label for="ecd-charges">Charges (min. 2)</label>
-        <input
-          id="ecd-charges"
-          class="ew-input"
-          type="number"
-          min="2"
-          step="1"
-          formControlName="installmentCharges"
-          placeholder="e.g. 12"
-        />
-        @if (form.controls.installmentCharges.touched && form.controls.installmentCharges.invalid) {
-          <p class="ecd-error">Enter a number of charges (min. 2).</p>
-        }
-      </div>
-    }
-
-    <!-- P2-4: "Remember the selected card" — persists via PreferencesService (bm_remember_card),
-         distinct from "Keep selected credit card" above (which only carries the card forward
-         within one dialog session via keepCreditCard/keepOpen). -->
-    <button
-      class="ew-checkbox"
-      type="button"
-      [class.ew-checkbox--on]="prefs.rememberCard()"
-      (click)="toggleRememberCard()"
-    >
-      <i></i>
-      <span>Remember the selected card</span>
-    </button>
-
-    <button
-      class="ew-checkbox"
-      type="button"
-      [class.ew-checkbox--on]="form.controls.keepOpen.value"
-      (click)="form.controls.keepOpen.setValue(!form.controls.keepOpen.value)"
-    >
-      <i></i>
-      <span>Keep modal open after saving</span>
-    </button>
+    </div>
   </mat-dialog-content>
 
   <mat-dialog-actions class="ecd-actions" align="end">
     <button class="ew-btn ew-btn--ghost" type="button" mat-dialog-close>Cancel</button>
-    <button class="ew-btn ew-btn--primary" type="submit">+ Create transaction</button>
+    <button class="ew-btn ew-btn--primary" type="submit">Create expense</button>
   </mat-dialog-actions>
 </form>

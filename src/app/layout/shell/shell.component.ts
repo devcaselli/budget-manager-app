@@ -509,6 +509,12 @@ export class ShellComponent {
 
     const data: ExpenseCreateDialogData = {
       walletDescription: wallet.description || 'Wallet',
+      // Same "WALLET {MONTH} · CYCLE {YYYY-MM}" derivation expense-page's
+      // currentWalletMonth()/currentCycle() computeds use (design ref: modalSub
+      // for the "new" dialog) — no shared computed here since Shell only opens
+      // this dialog from wallet, not a reactive signal chain like expense-page's.
+      walletMonth: (wallet.effectiveMonth ?? '').toUpperCase(),
+      cycle: wallet.startDate?.slice(0, 7) ?? '',
       bullets,
       creditCards,
     };

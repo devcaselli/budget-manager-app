@@ -1130,8 +1130,13 @@ body.ew-privacy {
 }
 
 .cdk-overlay-backdrop.cdk-overlay-backdrop-showing {
-  background: rgba(8, 7, 5, 0.7);
-  backdrop-filter: blur(8px);
+  // P2-4 (post-epic-audit): was hardcoded to rgba(8,7,5,.7) — a near-opaque black that
+  // read as a "dark theme leaking into light mode" bug behind every Material dialog
+  // (expense-create-dialog etc). The design's own overlay uses the theme-aware
+  // `--scrim` token (warm-brown 45% in light, near-black-blue 62% in dark) with a 3px
+  // blur — matching that here fixes every CDK-backed dialog at once, not just this one.
+  background: var(--scrim);
+  backdrop-filter: blur(3px);
 }
 
 // P2-2 (post-epic-audit): `MatSnackBar` toast chrome, pinned to the design's tokens —

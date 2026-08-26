@@ -671,6 +671,8 @@ export class ExpensePage implements AfterViewChecked {
 
     const data: ExpenseCreateDialogData = {
       walletDescription: wallet.description || 'Wallet',
+      walletMonth: this.currentWalletMonth(),
+      cycle: this.currentCycle(),
       bullets: this.bulletOptions(),
       creditCards: this.creditCards().map((c) => ({ id: c.id, name: c.name })),
     };
