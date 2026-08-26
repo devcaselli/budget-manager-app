@@ -1136,6 +1136,47 @@ describe('ExpensePage — post-epic-audit P0 fixes (no 2-col grid, quick-add str
     expect(addBtn!.disabled).toBe(false);
   });
 
+  it('bug fix: creditCards() changing reference does not re-trigger the wallet-switch effect (infinite request loop regression)', () => {
+    // Reproduces the real bug: InstallmentService.loadCreditCards() always pushes a NEW
+    // array reference on every HTTP response, even when the wallet and content are
+    // unchanged. resetForm() (called from inside the wallet-switch effect) used to read
+    // `this.creditCards()` WITHOUT untracked(), making it a second tracked dependency of
+    // that effect — so every creditCards() emission re-ran the wallet-switch effect, which
+    // called installmentService.loadByWalletId() again, which fetched credit cards again,
+    // which emitted a new reference again: an infinite loop of 5 wallet-scoped HTTP calls,
+    // confirmed live via the Network tab (266 requests in 4s) before the fix.
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    const installmentService = TestBed.inject(InstallmentService) as unknown as {
+      creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
+      loadByWalletId: ReturnType<typeof vi.fn>;
+    };
+    const shareService = TestBed.inject(ShareService) as unknown as {
+      loadAll: ReturnType<typeof vi.fn>;
+    };
+
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    fixture.detectChanges();
+
+    installmentService.loadByWalletId.mockClear();
+    shareService.loadAll.mockClear();
+
+    // Simulate loadCreditCards() resolving multiple times with a fresh array reference
+    // each time (same content, different identity) — exactly what the real service does.
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+
+    // The wallet-switch effect must NOT have re-run: selectedWallet() never changed here,
+    // only creditCards() did. Before the fix these were both > 0 (once per emission above).
+    expect(installmentService.loadByWalletId).not.toHaveBeenCalled();
+    expect(shareService.loadAll).not.toHaveBeenCalled();
+  });
+
   it('P0-5: quick-add name/cost inputs render with real field chrome (border), not the borderless dialog `.ew-input` look', () => {
     const nameInput = query<HTMLInputElement>('.ep-quick-add-name');
     const costInput = query<HTMLInputElement>('.ep-quick-add-cost');

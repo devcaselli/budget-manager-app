@@ -914,11 +914,26 @@ export class ExpensePage implements AfterViewChecked {
     // P0-5 fix: re-defaults to the wallet's first card (same default the creditCards()
     // effect applies) rather than '' — otherwise every successful quick-add would
     // re-disable the "Add" button until something else changed creditCards().
+    //
+    // Bug fix (infinite request loop on /expenses): `resetForm()` is called from inside
+    // the wallet-switch effect() below. A signal read inside an effect() is tracked
+    // wherever in the call stack it happens — this line used to read `this.creditCards()`
+    // directly (no untracked()), which silently made it a second dependency of that effect.
+    // `installmentService.loadByWalletId()` (called earlier in that same effect run) fetches
+    // credit cards asynchronously and always pushes a NEW array reference on response (see
+    // InstallmentService.loadCreditCards()), even when the wallet/content is unchanged. That
+    // reference change re-triggered the wallet-switch effect, which called loadByWalletId()
+    // again, fetched again, changed the reference again — an infinite request loop, once per
+    // HTTP round-trip (confirmed live: 266 requests in 4s). Wrapping the read in `untracked()`
+    // reads the *current* value without subscribing this effect to future changes, matching
+    // the same pattern already used for `unhiddenFilter`/`selectedWallet` elsewhere in this
+    // constructor.
+    const creditCardId = untracked(() => this.creditCards()[0]?.id ?? '');
     this.form.reset({
       name: '',
       cost: 0,
       purchaseDate: this.today(),
-      creditCardId: this.creditCards()[0]?.id ?? '',
+      creditCardId,
       isInstallment: false,
       installmentCharges: 0,
     });
