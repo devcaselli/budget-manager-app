@@ -14,27 +14,21 @@
 .efd-title {
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 34px;
+  font-size: 23px;
   line-height: 1;
   letter-spacing: -0.02em;
   font-weight: 500;
   color: var(--ew-ink);
   font-variation-settings: 'opsz' 32;
-
-  em {
-    font-style: italic;
-    color: var(--ew-ink-2);
-    font-weight: 300;
-  }
 }
 
 .efd-subtitle {
   margin: 8px 0 0;
   font-family: var(--ew-mono);
-  font-size: 11px;
-  color: var(--ew-ink-3);
+  font-size: 9.5px;
+  color: var(--text-4);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
 }
 
 .efd-close {
@@ -49,7 +43,7 @@
 .efd-body {
   display: grid;
   gap: 16px;
-  padding: 24px 28px;
+  padding: 20px 22px;
 }
 
 .efd-date-range {
@@ -103,13 +97,53 @@
   line-height: 1.4;
 }
 
-.efd-toggle-row input[type='checkbox'] {
-  accent-color: var(--ew-acc);
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
-  margin-top: 2px;
+// ── Switch (role="switch" button — matches settings page's `.set-switch`) ─────
+.efd-switch {
+  flex: 0 0 auto;
   cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 2px;
+  display: inline-flex;
+  align-items: center;
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 3px;
+    border-radius: 99px;
+  }
+
+  i {
+    width: 44px;
+    height: 26px;
+    background: var(--ew-line-2);
+    border-radius: 99px;
+    position: relative;
+    transition: background 0.2s;
+    display: block;
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--ew-ink-2);
+      transition: left 0.2s, background 0.2s;
+    }
+  }
+
+  &--on i {
+    background: var(--ew-acc);
+
+    &::after {
+      left: 22px;
+      background: var(--ew-on-acc);
+    }
+  }
 }
 
 .efd-actions {

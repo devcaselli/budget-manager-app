@@ -101,20 +101,36 @@ describe('ExpenseFiltersDialogComponent', () => {
     expect(query('.efd-hint')).toBeTruthy();
   });
 
-  it('the hidden-items toggle binds to the form and Done closes the dialog', () => {
+  it('the hidden-items switch binds to the form and Apply filters closes the dialog', () => {
     const form = setup();
 
-    const hiddenCheckbox = query<HTMLInputElement>('#efd-unhidden')!;
-    hiddenCheckbox.click();
+    const hiddenSwitch = query<HTMLButtonElement>('.efd-switch')!;
+    expect(hiddenSwitch.getAttribute('aria-checked')).toBe('false');
+
+    hiddenSwitch.click();
     fixture.detectChanges();
     expect(form.controls.unhidden.value).toBe(true);
+    expect(hiddenSwitch.getAttribute('aria-checked')).toBe('true');
+    expect(hiddenSwitch.classList.contains('efd-switch--on')).toBe(true);
 
-    const doneBtn = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
-      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Done',
+    const applyBtn = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'Apply filters',
     ) as HTMLButtonElement;
-    doneBtn.click();
+    applyBtn.click();
 
     expect(dialogRef.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('the hidden-items switch is a real <button> and stays keyboard-focusable (WCAG 2.4.7 — regression guard for the switch losing its native checkbox focus ring when it became role="switch")', () => {
+    setup();
+
+    const hiddenSwitch = query<HTMLButtonElement>('.efd-switch')!;
+    expect(hiddenSwitch.tagName).toBe('BUTTON');
+    expect(hiddenSwitch.hasAttribute('disabled')).toBe(false);
+    expect(hiddenSwitch.getAttribute('tabindex')).not.toBe('-1');
+
+    hiddenSwitch.focus();
+    expect(document.activeElement).toBe(hiddenSwitch);
   });
 
   it('P2-4: Cancel closes the dialog too (no staged/draft state to discard — see close() doc)', () => {

@@ -63,6 +63,17 @@ export class ExpenseFiltersDialogComponent {
       (this.sortOrderValue() === 'VALUE_ASC' || this.sortOrderValue() === 'VALUE_DESC'),
   );
 
+  // P2-3 (post-review-visual): design uses a `role="switch"` button (track+knob),
+  // not a native checkbox — kept bound to the same shared `unhidden` control so
+  // every other consumer of `data.form` still sees live updates.
+  protected readonly unhiddenValue = toSignal(this.form.controls.unhidden.valueChanges, {
+    initialValue: this.form.controls.unhidden.value,
+  });
+
+  protected toggleUnhidden(): void {
+    this.form.controls.unhidden.setValue(!this.form.controls.unhidden.value);
+  }
+
   protected close(): void {
     this.dialogRef.close();
   }

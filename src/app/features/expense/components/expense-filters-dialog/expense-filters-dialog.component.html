@@ -1,7 +1,7 @@
 <div class="efd-head" mat-dialog-title>
   <div>
-    <h2 class="efd-title">Filter <em>expenses</em></h2>
-    <p class="efd-subtitle">Card, sort and date range</p>
+    <h2 class="efd-title">Filter expenses</h2>
+    <p class="efd-subtitle">Refine what the ledger shows</p>
   </div>
   <button class="efd-close" type="button" mat-icon-button mat-dialog-close aria-label="Close">
     <mat-icon>close</mat-icon>
@@ -55,15 +55,23 @@
     </div>
   </div>
 
-  <label class="efd-toggle-row" for="efd-unhidden">
+  <div class="efd-toggle-row">
     <span class="efd-toggle-text">
       <span class="efd-toggle-title">Show hidden items</span>
       <span class="efd-toggle-sub">
         Purchases that became an installment plan, or were 100% passed on via a share.
       </span>
     </span>
-    <input type="checkbox" id="efd-unhidden" formControlName="unhidden" />
-  </label>
+    <button
+      class="efd-switch"
+      type="button"
+      role="switch"
+      [attr.aria-checked]="unhiddenValue()"
+      [class.efd-switch--on]="unhiddenValue()"
+      aria-label="Show hidden items"
+      (click)="toggleUnhidden()"
+    ><i></i></button>
+  </div>
 </mat-dialog-content>
 
 <mat-dialog-actions class="efd-actions" align="end">
@@ -74,5 +82,5 @@
        ("I'm done looking, not committing anything new") and for keyboard/visual parity with
        the design, not because it reverts anything real. -->
   <button class="ew-btn ew-btn--ghost" type="button" (click)="close()">Cancel</button>
-  <button class="ew-btn ew-btn--primary" type="button" (click)="close()">Done</button>
+  <button class="ew-btn ew-btn--primary" type="button" (click)="close()">Apply filters</button>
 </mat-dialog-actions>

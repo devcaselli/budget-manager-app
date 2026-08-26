@@ -414,22 +414,24 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 11px 13px;
+  min-height: 54px;
   border: 1px solid var(--ew-line);
-  border-radius: 14px;
-  background: var(--ew-panel-2);
+  border-radius: 12px;
+  background: var(--surface-2);
   color: var(--ew-ink);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
   font-family: var(--ew-sans);
   text-align: left;
+  box-sizing: border-box;
 
   &:hover {
     border-color: var(--ew-line-2);
   }
 
   &[aria-expanded='true'] {
-    border-color: rgba(214, 163, 113, 0.35);
+    border-color: var(--ew-acc-soft);
     background: var(--ew-panel);
 
     .ew-wb-chev {
@@ -448,25 +450,17 @@
 
 .ew-wb-eyebrow {
   font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
+  font-size: 9px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--ew-ink-3);
+  color: var(--text-3);
 }
 
 .ew-wb-amount {
-  font-family: var(--ew-serif);
-  font-size: 14px;
-  color: var(--ew-ink-2);
+  font-family: var(--ew-mono);
+  font-size: 15px;
+  color: var(--text);
   letter-spacing: -0.01em;
-
-  b {
-    font-family: var(--ew-serif);
-    font-size: 22px;
-    color: var(--ew-acc);
-    font-weight: 500;
-    letter-spacing: -0.02em;
-  }
 }
 
 .ew-wb-chev {
@@ -529,19 +523,19 @@
 
 .ew-wp-eyebrow {
   font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.2em;
+  font-size: 9px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--ew-ink-3);
+  color: var(--text-4);
 }
 
 .ew-wp-amount {
-  font-family: var(--ew-serif);
-  font-size: 34px;
+  font-family: var(--ew-mono);
+  font-size: 26px;
   line-height: 1;
   letter-spacing: -0.025em;
   font-weight: 500;
-  color: var(--ew-acc);
+  color: var(--text);
   margin-top: 8px;
   font-variant-numeric: tabular-nums;
 
@@ -556,10 +550,10 @@
 
 .ew-wp-sec {
   font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.2em;
+  font-size: 9px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--ew-ink-3);
+  color: var(--text-4);
   margin: 16px 0 6px;
 }
 
@@ -589,9 +583,11 @@
   justify-content: space-between;
   gap: 12px;
   padding: 11px 12px;
+  min-height: 48px;
+  box-sizing: border-box;
   border: 1px solid var(--ew-line);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.08));
+  border-radius: 10px;
+  background: var(--surface-2);
   color: var(--ew-ink);
   cursor: pointer;
   text-align: left;
@@ -614,8 +610,8 @@
   gap: 3px;
 
   b {
-    font-family: var(--ew-serif);
-    font-size: 15px;
+    font-family: var(--ew-sans);
+    font-size: 13.5px;
     font-weight: 500;
     line-height: 1.05;
     letter-spacing: -0.01em;
@@ -627,7 +623,7 @@
   small {
     font-family: var(--ew-mono);
     font-size: 9px;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--ew-ink-3);
     white-space: nowrap;
@@ -638,18 +634,21 @@
 
 .ew-wp-wallet-val {
   flex: 0 0 auto;
-  font-family: var(--ew-serif);
-  font-size: 14px;
+  font-family: var(--ew-mono);
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 
+// P2-2 (post-review-visual): reworked from a 3-column grid (name | narrow bar |
+// values) to a flex column — name+values share a row on top, the progress bar
+// runs full-width underneath. Matches the design; the grid layout squeezed the
+// bar into a fixed 56px column that didn't read as a real progress indicator.
 .ew-wp-bullet {
-  display: grid;
-  grid-template-columns: 1fr 56px 80px;
-  align-items: center;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   padding: 10px 0;
   border-bottom: 1px solid var(--ew-line);
 
@@ -658,76 +657,66 @@
   }
 }
 
+.ew-wp-bullet-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .ew-wp-bn {
-  font-family: var(--ew-serif);
-  font-size: 15px;
+  font-family: var(--ew-sans);
+  font-size: 13px;
   line-height: 1.1;
   font-weight: 500;
   letter-spacing: -0.01em;
-
-  small {
-    display: block;
-    font-family: var(--ew-mono);
-    font-size: 9px;
-    color: var(--ew-ink-3);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    margin-top: 3px;
-    font-weight: 400;
-  }
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ew-wp-bar {
   position: relative;
-  height: 2px;
-  background: var(--ew-line-2);
-  border-radius: 1px;
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 999px;
   overflow: hidden;
 
   i {
     display: block;
     height: 100%;
     background: var(--ew-acc);
-    border-radius: 1px;
+    border-radius: 999px;
   }
 }
 
 .ew-wp-val {
-  text-align: right;
-  font-family: var(--ew-serif);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  flex: 0 0 auto;
+  font-family: var(--ew-mono);
+  font-size: 11.5px;
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
-
-  small {
-    display: block;
-    font-family: var(--ew-mono);
-    font-size: 9px;
-    color: var(--ew-ink-3);
-    letter-spacing: 0.1em;
-    margin-top: 2px;
-    font-weight: 400;
-  }
+  white-space: nowrap;
 }
 
 .ew-wp-cta {
   margin-top: 16px;
   width: 100%;
-  padding: 12px 16px;
-  border-radius: 99px;
-  background: transparent;
-  color: var(--ew-ink);
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ew-acc);
   border: 1px solid var(--ew-line-2);
-  font-family: var(--ew-mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-family: var(--ew-sans);
+  font-size: 13px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  box-sizing: border-box;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
   text-decoration: none;
   font-weight: 500;
@@ -752,43 +741,29 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--ew-line);
-  border-radius: 14px;
-  background: var(--ew-panel-2);
-  transition: border-color 0.15s;
+  padding: 8px 4px 8px 11px;
+  border-radius: 12px;
   position: relative;
-
-  // D10 review fix (M1): was `&:hover` — the chip itself is a non-interactive
-  // container (see the D10 comment in shell.component.html), so hovering it
-  // (e.g. passing the mouse over the avatar/name) is not a real affordance.
-  // `:focus-within` reacts when one of the actual controls inside (theme
-  // toggle, Settings, Sign-out) receives focus, keeping the visual grouping
-  // cue but tying it to something real.
-  &:focus-within {
-    border-color: var(--ew-line-2);
-  }
 }
 
 .ew-user-av {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, var(--ew-acc-2), var(--ew-acc) 70%);
+  background: var(--accent-soft);
   display: grid;
   place-items: center;
-  font-family: var(--ew-serif);
-  font-size: 18px;
-  font-style: italic;
-  font-weight: 500;
-  color: #1c1814;
-  flex: 0 0 34px;
+  font-family: var(--ew-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-deep);
+  flex: 0 0 30px;
   line-height: 1;
   // Belt-and-braces against the circle visually breaking: deriveInitials()
   // already caps output at 1-2 graphemes, but this keeps the CONTAINER safe
   // even if something unexpected ever slips through (e.g. a future caller
   // reusing this class with a raw, un-derived string).
-  max-width: 34px;
+  max-width: 30px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -801,8 +776,8 @@
 
   b {
     display: block;
-    font-family: var(--ew-serif);
-    font-size: 16px;
+    font-family: var(--ew-sans);
+    font-size: 13px;
     line-height: 1.1;
     font-weight: 500;
     letter-spacing: -0.01em;
@@ -814,10 +789,8 @@
   span {
     display: block;
     font-family: var(--ew-mono);
-    font-size: 10px;
-    color: var(--ew-ink-3);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    font-size: 9.5px;
+    color: var(--text-4);
     margin-top: 3px;
     white-space: nowrap;
     overflow: hidden;

@@ -962,9 +962,9 @@ describe('ShellComponent — wallet popover (P2-1/P2-5 post-epic-audit)', () => 
 
     const bulletRow = fixture.nativeElement.querySelector('.ew-wp-bullet') as HTMLElement;
     expect(bulletRow.textContent).not.toContain('% used');
-    // budget 200, remaining 50 → used = 150
+    // budget 200, remaining 50 → used = 150, rendered as a single "used / total" line.
     expect(bulletRow.querySelector('.ew-wp-val')?.textContent).toContain('150');
-    expect(bulletRow.querySelector('.ew-wp-val small')?.textContent).toContain('200');
+    expect(bulletRow.querySelector('.ew-wp-val')?.textContent).toContain('200');
   });
 
   // NOVO-2 (post-verification-review): regression coverage for the gap that let Major 3

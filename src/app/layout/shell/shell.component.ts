@@ -22,6 +22,7 @@ import { ExpenseService } from '@features/expense/services/expense.service';
 import { Wallet } from '@features/wallet/models/wallet';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { BulletService } from '@features/bullet/services/bullet.service';
+import { Bullet } from '@features/bullet/models/bullet';
 import { InstallmentService } from '@features/installment/services/installment.service';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { formatBrl } from '@shared/utils/currency';
@@ -151,6 +152,16 @@ export class ShellComponent {
 
   protected readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   protected readonly bulletsLoading = toSignal(this.bulletService.loading$, { initialValue: false });
+
+  /** Progress-bar percentage for a bullet's used/budget ratio, clamped to [0, 100] — a
+   *  bullet can be overspent (used > budget, a real scenario), which would otherwise push
+   *  the bar's `width.%` past 100. The container's `overflow: hidden` masked this visually,
+   *  but clamping here makes the 100% ceiling an explicit invariant instead of an accident. */
+  protected bulletProgressPct(bullet: Bullet): number {
+    if (bullet.budget <= 0) return 0;
+    const used = bullet.budget - bullet.remaining;
+    return Math.min(100, (used / bullet.budget) * 100);
+  }
   private readonly creditCards = toSignal(this.installmentService.creditCards$, { initialValue: [] });
 
   protected readonly walletPopOpen = signal(false);

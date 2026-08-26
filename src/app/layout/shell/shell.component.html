@@ -99,9 +99,7 @@
         >
           <div class="ew-wb-left">
             <span class="ew-wb-eyebrow">Available</span>
-            <span class="ew-wb-amount">
-              <b class="ew-blur">{{ wallet.remaining | brlCurrency }}</b>
-            </span>
+            <span class="ew-wb-amount ew-blur">{{ wallet.remaining | brlCurrency }}</span>
           </div>
           <svg class="ew-wb-chev" [class.ew-wb-chev--open]="walletPopOpen()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
             <polyline points="6 9 12 15 18 9"/>
@@ -342,19 +340,20 @@
       <div class="ew-wp-list">
         @for (bullet of bullets().slice(0, 3); track bullet.id) {
           @let used = bullet.budget - bullet.remaining;
-          @let pct = bullet.budget > 0 ? used / bullet.budget * 100 : 0;
+          @let pct = bulletProgressPct(bullet);
           <div class="ew-wp-bullet">
-            <div class="ew-wp-bn">
-              {{ bullet.description }}
+            <div class="ew-wp-bullet-row">
+              <div class="ew-wp-bn">
+                {{ bullet.description }}
+              </div>
+              <!-- P2-1: 2-number metric (used / total), matching the design — was
+                   pct% used + remaining/budget (3 numbers total). -->
+              <div class="ew-wp-val ew-blur">
+                {{ used | brlCurrency }} / {{ bullet.budget | brlCurrency }}
+              </div>
             </div>
             <div class="ew-wp-bar">
               <i [style.width.%]="pct"></i>
-            </div>
-            <!-- P2-1: 2-number metric (used / total), matching the design — was
-                 pct% used + remaining/budget (3 numbers total). -->
-            <div class="ew-wp-val ew-blur">
-              {{ used | brlCurrency }}
-              <small>/ {{ bullet.budget | brlCurrency }}</small>
             </div>
           </div>
         }
