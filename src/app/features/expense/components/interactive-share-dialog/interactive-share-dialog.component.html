@@ -147,6 +147,14 @@
           }
         </div>
 
+        <div class="isd__shortcuts">
+          @for (shortcut of amountShortcuts; track shortcut.label) {
+            <button type="button" class="isd__shortcut-btn" (click)="applyAmountShortcut(shortcut.value)">
+              {{ shortcut.label }}
+            </button>
+          }
+        </div>
+
         <div class="isd__preview">
           <div class="isd__preview-row">
             <span>{{ payerDisplayName() }} pays</span>

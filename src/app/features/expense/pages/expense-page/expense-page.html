@@ -51,6 +51,11 @@
           <div class="ep-import-banner-title">
             {{ pendingReviewCount() }} imported expense(s) waiting for review
           </div>
+          @if (lastSyncReport(); as report) {
+            <div class="ep-import-banner-sub">
+              {{ report.skipped }} entries skipped · {{ report.errors }} errors
+            </div>
+          }
         </div>
       </div>
       <div class="ep-import-banner-actions">
@@ -315,15 +320,8 @@
                         <span class="ep-day-badge" [attr.title]="expense.shareSummary">SHARED</span>
                       }
                     </div>
-                    @if (expense.tagChips.length > 0) {
-                      <div class="expense-tag-chips">
-                        @for (chip of expense.tagChips; track chip.id) {
-                          <span class="expense-tag-chip">{{ chip.name }}</span>
-                        }
-                      </div>
-                    }
                     <div class="ep-day-row-meta">
-                      {{ expense.creditCardLabel }}
+                      {{ expense.purchaseDate | brDate }} · {{ expense.creditCardLabel }}
                       @if (expense.bulletLabel !== '—') {
                         · {{ expense.bulletLabel }}
                       }

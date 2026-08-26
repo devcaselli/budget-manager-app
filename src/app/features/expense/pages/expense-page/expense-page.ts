@@ -374,6 +374,15 @@ export class ExpensePage implements AfterViewChecked {
     () => this.hasPendingImports() && !this.importBannerDismissed(),
   );
 
+  /** Post-epic-audit P3-1: second banner line the design shows below the title
+   *  ("22 entries skipped · 0 errors") — sourced from the most recent sync run's
+   *  report (`SyncReport.skipped`/`errors`), session-only (see PendingReviewService
+   *  doc). `null` until a sync has run this session, in which case the banner shows
+   *  only the title line, same as before this fix. */
+  protected readonly lastSyncReport = toSignal(this.pendingReviewService.lastSyncReport$, {
+    initialValue: null,
+  });
+
   protected readonly layout = signal<LedgerLayout>('ledger');
   protected readonly isGroupedLayout = computed(() => this.layout() === 'grouped');
 

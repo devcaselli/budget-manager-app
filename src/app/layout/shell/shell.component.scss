@@ -81,16 +81,30 @@
 }
 
 .ew-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--ew-mono);
-  font-size: 11px;
-  color: var(--ew-ink-3);
-  letter-spacing: 0.18em;
+  font-size: 10.5px;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
+}
 
-  b {
-    color: var(--ew-ink);
-    font-weight: 500;
-  }
+.ew-crumb-root {
+  // Design: --text-4. This app's legacy --ew-ink-3 alias maps to --text-4 (not
+  // --text-3, see the D1 alias-layer comment in styles.scss), so --ew-ink-3 is
+  // the correct token here despite the "-3" name.
+  color: var(--ew-ink-3);
+}
+
+.ew-crumb-sep {
+  // Design: --accent-line, which --ew-line-2 already aliases (styles.scss).
+  color: var(--ew-line-2);
+}
+
+.ew-crumb-current {
+  color: var(--ew-ink);
+  font-weight: 500;
 }
 
 .ew-topbar-spacer {

@@ -94,6 +94,7 @@ class FakePendingReviewService {
   readonly pendingReviews$ = new BehaviorSubject<readonly unknown[]>([]);
   readonly loading$ = new BehaviorSubject(false);
   readonly error$ = new BehaviorSubject<string | null>(null);
+  readonly lastSyncReport$ = new BehaviorSubject<unknown>(null);
   applySyncResult = vi.fn();
 }
 

@@ -128,6 +128,17 @@ export class InteractiveShareDialogComponent {
     Math.max(Number((this.data.expense.cost - (this.amountValue() || 0)).toFixed(2)), 0),
   );
 
+  /** Post-epic-audit P3-B2: design (line ~1213) offers 3 one-tap amount shortcuts on the
+   *  amount step — half, all, or a third of the expense cost — so the common split ratios
+   *  don't require typing/calculating by hand. Recomputed off `data.expense.cost`, which is
+   *  fixed for the dialog's lifetime (not a signal), so this is a plain readonly array, not
+   *  a `computed()`. */
+  protected readonly amountShortcuts: readonly { label: string; value: number }[] = [
+    { label: '50 / 50', value: this.round2(this.data.expense.cost / 2) },
+    { label: 'All of it', value: this.round2(this.data.expense.cost) },
+    { label: 'A third', value: this.round2(this.data.expense.cost / 3) },
+  ];
+
   /** Mirrors the design's `splitFull` state: once the payer's share covers the whole cost,
    *  the owner's remaining `ownerAmount()` hits 0 and `Expense.pay()`'s 100%-passed-on rule
    *  (see the class doc above re: cent-exact debt) hides the expense from the active cycle —
@@ -196,6 +207,15 @@ export class InteractiveShareDialogComponent {
 
   protected goBackToPayer(): void {
     this.currentStep.set(0);
+  }
+
+  protected applyAmountShortcut(value: number): void {
+    this.form.controls.amount.setValue(value);
+    this.form.controls.amount.markAsTouched();
+  }
+
+  private round2(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 
   protected submit(): void {

@@ -12,10 +12,14 @@
   gap: 0;
 }
 
+// Post-epic-audit P3-B3: design (line ~597) uses a fixed 116px label column and 9px
+// mono size for the LABEL ..... value rows — was a flexible minmax(140px,1fr) column
+// at 11px. Style-only change; OmegaViewer's shared architecture (edit form, notes,
+// payments sections layered on top of this list) is untouched.
 .vfl__row {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) 2fr;
-  gap: 16px;
+  grid-template-columns: 116px 1fr;
+  gap: 14px;
   align-items: baseline;
   padding: 10px 0;
   border-top: 1px solid var(--ew-line);
@@ -29,7 +33,7 @@
   margin: 0;
   color: var(--ew-ink-3);
   font-family: var(--ew-mono);
-  font-size: 11px;
+  font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }

@@ -15,12 +15,20 @@
     <ul class="tpd-list" role="group" aria-label="Available tags">
       @for (row of rows; track row.tag.id) {
         <li class="tpd-row" [class.tpd-row--subtag]="row.isSubtag">
-          <label class="tpd-checkbox">
+          <label class="tpd-checkbox" [class.tpd-checkbox--subtag]="row.isSubtag">
             <input
+              class="tpd-checkbox-input"
               type="checkbox"
               [formControl]="selection.controls[row.controlIndex]"
             />
-            <span>{{ row.isSubtag ? '— ' + row.tag.name : row.tag.name }}</span>
+            <span class="tpd-checkbox-box" aria-hidden="true">
+              @if (selection.controls[row.controlIndex].value) {
+                <mat-icon>check</mat-icon>
+              }
+            </span>
+            <span class="tpd-checkbox-label" [class.tpd-checkbox-label--subtag]="row.isSubtag">
+              {{ row.tag.name }}
+            </span>
           </label>
         </li>
       }

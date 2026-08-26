@@ -39,9 +39,9 @@ describe('TagPickerDialogComponent', () => {
   }
 
   function rowLabels(): string[] {
-    return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.tpd-checkbox span')).map(
-      (el) => el.textContent!.trim(),
-    );
+    return Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.tpd-checkbox-label'),
+    ).map((el) => el.textContent!.trim());
   }
 
   it('renders root tags followed by their subtags, in order', () => {
@@ -50,7 +50,19 @@ describe('TagPickerDialogComponent', () => {
     const otherRoot = makeTag({ id: 'root-2', name: 'Food' });
     setup({ availableTags: [root, subtag, otherRoot], selectedTagIds: [] });
 
-    expect(rowLabels()).toEqual(['Travel', '— Uber', 'Food']);
+    // Post-epic-audit P3-B1: hierarchy is now conveyed visually (indentation +
+    // color/weight via .tpd-checkbox-label--subtag), not a "— " text prefix.
+    expect(rowLabels()).toEqual(['Travel', 'Uber', 'Food']);
+  });
+
+  it('applies the subtag indentation/label styling only to rows with a parent', () => {
+    const root = makeTag({ id: 'root-1', name: 'Travel' });
+    const subtag = makeTag({ id: 'sub-1', name: 'Uber', parentId: 'root-1' });
+    setup({ availableTags: [root, subtag], selectedTagIds: [] });
+
+    const labels = (fixture.nativeElement as HTMLElement).querySelectorAll('.tpd-checkbox-label');
+    expect(labels[0]!.classList.contains('tpd-checkbox-label--subtag')).toBe(false);
+    expect(labels[1]!.classList.contains('tpd-checkbox-label--subtag')).toBe(true);
   });
 
   it('pre-checks the checkboxes for already-selected tags', () => {

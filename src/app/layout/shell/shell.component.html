@@ -172,22 +172,30 @@
     </div>
   </aside>
 
-  @if (prefs.sidebarHidden()) {
-    <button
-      class="ew-side-expand"
-      type="button"
-      aria-label="Show menu"
-      title="Show menu"
-      (click)="toggleSidebar()"
-    >»</button>
-  }
-
   <!-- ── Main area ───────────────────────────────────────────────── -->
   <div class="ew-main">
     <!-- Topbar -->
     <header class="ew-topbar" [class.ew-topbar--raised]="walletPopOpen()">
       <div class="ew-topbar-inner">
-        <div class="ew-crumb">Budget · <b>{{ currentRouteLabel() }}</b></div>
+        @if (prefs.sidebarHidden()) {
+          <button
+            class="ew-side-expand"
+            type="button"
+            aria-label="Show menu"
+            title="Show menu"
+            (click)="toggleSidebar()"
+          >
+            <span class="ew-side-expand-bar"></span>
+            <span class="ew-side-expand-bar"></span>
+            <span class="ew-side-expand-bar ew-side-expand-bar--short"></span>
+          </button>
+        }
+
+        <div class="ew-crumb">
+          <span class="ew-crumb-root">Budget</span>
+          <span class="ew-crumb-sep" aria-hidden="true">/</span>
+          <span class="ew-crumb-current">{{ currentRouteLabel() }}</span>
+        </div>
 
         <div class="ew-topbar-spacer"></div>
 
