@@ -12,9 +12,9 @@
           Voltar
         </button>
       }
-      <h2 class="ovw__title">Detalhes</h2>
+      <h2 class="ovw__title">Details</h2>
     </div>
-    <button class="ovw__close" type="button" aria-label="Fechar" (click)="close()">×</button>
+    <button class="ovw__close" type="button" aria-label="Close" (click)="close()">×</button>
   </div>
 
   <!-- Screen-reader-only live region — announces every page-flip navigation so users who
@@ -28,7 +28,7 @@
       }
       @case ('error') {
         <div class="ew-alert" role="alert">
-          <span>Não foi possível carregar os detalhes.</span>
+          <span>Could not load the details.</span>
           <button class="ew-btn ew-btn--ghost" type="button" (click)="retry()">
             Tentar novamente
           </button>
@@ -56,7 +56,7 @@
                 }
                 @case ('RESERVED_BUDGET_MIGRATION') {
                   <h3 class="ovw__item-title" #titleEl tabindex="-1">
-                    {{ detail.description ?? ('Migração · ' + detail.bulletDescription) }}
+                    {{ detail.description ?? ('Migration · ' + detail.bulletDescription) }}
                   </h3>
                 }
               }
@@ -68,7 +68,7 @@
                   (click)="enterEditMode()"
                 >
                   <mat-icon aria-hidden="true">edit</mat-icon>
-                  Editar
+                  Edit
                 </button>
               }
             </div>
@@ -103,14 +103,14 @@
                       [disabled]="revertingMigration()"
                       (click)="requestRevertMigration(detail)"
                     >
-                      {{ revertingMigration() ? 'Revertendo...' : 'Reverter migration' }}
+                      {{ revertingMigration() ? 'Reverting...' : 'Revert migration' }}
                     </button>
                   } @else {
                     <p class="ovw__migration-ineligible">
                       @if (detail.reverted) {
-                        Esta migration já foi desfeita anteriormente.
+                        This migration has already been undone.
                       } @else {
-                        Esta migration não pode ser desfeita — o bullet já gastou o valor.
+                        This migration cannot be undone — the bullet has already spent the amount.
                       }
                     </p>
                   }
@@ -173,7 +173,7 @@
 
   @if (mode() === 'VIEW') {
     <mat-dialog-actions class="ovw__actions" align="end">
-      <button class="ew-btn ew-btn--ghost" type="button" (click)="close()">Fechar</button>
+      <button class="ew-btn ew-btn--ghost" type="button" (click)="close()">Close</button>
     </mat-dialog-actions>
   }
 </div>

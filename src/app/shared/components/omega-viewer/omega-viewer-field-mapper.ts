@@ -90,12 +90,12 @@ function mapExpenseRows(
   ctx: OmegaViewerFieldMapperContext,
 ): readonly OmegaViewerFieldRow[] {
   return [
-    row('purchaseDate', 'Data', formatDate(detail.purchaseDate)),
-    row('creditCard', 'Cartão', creditCardValue(detail.creditCardId, ctx.creditCardNameById)),
+    row('purchaseDate', 'Purchase date', formatDate(detail.purchaseDate)),
+    row('creditCard', 'Credit card', creditCardValue(detail.creditCardId, ctx.creditCardNameById)),
     row('status', 'Status', detail.remaining <= 0 ? 'PAID' : 'OPEN'),
-    row('cost', 'Valor original', formatBrl(detail.cost), true),
-    row('remaining', 'Saldo em aberto', formatBrl(detail.remaining), true),
-    row('payer', 'Pagador', detail.payerName ?? UNSET),
+    row('cost', 'Original cost', formatBrl(detail.cost), true),
+    row('remaining', 'Open balance', formatBrl(detail.remaining), true),
+    row('payer', 'Payer', detail.payerName ?? UNSET),
     row('tags', 'Tags', tagsValue(detail.tagIds, ctx.tagNameById)),
   ];
 }
@@ -105,20 +105,20 @@ function mapInstallmentRows(
   ctx: OmegaViewerFieldMapperContext,
 ): readonly OmegaViewerFieldRow[] {
   return [
-    row('creditCard', 'Cartão', creditCardValue(detail.creditCardId, ctx.creditCardNameById)),
-    row('purchaseDate', 'Início', formatDate(detail.purchaseDate)),
-    row('lastInstallmentDate', 'Término', formatDate(detail.lastInstallmentDate)),
+    row('creditCard', 'Credit card', creditCardValue(detail.creditCardId, ctx.creditCardNameById)),
+    row('purchaseDate', 'Start', formatDate(detail.purchaseDate)),
+    row('lastInstallmentDate', 'End', formatDate(detail.lastInstallmentDate)),
     // Real progress from the backend's InstallmentProgressCalculator (via the Viewer
     // endpoint's `InstallmentProgressDto`) — "paid/total", no longer the honest-but-limited
     // total-only placeholder this row used to show before the real endpoint existed.
     row(
       'installmentNumber',
-      'Parcelas',
+      'Installments',
       `${detail.progress.paidInstallments}/${detail.progress.totalInstallments}`,
     ),
-    row('originalValue', 'Valor original', formatBrl(detail.originalValue), true),
-    row('installmentValue', 'Valor da parcela', formatBrl(detail.installmentValue), true),
-    row('payer', 'Pagador', detail.payerName ?? UNSET),
+    row('originalValue', 'Original cost', formatBrl(detail.originalValue), true),
+    row('installmentValue', 'Installment cost', formatBrl(detail.installmentValue), true),
+    row('payer', 'Payer', detail.payerName ?? UNSET),
     row('tags', 'Tags', tagsValue(detail.tagIds, ctx.tagNameById)),
   ];
 }
@@ -128,12 +128,12 @@ function mapSubscriptionRows(
   ctx: OmegaViewerFieldMapperContext,
 ): readonly OmegaViewerFieldRow[] {
   return [
-    row('state', 'Estado', detail.state),
-    row('creditCard', 'Cartão', creditCardValue(detail.creditCardId, ctx.creditCardNameById)),
-    row('startMonth', 'Início', formatMonth(detail.startMonth)),
-    row('endMonth', 'Fim', formatMonth(detail.endMonth)),
-    row('currency', 'Moeda', detail.currency),
-    row('payer', 'Pagador', detail.payerName ?? UNSET),
+    row('state', 'State', detail.state),
+    row('creditCard', 'Credit card', creditCardValue(detail.creditCardId, ctx.creditCardNameById)),
+    row('startMonth', 'Start', formatMonth(detail.startMonth)),
+    row('endMonth', 'End', formatMonth(detail.endMonth)),
+    row('currency', 'Currency', detail.currency),
+    row('payer', 'Payer', detail.payerName ?? UNSET),
     row('tags', 'Tags', tagsValue(detail.tagIds, ctx.tagNameById)),
   ];
 }
@@ -147,11 +147,11 @@ function mapReservedBudgetMigrationRows(
   detail: OmegaViewerReservedBudgetMigrationDetail,
 ): readonly OmegaViewerFieldRow[] {
   return [
-    row('reservedBudget', 'Reserva de origem', detail.reservedBudgetDescription),
-    row('bullet', 'Bullet de destino', detail.bulletDescription),
-    row('amount', 'Valor migrado', formatBrl(detail.amount), true),
-    row('effectiveMonth', 'Mês', formatMonth(detail.effectiveMonth)),
-    row('currency', 'Moeda', detail.currency),
+    row('reservedBudget', 'Source reserve', detail.reservedBudgetDescription),
+    row('bullet', 'Target bullet', detail.bulletDescription),
+    row('amount', 'Migrated amount', formatBrl(detail.amount), true),
+    row('effectiveMonth', 'Month', formatMonth(detail.effectiveMonth)),
+    row('currency', 'Currency', detail.currency),
   ];
 }
 

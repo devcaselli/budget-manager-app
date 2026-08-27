@@ -95,19 +95,19 @@ function payerLabelOf(payerIds: readonly string[]): string {
  */
 function ineligibleHintOf(payment: OmegaViewerPayment): string | null {
   if (payment.reversal) {
-    return 'Este pagamento é uma reversão e não pode ser revertido novamente.';
+    return 'This payment is a reversal and cannot be reverted again.';
   }
   if (payment.reversed) {
-    return 'Este pagamento já foi revertido.';
+    return 'This payment has already been reverted.';
   }
   if (payment.kind === 'SHARED') {
-    return 'Pagamentos compartilhados são revertidos pela tela de Share.';
+    return 'Shared payments are reverted from the Share screen.';
   }
   return null;
 }
 
 function revertAriaLabelOf(dateLabel: string): string {
-  return `Reverter pagamento de ${dateLabel}`;
+  return `Revert payment from ${dateLabel}`;
 }
 
 export function mapPaymentsToRows(

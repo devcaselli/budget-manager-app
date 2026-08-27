@@ -1,5 +1,5 @@
 <div class="vps__root">
-  <h4 class="vps__title">Pagamentos</h4>
+  <h4 class="vps__title">Payments</h4>
 
   @if (revertError(); as message) {
     <div class="ew-alert" role="alert">
@@ -8,7 +8,7 @@
   }
 
   @if (rows().length === 0) {
-    <p class="vps__empty">Nenhum pagamento registrado.</p>
+    <p class="vps__empty">No payments recorded.</p>
   } @else {
     <ul class="vps__list">
       @for (row of rows(); track row.id) {
@@ -22,12 +22,12 @@
             @switch (row.status) {
               @case ('reversal') {
                 <span class="ew-pill ew-pill--reversal" data-testid="payment-status-reversal">
-                  Reversão
+                  Reversal
                 </span>
               }
               @case ('reversed') {
                 <span class="ew-pill ew-pill--reversed" data-testid="payment-status-reversed">
-                  Revertido
+                  Reversed
                 </span>
               }
               @case ('normal') {
@@ -46,7 +46,7 @@
                 [disabled]="revertingId() === row.id"
                 (click)="onRevertClick(row)"
               >
-                {{ revertingId() === row.id ? 'Revertendo...' : 'Reverter' }}
+                {{ revertingId() === row.id ? 'Reverting...' : 'Revert' }}
               </button>
             } @else {
               <span
@@ -55,7 +55,7 @@
                 [attr.aria-label]="row.ineligibleHint"
                 data-testid="payment-ineligible-hint"
               >
-                Não revertível
+                Not revertable
               </span>
             }
           </div>

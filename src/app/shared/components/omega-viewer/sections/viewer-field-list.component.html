@@ -2,7 +2,7 @@
   @if (badge.kind === 'remaining') {
     <div class="vfl__badge-row">
       @if (badge.count === 0) {
-        <span class="ew-pill ew-pill--paid" data-testid="remaining-badge-paid">Parcelas quitadas</span>
+        <span class="ew-pill ew-pill--paid" data-testid="remaining-badge-paid">Installments paid off</span>
       } @else {
         <span class="ew-pill ew-pill--open" data-testid="remaining-badge-open">
           {{ badge.count }} parcela(s) restante(s)

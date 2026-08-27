@@ -106,7 +106,7 @@ describe('ViewerPaymentsSectionComponent', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('.vps__empty')?.textContent).toContain(
-      'Nenhum pagamento registrado.',
+      'No payments recorded.',
     );
     expect(root.querySelectorAll('.vps__row').length).toBe(0);
   });
@@ -231,7 +231,7 @@ describe('ViewerPaymentsSectionComponent', () => {
       const root = fixture.nativeElement as HTMLElement;
       const button = root.querySelector('.vps__revert-btn');
       expect(button).not.toBeNull();
-      expect(button?.getAttribute('aria-label')).toBe('Reverter pagamento de 29/04/2026');
+      expect(button?.getAttribute('aria-label')).toBe('Revert payment from 29/04/2026');
       expect(root.querySelector('[data-testid="payment-ineligible-hint"]')).toBeNull();
     });
 
@@ -246,7 +246,7 @@ describe('ViewerPaymentsSectionComponent', () => {
       expect(root.querySelector('.vps__revert-btn')).toBeNull();
       const hint = root.querySelector('[data-testid="payment-ineligible-hint"]');
       expect(hint).not.toBeNull();
-      expect(hint?.getAttribute('title')).toContain('reversão');
+      expect(hint?.getAttribute('title')).toContain('is a reversal');
     });
 
     it('hides the revert button and shows an explanatory hint for an already-reverted payment', () => {
@@ -260,7 +260,7 @@ describe('ViewerPaymentsSectionComponent', () => {
       expect(root.querySelector('.vps__revert-btn')).toBeNull();
       const hint = root.querySelector('[data-testid="payment-ineligible-hint"]');
       expect(hint).not.toBeNull();
-      expect(hint?.getAttribute('title')).toContain('já foi revertido');
+      expect(hint?.getAttribute('title')).toContain('has already been reverted');
     });
 
     it('hides the revert button for a SHARED payment and shows the Share hint on hover, before any click', () => {
@@ -275,7 +275,7 @@ describe('ViewerPaymentsSectionComponent', () => {
       const hint = root.querySelector('[data-testid="payment-ineligible-hint"]');
       expect(hint).not.toBeNull();
       expect(hint?.getAttribute('title')).toBe(
-        'Pagamentos compartilhados são revertidos pela tela de Share.',
+        'Shared payments are reverted from the Share screen.',
       );
       // No click happened and no revertError input was set — the hint is reachable purely
       // from `kind`, not as a byproduct of a failed revert attempt.
@@ -317,7 +317,7 @@ describe('ViewerPaymentsSectionComponent', () => {
         '.vps__revert-btn',
       );
       expect(button?.disabled).toBe(true);
-      expect(button?.textContent).toContain('Revertendo...');
+      expect(button?.textContent).toContain('Reverting...');
     });
 
     it('does not disable a different row while another row is reverting', () => {
@@ -340,14 +340,14 @@ describe('ViewerPaymentsSectionComponent', () => {
       setup(buildExpenseDetail({ payments: [buildPayment()] }));
       fixture.componentRef.setInput(
         'revertError',
-        'Pagamentos compartilhados são revertidos pela tela de Share.',
+        'Shared payments are reverted from the Share screen.',
       );
       fixture.detectChanges();
 
       const alert = (fixture.nativeElement as HTMLElement).querySelector('.ew-alert[role="alert"]');
       expect(alert).not.toBeNull();
       expect(alert?.textContent).toContain(
-        'Pagamentos compartilhados são revertidos pela tela de Share.',
+        'Shared payments are reverted from the Share screen.',
       );
     });
 

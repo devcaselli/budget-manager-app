@@ -1150,7 +1150,7 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
       fixture.detectChanges();
 
       expect(component['saveError']()).toBe(
-        'Não foi possível salvar as alterações. Tente novamente.',
+        'Could not save the changes. Please try again.',
       );
       expect(component['saving']()).toBe(false);
       // Still in EDIT with the user's typed values intact — correct retry behavior, unchanged.
@@ -1174,7 +1174,7 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
       fixture.detectChanges();
 
       expect(component['saveError']()).toBe(
-        'O valor não pode ser menor que o quanto já foi pago nesta despesa.',
+        'Cost cannot be lower than what has already been paid on this expense.',
       );
     });
 
@@ -1195,7 +1195,7 @@ describe('OmegaViewerComponent — Expense edit mode (F-07)', () => {
       const root = fixture.nativeElement as HTMLElement;
       const alert = root.querySelector('app-viewer-edit-form .ew-alert[role="alert"]');
       expect(alert).not.toBeNull();
-      expect(alert?.textContent).toContain('Não foi possível salvar');
+      expect(alert?.textContent).toContain('Could not save');
     });
 
     it('clears saveError at the start of the next save attempt', async () => {
@@ -1487,7 +1487,7 @@ describe('OmegaViewerComponent — notes section (F-08)', () => {
     fixture.detectChanges();
 
     expect(component['notesSaveError']()).toBe(
-      'Não foi possível salvar as alterações. Tente novamente.',
+      'Could not save the changes. Please try again.',
     );
     expect(component['saveError']()).toBeNull();
     expect(component['notesSaving']()).toBe(false);
@@ -1845,14 +1845,14 @@ describe('OmegaViewerComponent — payments section revert (F-10)', () => {
     fixture.detectChanges();
 
     expect(component['revertError']()).toBe(
-      'Pagamentos compartilhados são revertidos pela tela de Share.',
+      'Shared payments are reverted from the Share screen.',
     );
     expect(component['revertingId']()).toBeNull();
 
     const alert = root.querySelector('app-viewer-payments-section .ew-alert[role="alert"]');
     expect(alert).not.toBeNull();
     expect(alert?.textContent).toContain(
-      'Pagamentos compartilhados são revertidos pela tela de Share.',
+      'Shared payments are reverted from the Share screen.',
     );
 
     // Modal stays open — dialogRef.close was never called on failure.
@@ -1885,7 +1885,7 @@ describe('OmegaViewerComponent — payments section revert (F-10)', () => {
     expect(component['revertingId']()).toBe('payment-1');
     const button = root.querySelector<HTMLButtonElement>('.vps__revert-btn');
     expect(button?.disabled).toBe(true);
-    expect(button?.textContent).toContain('Revertendo...');
+    expect(button?.textContent).toContain('Reverting...');
 
     httpMock
       .expectOne('/api/payments/payment-1/revert')
@@ -2660,7 +2660,7 @@ describe('OmegaViewerComponent — revert -> refetch -> mutated propagation via 
     // The revert-confirm dialog (real MatDialog, real ViewerRevertConfirmDialogComponent) is
     // now open in the DOM — confirm it via its real "Reverter pagamento" action button, no
     // dialog mock. Selected by class, not text: the button also contains a `mat-icon`, so its
-    // `textContent` is "undoReverter pagamento", not an exact match.
+    // `textContent` is "undoRevert payment", not an exact match.
     const confirmBtn = root.querySelector<HTMLButtonElement>('.vrc-confirm-btn');
     expect(confirmBtn).not.toBeNull();
     confirmBtn?.click();
@@ -2698,7 +2698,7 @@ describe('OmegaViewerComponent — revert -> refetch -> mutated propagation via 
     // Close the dialog the same way a real user would — the "Fechar" footer action, which
     // routes through close() -> guardDirty() -> dialogRef.close({ mutated }).
     const closeBtn = Array.from(root.querySelectorAll<HTMLButtonElement>('button')).find(
-      (btn) => btn.textContent?.trim() === 'Fechar',
+      (btn) => btn.textContent?.trim() === 'Close',
     );
     closeBtn?.click();
     await flushMicrotasks(appRef);
@@ -2868,8 +2868,8 @@ describe('OmegaViewerComponent — reserved budget migration revert (RBM-F16)', 
 
     const root = fixture.nativeElement as HTMLElement;
     const message = root.querySelector('.ovw__migration-ineligible')?.textContent ?? '';
-    expect(message).toContain('já foi desfeita');
-    expect(message).not.toContain('já gastou o valor');
+    expect(message).toContain('already been undone');
+    expect(message).not.toContain('already spent the amount');
   });
 
   it('reverted: false (bullet already spent it) renders the spend-based copy', async () => {
@@ -2877,8 +2877,8 @@ describe('OmegaViewerComponent — reserved budget migration revert (RBM-F16)', 
 
     const root = fixture.nativeElement as HTMLElement;
     const message = root.querySelector('.ovw__migration-ineligible')?.textContent ?? '';
-    expect(message).toContain('já gastou o valor');
-    expect(message).not.toContain('já foi desfeita');
+    expect(message).toContain('already spent the amount');
+    expect(message).not.toContain('already been undone');
   });
 
   it('clicking Reverter opens the confirm dialog and does not call deleteMigration before confirmation', async () => {

@@ -1,9 +1,9 @@
 <div class="vns__root">
   <div class="vns__head">
-    <h4 class="vns__title">Notas</h4>
+    <h4 class="vns__title">Notes</h4>
     @if (isEditable() && !editing()) {
       <button class="ew-btn ew-btn--ghost vns__edit-btn" type="button" (click)="startEdit()">
-        Editar
+        Edit
       </button>
     }
   </div>
@@ -21,13 +21,13 @@
           class="ew-textarea vns__textarea"
           formControlName="details"
           rows="4"
-          placeholder="Adicione uma nota..."
+          placeholder="Add a note..."
         ></textarea>
 
         <div class="vns__actions">
-          <button class="ew-btn ew-btn--ghost" type="button" (click)="onCancel()">Cancelar</button>
+          <button class="ew-btn ew-btn--ghost" type="button" (click)="onCancel()">Cancel</button>
           <button class="ew-btn ew-btn--primary" type="submit" [disabled]="saving()">
-            {{ saving() ? 'Salvando...' : 'Salvar' }}
+            {{ saving() ? 'Saving...' : 'Save' }}
           </button>
         </div>
       </form>
@@ -36,7 +36,7 @@
     @if (detail().details; as details) {
       <p class="vns__text">{{ details }}</p>
     } @else {
-      <p class="vns__empty">Sem notas.</p>
+      <p class="vns__empty">No notes.</p>
     }
   }
 </div>

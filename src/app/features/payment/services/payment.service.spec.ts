@@ -112,7 +112,7 @@ describe('PaymentService', () => {
     const httpRequest = httpMock.expectOne('/api/pay?walletId=wallet-1');
     httpRequest.flush({ message: 'Conflict' }, { status: 409, statusText: 'Conflict' });
 
-    expect(errors.at(-1)).toBe('Não foi possível registrar o pagamento.');
+    expect(errors.at(-1)).toBe('Could not record the payment.');
   });
 
   describe('revert', () => {
@@ -154,14 +154,14 @@ describe('PaymentService', () => {
         .expectOne('/api/payments/payment-1/revert')
         .flush({ message: 'boom' }, { status: 500, statusText: 'Server Error' });
 
-      expect(errors.at(-1)).toBe('Não foi possível reverter o pagamento.');
+      expect(errors.at(-1)).toBe('Could not revert the payment.');
     });
 
     it.each([
-      ['SHARED_PAYMENT', 'Pagamentos compartilhados são revertidos pela tela de Share.'],
-      ['ALREADY_A_REVERSAL', 'Este pagamento já é uma reversão e não pode ser revertido novamente.'],
-      ['ALREADY_REVERTED', 'Este pagamento já foi revertido anteriormente.'],
-      ['NO_BULLET', 'Este pagamento não está vinculado a um bullet e não pode ser revertido.'],
+      ['SHARED_PAYMENT', 'Shared payments are reverted from the Share screen.'],
+      ['ALREADY_A_REVERSAL', 'This payment is already a reversal and cannot be reverted again.'],
+      ['ALREADY_REVERTED', 'This payment has already been reverted.'],
+      ['NO_BULLET', 'This payment is not linked to a bullet and cannot be reverted.'],
     ])('should map the 422 reason %s to a specific message', (reason, expected) => {
       const errors: (string | null)[] = [];
       service.error$.subscribe((value) => errors.push(value));
