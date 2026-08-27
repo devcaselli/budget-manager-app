@@ -49,6 +49,13 @@
 
 // Inner container caps at the same 1240px column as `.ew-content` below, so the
 // topbar's controls and the page content line up on wide screens (P0-2 fix).
+//
+// The horizontal padding MUST stay identical to `.ew-content`'s (same clamp
+// scale, see the "Content area" section below). It was previously a fixed
+// `36px` against the content's `clamp(28px, 3.6vw, 72px)`, so the breadcrumb
+// and the page title only agreed at narrow viewports and drifted up to 36px
+// apart on wide ones — the topbar column and the content column were literally
+// different widths.
 .ew-topbar-inner {
   display: flex;
   align-items: center;
@@ -57,7 +64,9 @@
   width: 100%;
   max-width: 1240px;
   margin: 0 auto;
-  padding: 0 36px;
+  padding: 0 clamp(28px, 3.6vw, 72px);
+  // Anchors `.ew-side-expand` (below) without taking it out of the page flow.
+  position: relative;
 }
 
 .ew-crumb {
@@ -905,8 +914,11 @@
     padding: 0;
   }
 
+  // Horizontal padding stays tied to `.ew-content`'s clamp (28px at this
+  // breakpoint) so the topbar/content columns keep matching here too; only the
+  // vertical padding and gap tighten for tablet.
   .ew-topbar-inner {
-    padding: 12px 20px;
+    padding: 12px clamp(28px, 3.6vw, 72px);
     gap: 10px;
   }
 
@@ -984,6 +996,12 @@
 
   .ew-content {
     padding: 22px 18px 40px;
+  }
+
+  // Match `.ew-content`'s 18px inset at this breakpoint — otherwise the topbar
+  // would inherit the 1024px rule's 28px and reintroduce the column mismatch.
+  .ew-topbar-inner {
+    padding: 12px 18px;
   }
 
   .ew-ticker {

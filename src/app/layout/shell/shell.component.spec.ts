@@ -352,6 +352,57 @@ describe('ShellComponent — desktop sidebar collapse (D4)', () => {
     expect(expandButton()).toBeFalsy();
     expect(localStorage.getItem('bm_sidebar_hidden')).toBe('off');
   });
+
+  // ── Collapse-alignment regression (Item 2, open since Round 5) ──────────────
+  // The topbar and the page content visibly disagreed on where the shared
+  // column starts once the sidebar collapsed. Two independent causes, both
+  // guarded here. jsdom does no real layout, so these assert the STRUCTURAL
+  // invariants that produced the drift rather than pixel geometry — the pixel
+  // proof lives in the browser verification for this fix.
+  describe('topbar/content column alignment', () => {
+    function topbarInner(): HTMLElement {
+      return fixture.nativeElement.querySelector('.ew-topbar-inner');
+    }
+
+    it('keeps the breadcrumb as the first in-flow topbar child when collapsed', () => {
+      // Cause #1: `.ew-side-expand` used to be a normal flex child, so showing
+      // it pushed the breadcrumb (and every control after it) 36px + 14px gap
+      // = 50px to the right while `.ew-content` below stayed put. It must stay
+      // out of flow so the flex row is identical in both states.
+      const crumbIndexExpanded = Array.from(topbarInner().children).indexOf(
+        fixture.nativeElement.querySelector('.ew-crumb'),
+      );
+
+      collapseButton()?.dispatchEvent(new MouseEvent('click'));
+      fixture.detectChanges();
+
+      const expand = expandButton();
+      expect(expand).toBeTruthy();
+      // The button renders inside the topbar, but positioned — never displacing siblings.
+      expect(expand!.parentElement).toBe(topbarInner());
+
+      const crumbIndexCollapsed = Array.from(topbarInner().children).indexOf(
+        fixture.nativeElement.querySelector('.ew-crumb'),
+      );
+      // The breadcrumb gains exactly one preceding sibling (the absolutely
+      // positioned button); anything more means it was pushed in flow again.
+      expect(crumbIndexCollapsed).toBe(crumbIndexExpanded + 1);
+    });
+
+    it('renders the expand button before the breadcrumb so it occupies the left gutter', () => {
+      collapseButton()?.dispatchEvent(new MouseEvent('click'));
+      fixture.detectChanges();
+
+      const children = Array.from(topbarInner().children);
+      const expandIdx = children.indexOf(expandButton()!);
+      const crumbIdx = children.indexOf(
+        fixture.nativeElement.querySelector('.ew-crumb'),
+      );
+
+      expect(expandIdx).toBeGreaterThanOrEqual(0);
+      expect(expandIdx).toBeLessThan(crumbIdx);
+    });
+  });
 });
 
 describe('ShellComponent — recenter tweaks panel', () => {

@@ -1893,7 +1893,24 @@ body.ew-privacy {
 // Post-epic-audit P3-6: moved from a `position:fixed` button floating outside the
 // topbar to a real in-topbar control, left of the breadcrumb — matches the design's
 // 36px hamburger trigger (3 bars, shown only while the sidebar is collapsed).
+// Collapse-alignment fix: this button is rendered only while the sidebar is
+// hidden. As a normal flex child of `.ew-topbar-inner` it CONSUMED LAYOUT WIDTH
+// (36px button + 14px flex gap = 50px), shoving the breadcrumb — and every
+// control after it — 50px right the moment the sidebar collapsed, while
+// `.ew-content` below stayed put. That 50px swing, not the sidebar track
+// itself, is what made the topbar and the page content visibly disagree.
+//
+// Taking it out of flow (absolute, anchored to the `position:relative` on
+// `.ew-topbar-inner`) keeps the topbar's flex row byte-identical in both
+// states, so the breadcrumb holds the same x as the page title either way.
+// It sits in the left gutter — the padding is >= 28px at every breakpoint and
+// the sidebar rail is gone in this state, so there is room and nothing to
+// overlap.
 .ew-side-expand {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
   width: 36px;
   height: 36px;
   flex: 0 0 36px;
