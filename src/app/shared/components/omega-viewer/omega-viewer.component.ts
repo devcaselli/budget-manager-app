@@ -312,6 +312,70 @@ export class OmegaViewerComponent {
     });
   });
 
+  /**
+   * D11: the design's modal header is a title + mono caption pair (`Expense` / `CYCLE 2026-09`),
+   * not a bare title. The caption is the kind of record being viewed, which is the stable,
+   * always-available fact about this dialog — the design's literal "CYCLE 2026-09" is bound to
+   * the cycle the expense list was filtered by, and the viewer is reachable from contexts
+   * (page-flip through links, deep-link by ref) that carry no cycle, so keying the caption to
+   * `kind` is the honest equivalent rather than fabricating a cycle string.
+   *
+   * Falls back to a neutral label while the detail is still loading or errored, so the header
+   * never flashes an empty line.
+   */
+  protected readonly headerSubtitle = computed<string>(() => {
+    const detail = this.readyDetail();
+    if (!detail) {
+      return 'LOADING';
+    }
+
+    switch (detail.kind) {
+      case 'EXPENSE':
+        return 'EXPENSE';
+      case 'INSTALLMENT':
+        return 'INSTALLMENT';
+      case 'SUBSCRIPTION':
+        return 'SUBSCRIPTION';
+      case 'RESERVED_BUDGET_MIGRATION':
+        return 'RESERVED BUDGET MIGRATION';
+    }
+  });
+
+  /**
+   * D11: the design's details block leads with a name → large mono amount hierarchy
+   * (`font-size:26px`, JetBrains Mono) above the label/value rows, rather than flattening the
+   * primary amount into just another field-list row.
+   *
+   * The "primary" amount is per-kind, matching what the design's `curShown` shows:
+   *   - Expense       → open balance (`remaining`), the figure the cycle still owes.
+   *   - Installment   → the per-charge `installmentValue`.
+   *   - Migration     → the migrated `amount`.
+   *   - Subscription  → `null`. This kind carries no single amount field on its detail shape
+   *     at all (only `currency`/`state`), so there is nothing honest to show — the same
+   *     explicit per-kind guard used by `mapRemainingBadge`, not a `default:` that would
+   *     invent or coerce a number. The template omits the display entirely in that case.
+   *
+   * The amount stays in the field list as well: it is a distinct, labelled row there
+   * ("Open balance"/"Installment cost"), and the design keeps its detail rows intact too.
+   */
+  protected readonly headlineAmount = computed<string | null>(() => {
+    const detail = this.readyDetail();
+    if (!detail) {
+      return null;
+    }
+
+    switch (detail.kind) {
+      case 'EXPENSE':
+        return formatBrl(detail.remaining);
+      case 'INSTALLMENT':
+        return formatBrl(detail.installmentValue);
+      case 'RESERVED_BUDGET_MIGRATION':
+        return formatBrl(detail.amount);
+      case 'SUBSCRIPTION':
+        return null;
+    }
+  });
+
   /** F-12: installments-remaining badge state — `0` (fully paid) and `null` (not
    * installment-linked) are kept as distinct union members all the way to the template. */
   protected readonly remainingBadge = computed<OmegaViewerRemainingBadge>(() => {

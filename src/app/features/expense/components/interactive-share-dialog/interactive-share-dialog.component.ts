@@ -74,6 +74,22 @@ type WizardStep = 0 | 1 | 2;
 
 const STEP_LABELS = ['Payer', 'Amount', 'Done'] as const;
 
+/**
+ * First letter of a payer name, upper-cased, for the design's initial-avatar disc.
+ *
+ * Uses the spread form rather than `name[0]`, so a name whose first character is outside the
+ * BMP (an emoji, some scripts) yields the whole code point instead of a broken half of a
+ * surrogate pair. Falls back to '?' for an empty/placeholder name — the same character the
+ * design's own `(s.splitPayer || '?')[0]` falls back to.
+ */
+function payerInitialOf(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed === '' || trimmed === '—') {
+    return '?';
+  }
+  return ([...trimmed][0] ?? '?').toUpperCase();
+}
+
 @Component({
   selector: 'app-interactive-share-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -161,6 +177,24 @@ export class InteractiveShareDialogComponent {
         return this.selectedPayer()?.name ?? '—';
     }
   });
+
+  /**
+   * D11: the design identifies a payer by an initial-avatar disc (a circle carrying the first
+   * letter of the name) in both step 1's list and step 2's confirmation chip, rather than a
+   * generic person glyph. Rendering is `aria-hidden` in the template — the full name always
+   * sits next to it, so the initial is decoration and must not be announced twice.
+   */
+  protected readonly payerInitial = computed(() => payerInitialOf(this.payerDisplayName()));
+
+  /**
+   * Per-row initial for step 1's payer list. A plain O(1) string call, not a signal: it is
+   * keyed by the row's own name rather than component state, and `data.payers` is a fixed
+   * readonly input that never changes for the life of the dialog, so there is nothing to
+   * memoize across change-detection runs.
+   */
+  protected payerInitialFor(name: string): string {
+    return payerInitialOf(name);
+  }
 
   protected readonly isSaving = toSignal(this.shareService.saving$, { initialValue: false });
   protected readonly isSavingPayer = toSignal(this.payerService.saving$, { initialValue: false });

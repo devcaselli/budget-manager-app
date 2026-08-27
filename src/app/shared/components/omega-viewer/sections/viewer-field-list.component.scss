@@ -34,14 +34,18 @@
   color: var(--ew-ink-3);
   font-family: var(--ew-mono);
   font-size: 9px;
-  letter-spacing: 0.06em;
+  // D11: design's detail-row label tracking is .14em (was .06em).
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
+// D11: design right-aligns the VALUE against the fixed label column, giving the rows a
+// clean trailing edge — these were left-aligned.
 .vfl__value {
   margin: 0;
   color: var(--ew-ink);
   font-family: var(--ew-sans);
   font-size: 14px;
+  text-align: right;
   word-break: break-word;
 }

@@ -5,14 +5,17 @@
         <button
           class="ew-btn ew-btn--ghost ovw__back"
           type="button"
-          aria-label="Voltar"
+          aria-label="Back"
           (click)="goBack()"
         >
           <mat-icon aria-hidden="true">arrow_back</mat-icon>
-          Voltar
+          Back
         </button>
       }
-      <h2 class="ovw__title">Details</h2>
+      <div>
+        <h2 class="ovw__title">Details</h2>
+        <p class="ovw__subtitle">{{ headerSubtitle() }}</p>
+      </div>
     </div>
     <button class="ovw__close" type="button" aria-label="Close" (click)="close()">×</button>
   </div>
@@ -24,13 +27,13 @@
   <mat-dialog-content class="ovw__body">
     @switch (detailState().status) {
       @case ('loading') {
-        <div class="ew-empty">Carregando...</div>
+        <div class="ew-empty">Loading…</div>
       }
       @case ('error') {
         <div class="ew-alert" role="alert">
           <span>Could not load the details.</span>
           <button class="ew-btn ew-btn--ghost" type="button" (click)="retry()">
-            Tentar novamente
+            Try again
           </button>
         </div>
       }
@@ -39,27 +42,36 @@
           <div class="ovw__flip" [class.ovw__flip--anim]="animateFlip()">
             @if (detail.audit?.deletedAt) {
               <div class="ew-alert" role="alert">
-                <span>Item excluído.</span>
+                <span>Item deleted.</span>
               </div>
             }
 
             <div class="ovw__title-row">
-              @switch (detail.kind) {
-                @case ('EXPENSE') {
-                  <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.name }}</h3>
+              <div class="ovw__title-block">
+                @switch (detail.kind) {
+                  @case ('EXPENSE') {
+                    <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.name }}</h3>
+                  }
+                  @case ('INSTALLMENT') {
+                    <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
+                  }
+                  @case ('SUBSCRIPTION') {
+                    <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
+                  }
+                  @case ('RESERVED_BUDGET_MIGRATION') {
+                    <h3 class="ovw__item-title" #titleEl tabindex="-1">
+                      {{ detail.description ?? ('Migration · ' + detail.bulletDescription) }}
+                    </h3>
+                  }
                 }
-                @case ('INSTALLMENT') {
-                  <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
+
+                <!-- D11: SUBSCRIPTION has no single amount on its detail shape, so
+                     `headlineAmount()` is null there and this display is omitted rather
+                     than rendering an empty or invented figure. -->
+                @if (headlineAmount(); as amount) {
+                  <p class="ovw__item-amount ew-blur">{{ amount }}</p>
                 }
-                @case ('SUBSCRIPTION') {
-                  <h3 class="ovw__item-title" #titleEl tabindex="-1">{{ detail.description }}</h3>
-                }
-                @case ('RESERVED_BUDGET_MIGRATION') {
-                  <h3 class="ovw__item-title" #titleEl tabindex="-1">
-                    {{ detail.description ?? ('Migration · ' + detail.bulletDescription) }}
-                  </h3>
-                }
-              }
+              </div>
 
               @if (detail.kind === 'EXPENSE' && mode() === 'VIEW' && !detail.audit?.deletedAt) {
                 <button
@@ -144,7 +156,7 @@
 
               @if (detail.links.length > 0) {
                 <div class="ovw__links">
-                  <h4 class="ovw__links-title">Itens relacionados</h4>
+                  <h4 class="ovw__links-title">Related items</h4>
                   @for (link of detail.links; track link.ref.kind + link.ref.id) {
                     <button
                       class="ew-btn ew-btn--ghost ovw__link-row"
@@ -160,7 +172,7 @@
 
               @if (detail.audit; as audit) {
                 <p class="ovw__audit">
-                  Criado em {{ audit.createdAt | brDate }} · Atualizado em
+                  Created {{ audit.createdAt | brDate }} · Updated
                   {{ audit.updatedAt | brDate }}
                 </p>
               }

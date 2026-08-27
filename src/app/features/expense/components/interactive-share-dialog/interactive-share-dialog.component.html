@@ -13,8 +13,12 @@
   aria-valuemin="1"
   aria-valuemax="3"
 >
+  <!-- D11: design renders one independent bar PER step (filled once that step is
+       reached), not a single continuous track with a percentage fill. -->
   <div class="isd__progress-track">
-    <div class="isd__progress-fill" [style.width.%]="((currentStep() + 1) / 3) * 100"></div>
+    @for (label of stepLabels; track label; let i = $index) {
+      <span class="isd__progress-seg" [class.is-filled]="currentStep() >= i"></span>
+    }
   </div>
   <div class="isd__progress-steps">
     @for (label of stepLabels; track label; let i = $index) {
@@ -64,6 +68,9 @@
                 @for (payer of data.payers; track payer.id) {
                   <li>
                     <button type="button" class="isd__payer-option" (click)="selectPayer(payer.id)">
+                      <!-- D11: initial-avatar disc. Decorative — the full name follows it,
+                           so it must not be announced as separate content. -->
+                      <span class="isd__avatar" aria-hidden="true">{{ payerInitialFor(payer.name) }}</span>
                       <span class="isd__payer-name">{{ payer.name }}</span>
                       <mat-icon aria-hidden="true">chevron_right</mat-icon>
                     </button>
@@ -125,7 +132,9 @@
     @case (1) {
       <form class="isd__step isd__step--amount" [formGroup]="form" (ngSubmit)="submit()">
         <p class="isd__payer-chip">
-          <mat-icon aria-hidden="true">person</mat-icon> {{ payerDisplayName() }}
+          <!-- D11: initial-avatar disc replaces the generic person glyph, matching step 1. -->
+          <span class="isd__avatar isd__avatar--sm" aria-hidden="true">{{ payerInitial() }}</span>
+          {{ payerDisplayName() }}
           <button type="button" class="isd__chip-edit" (click)="goBackToPayer()">change</button>
         </p>
 
@@ -211,6 +220,14 @@
           (click)="continueNewPayer()"
         >Continue</button>
       }
+      <!-- D11: in EXISTING mode the design still shows the primary action, disabled, so the
+           footer keeps a stable shape across the three modes and the step reads as
+           "blocked until you pick", rather than the button vanishing entirely. Selecting a
+           payer in this mode advances the wizard directly from the list row, so this button
+           is an affordance/label only and is never enabled. -->
+      @if (modeValue() === 'EXISTING') {
+        <button class="ew-btn ew-btn--primary" type="button" disabled>Select a payer</button>
+      }
     }
     @case (1) {
       <button class="ew-btn ew-btn--ghost" type="button" (click)="goBackToPayer()">Back</button>
@@ -221,7 +238,7 @@
         (click)="submit()"
       >
         <mat-icon aria-hidden="true">groups</mat-icon>
-        {{ (isSaving() || isSavingPayer()) ? 'Saving…' : 'Confirm split' }}
+        {{ (isSaving() || isSavingPayer()) ? 'Saving…' : 'Create share' }}
       </button>
     }
     @case (2) {

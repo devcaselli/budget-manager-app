@@ -125,6 +125,16 @@
     color: var(--ew-ink);
   }
 
+  // D11: this local `.ew-btn` guarded every hover with `:not(:disabled)` but never styled
+  // the disabled state itself, so a disabled primary rendered at full accent with a
+  // pointer cursor — indistinguishable from an enabled one. Caught by screenshotting the
+  // real dialog; the DOM `disabled` property was correct all along, which is exactly what
+  // a property-only assertion would have (wrongly) passed on.
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
   mat-icon {
     font-size: 16px;
     width: 16px;
@@ -155,27 +165,34 @@
   padding: 0 28px 18px;
 }
 
+// D11: three independent segments (design: `flex:1;height:3px`, 6px apart), each filled
+// with the accent once its step is reached — replaces the single continuous track+fill.
 .isd__progress-track {
-  height: 4px;
-  border-radius: 99px;
-  background: var(--ew-line);
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.isd__progress-fill {
-  height: 100%;
-  background: var(--ew-acc);
+.isd__progress-seg {
+  flex: 1;
+  height: 3px;
   border-radius: 99px;
-  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--ew-line);
+  transition: background 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.is-filled {
+    background: var(--ew-acc);
+  }
 }
 
 .isd__progress-steps {
   display: flex;
   justify-content: space-between;
+  // D11: design's step caption scale is mono 9.5px at .12em (was 10px/.08em).
   margin-top: 8px;
   font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ew-ink-3);
 }
@@ -246,6 +263,30 @@
 
 // ── Payer list (step 0) ──────────────────────────────────────────────────
 
+// D11: initial-avatar disc (design: 32px in the step-1 list, 30px in the step-2 chip,
+// accent-soft ground with accent-deep ink). Both tokens are theme-scoped, so the disc
+// re-colours correctly in dark mode rather than carrying a baked light-mode colour.
+.isd__avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 999px;
+  background: var(--ew-acc-soft);
+  color: var(--ew-acc-deep);
+  display: inline-grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.isd__avatar--sm {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  font-size: 12px;
+}
+
 .isd__payer-list {
   display: grid;
   gap: 8px;
@@ -254,11 +295,15 @@
   padding: 0;
 }
 
+// D11: now a 3-item row (avatar · name · chevron). `space-between` would strand the avatar
+// against the left edge, so the NAME flexes instead (design: `flex:1` on the name) and the
+// gap does the spacing — keeping the disc tight against the label it belongs to.
 .isd__payer-option {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid var(--ew-line-2);
@@ -282,6 +327,13 @@
   }
 }
 
+// Takes the free space so the trailing chevron stays pinned right (design: `flex:1`).
+.isd__payer-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+
 .isd__transient-form {
   display: grid;
   gap: 12px;
@@ -292,8 +344,9 @@
 .isd__payer-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  // D11: 10px to clear the initial-avatar disc that replaced the 16px person glyph.
+  gap: 10px;
+  font-size: 14.5px;
   color: var(--ew-ink-2);
 
   mat-icon {
@@ -349,7 +402,10 @@
   gap: 6px;
   padding: 14px 16px;
   border-radius: 12px;
-  background: var(--ew-line);
+  // D11: `--ew-line` is a BORDER-family token (it maps to `--line`); using it as a panel
+  // ground is semantically wrong and leaves the box the same value as the rules around it.
+  // The design's preview panel sits on the surface-2 ground — `--ew-bg-2` here.
+  background: var(--ew-bg-2);
   margin-top: 16px;
 }
 

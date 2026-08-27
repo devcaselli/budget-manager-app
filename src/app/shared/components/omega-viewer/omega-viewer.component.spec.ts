@@ -328,8 +328,8 @@ describe('OmegaViewerComponent — audit metadata + deleted strip (F-13)', () =>
     const text =
       (fixture.nativeElement as HTMLElement).querySelector('.ovw__audit')?.textContent ?? '';
 
-    expect(text).toContain('Criado em');
-    expect(text).toContain('Atualizado em');
+    expect(text).toContain('Created');
+    expect(text).toContain('Updated');
     // BrDatePipe formats as pt-BR dd/mm/yyyy — exercise the real pipe, not a stub.
     expect(text).toContain('01/01/2026');
     expect(text).toContain('15/02/2026');

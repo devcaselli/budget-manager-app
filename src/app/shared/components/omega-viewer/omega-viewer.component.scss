@@ -31,14 +31,26 @@
   padding: 7px 14px;
 }
 
+// D11: design's modal header is serif 23px/1.15 at -.015em, with a mono 9.5px/.14em caption
+// under it — this header was 28px/1 at -.02em with no caption at all. Same spec the already
+// corrected dialogs (expense-payment, expense-create, …) were brought to in 8f21d33.
 .ovw__title {
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 28px;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   font-weight: 500;
   color: var(--ew-ink);
+}
+
+.ovw__subtitle {
+  margin: 8px 0 0;
+  font-family: var(--ew-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
 }
 
 .ovw__close {
@@ -75,11 +87,14 @@
   border-top: 1px solid var(--ew-line);
 }
 
+// D11: the design renders the item NAME in the sans face at 19px/600 (the serif is reserved
+// for the modal's own header title), and follows it with a large mono amount. This was serif
+// 22px/500 — the serif face leaking down from the header onto the record name.
 .ovw__item-title {
   margin: 0;
-  font-family: var(--ew-serif);
-  font-size: 22px;
-  font-weight: 500;
+  font-family: var(--ew-sans);
+  font-size: 19px;
+  font-weight: 600;
   letter-spacing: -0.015em;
   color: var(--ew-ink);
 
@@ -93,12 +108,28 @@
 }
 
 // ── Edit mode entry point (F-07) ─────────────────────────────────────────────
+// D11: design aligns the Edit button to the TOP of the name/amount block
+// (`align-items:flex-start`), not centred against a now two-line block.
 .ovw__title-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
+}
+
+.ovw__title-block {
+  flex: 1;
+  min-width: 0;
+}
+
+// D11: the design's headline amount — mono 26px, 8px below the name.
+.ovw__item-amount {
+  margin: 8px 0 0;
+  font-family: var(--ew-mono);
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--ew-ink);
 }
 
 .ovw__edit-btn {
