@@ -273,7 +273,7 @@ describe('ViewerEditFormComponent', () => {
     it('minCostMessage falls back to the generic message when nothing has been paid', async () => {
       await setup(buildExpenseDetail({ cost: 100, remaining: 100 })); // paidAmount = 0
 
-      expect(component['minCostMessage']()).toBe('Informe um valor maior que zero.');
+      expect(component['minCostMessage']()).toBe('Enter a cost greater than zero.');
     });
   });
 

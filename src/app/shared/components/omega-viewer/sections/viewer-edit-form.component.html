@@ -6,15 +6,15 @@
   }
 
   <div class="ew-field">
-    <label for="vef-name">Descrição</label>
+    <label for="vef-name">Name</label>
     <input id="vef-name" class="ew-input ew-input--boxed" formControlName="name" placeholder="e.g. Mercado" />
     @if (form.controls.name.touched && form.controls.name.invalid) {
-      <p class="vef__error">Informe uma descrição.</p>
+      <p class="vef__error">Enter a name.</p>
     }
   </div>
 
   <div class="ew-field">
-    <label for="vef-cost">Valor</label>
+    <label for="vef-cost">Cost</label>
     <input
       id="vef-cost"
       class="ew-input ew-input--boxed ew-input--money"
@@ -29,17 +29,17 @@
   </div>
 
   <div class="ew-field">
-    <label for="vef-date">Data</label>
+    <label for="vef-date">Purchase date</label>
     <input id="vef-date" class="ew-input ew-input--boxed" type="date" formControlName="purchaseDate" />
     @if (form.controls.purchaseDate.touched && form.controls.purchaseDate.invalid) {
-      <p class="vef__error">Informe uma data.</p>
+      <p class="vef__error">Enter a purchase date.</p>
     }
   </div>
 
   <div class="ew-field">
-    <label for="vef-card">Cartão</label>
+    <label for="vef-card">Credit card</label>
     <select id="vef-card" class="ew-select ew-select--boxed" formControlName="creditCardId">
-      <option value="">— Dinheiro / débito —</option>
+      <option value="">— Cash / debit —</option>
       @for (card of creditCards(); track card.id) {
         <option [value]="card.id">{{ card.name }}</option>
       }
@@ -47,14 +47,14 @@
   </div>
 
   <div class="ew-field">
-    <label for="vef-details">Detalhes</label>
+    <label for="vef-details">Details</label>
     <textarea id="vef-details" class="ew-textarea" formControlName="details" rows="3"></textarea>
   </div>
 
   <div class="vef__actions">
-    <button class="ew-btn ew-btn--ghost" type="button" (click)="onCancel()">Cancelar</button>
+    <button class="ew-btn ew-btn--ghost" type="button" (click)="onCancel()">Cancel</button>
     <button class="ew-btn ew-btn--primary" type="submit" [disabled]="saving()">
-      {{ saving() ? 'Salvando...' : 'Salvar' }}
+      {{ saving() ? 'Saving...' : 'Save' }}
     </button>
   </div>
 </form>
