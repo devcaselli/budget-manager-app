@@ -5,9 +5,27 @@
   gap: 14px;
   border-bottom: 1px solid var(--ew-line);
 
+  // `[mat-dialog-title]` also carries Material's own global `.mat-mdc-dialog-title`
+  // class (added by the `MatDialogTitle` directive's `hostAttrs`), which ships
+  // `display: block` at the same (0,1,0) specificity as our base `display: flex`
+  // above — a tie that Material's rule can win on injection order alone (its
+  // dialog-module styles are injected via JS, and can land after this component's
+  // styles depending on which lazy chunk first instantiates a dialog). Repeating
+  // `display: flex` inside this higher-specificity (0,2,0) compound selector makes
+  // the flex layout win unconditionally instead of depending on load order.
+  // Material's title also inserts a `::before` baseline strut (`inline-block;
+  // width:0; height:40px`) meant for its own block/inline layout — inside our flex
+  // row it becomes an invisible phantom flex item, and `justify-content:space-between`
+  // then splits its free space across 3 items instead of 2, dragging the title
+  // block away from the true left edge. Suppressing it keeps our 2-item row intact.
   &[mat-dialog-title] {
+    display: flex;
     margin: 0;
     padding: 26px 28px 18px;
+
+    &::before {
+      content: none;
+    }
   }
 }
 

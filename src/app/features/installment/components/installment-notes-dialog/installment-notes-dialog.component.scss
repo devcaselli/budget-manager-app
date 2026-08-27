@@ -6,7 +6,17 @@
 
   &[mat-dialog-title] {
     margin: 0;
+    display: flex;
     padding: 24px 28px 18px;
+
+    // `[mat-dialog-title]` also carries Material's own global `.mat-mdc-dialog-title`
+    // class at the same (0,1,0) specificity as this component's base `display: flex` —
+    // see expense-filters-dialog.component.scss for the full race-condition writeup.
+    // Repeating `display: flex` here (0,2,0) wins unconditionally, and suppressing the
+    // injected `::before` baseline strut keeps this a clean 2-item flex row.
+    &::before {
+      content: none;
+    }
   }
 }
 
