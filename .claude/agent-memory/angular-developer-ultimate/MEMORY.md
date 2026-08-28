@@ -1,0 +1,2 @@
+- [Between-tasks checkpoint](feedback_between_tasks_checkpoint.md) — commit + Obsidian doc + auto-compactor check + ask before next task, after EACH task in a todo-list, not just at the end.
+- [Verify minor-developer test claims](feedback_verify_minor_developer_test_claims.md) — always re-run the full suite yourself in the minor→ultimate review chain; don't trust reported pass/fail counts.
