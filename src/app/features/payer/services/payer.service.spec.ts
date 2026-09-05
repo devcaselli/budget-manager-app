@@ -59,6 +59,29 @@ describe('PayerService', () => {
     expect(emitted.at(-1)).toEqual(payers);
   });
 
+  // Regression (2026-09-05, Victor's report — "Total Due ainda está aparecendo
+  // o último total due e não baseando-se no mês"): a fast wallet ("month")
+  // switch used to let the OLD wallet's in-flight GET resolve after the NEW
+  // wallet's, silently overwriting payers$ with the wrong month's data.
+  it('cancels a stale in-flight request when the wallet changes before it resolves', () => {
+    const emitted: (readonly Payer[])[] = [];
+    service.payers$.subscribe((v) => emitted.push(v));
+
+    service.loadByWalletId('wallet-old');
+    service.loadByWalletId('wallet-new');
+
+    // switchMap unsubscribes from wallet-old's request the instant wallet-new
+    // is requested — its HTTP call is marked cancelled and can no longer
+    // update payers$, even if a late/misordered response were to arrive.
+    const reqOld = httpMock.expectOne('/api/wallets/wallet-old/payers');
+    expect(reqOld.cancelled).toBe(true);
+    const reqNew = httpMock.expectOne('/api/wallets/wallet-new/payers');
+
+    reqNew.flush([makePayer({ id: 'payer-new', amountDue: 250 })]);
+
+    expect(emitted.at(-1)).toEqual([makePayer({ id: 'payer-new', amountDue: 250 })]);
+  });
+
   it('sets error$ when loading fails', () => {
     const errors: (string | null)[] = [];
     service.error$.subscribe((v) => errors.push(v));

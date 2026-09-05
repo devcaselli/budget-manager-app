@@ -6,7 +6,10 @@ import {
   EMPTY,
   finalize,
   Observable,
+  of,
   ReplaySubject,
+  Subject,
+  switchMap,
   tap,
 } from 'rxjs';
 
@@ -31,6 +34,7 @@ export class ShareService {
   private readonly walletSharesSubject = new BehaviorSubject<readonly Share[]>([]);
   private readonly walletSharesLoadingSubject = new BehaviorSubject(false);
   private readonly walletSharesErrorSubject = new BehaviorSubject<string | null>(null);
+  private readonly loadByWalletIdTrigger$ = new Subject<string | null>();
 
   readonly shares$ = this.sharesSubject.asObservable();
   readonly loading$ = this.loadingSubject.asObservable();
@@ -41,6 +45,44 @@ export class ShareService {
   readonly walletShares$ = this.walletSharesSubject.asObservable();
   readonly walletSharesLoading$ = this.walletSharesLoadingSubject.asObservable();
   readonly walletSharesError$ = this.walletSharesErrorSubject.asObservable();
+
+  constructor() {
+    /**
+     * Bug fix (2026-09-05, Victor's report — Payers screen "Total Due" showing
+     * a stale, previous-month value): same root cause as
+     * `PayerService.loadByWalletId` — this used to fire an independent
+     * `.subscribe()` per call with no cancellation, so a fast wallet (month)
+     * switch could let the OLD wallet's `GET /wallets/{id}/shares` resolve
+     * AFTER the NEW wallet's, overwriting `walletSharesSubject` with the
+     * previous month's shares. `switchMap` cancels the stale in-flight
+     * request the instant a new `walletId` is requested.
+     */
+    this.loadByWalletIdTrigger$
+      .pipe(
+        tap(() => {
+          this.walletSharesLoadingSubject.next(true);
+          this.walletSharesErrorSubject.next(null);
+        }),
+        switchMap((walletId) => {
+          if (!walletId) {
+            this.walletSharesSubject.next([]);
+            this.walletSharesLoadingSubject.next(false);
+            return EMPTY;
+          }
+          return this.http.get<Share[]>(`${this.walletsUrl}/${walletId}/shares`).pipe(
+            tap((shares) => this.walletSharesSubject.next(shares)),
+            catchError(() => {
+              this.walletSharesErrorSubject.next(
+                'Não foi possível carregar os compartilhamentos da carteira.',
+              );
+              return of(null);
+            }),
+            finalize(() => this.walletSharesLoadingSubject.next(false)),
+          );
+        }),
+      )
+      .subscribe();
+  }
 
   /**
    * Loads ALL of the authenticated owner's shares — ACTIVE and REVERTED, across every
@@ -87,26 +129,7 @@ export class ShareService {
    * state (both sources are polled independently by the Active tab).
    */
   loadByWalletId(walletId: string | null): void {
-    this.walletSharesLoadingSubject.next(true);
-    this.walletSharesErrorSubject.next(null);
-
-    if (!walletId) {
-      this.walletSharesSubject.next([]);
-      this.walletSharesLoadingSubject.next(false);
-      return;
-    }
-
-    this.http
-      .get<Share[]>(`${this.walletsUrl}/${walletId}/shares`)
-      .pipe(
-        tap((shares) => this.walletSharesSubject.next(shares)),
-        catchError(() => {
-          this.walletSharesErrorSubject.next('Não foi possível carregar os compartilhamentos da carteira.');
-          return EMPTY;
-        }),
-        finalize(() => this.walletSharesLoadingSubject.next(false)),
-      )
-      .subscribe();
+    this.loadByWalletIdTrigger$.next(walletId);
   }
 
   create(request: CreateShareRequest): Observable<Share> {

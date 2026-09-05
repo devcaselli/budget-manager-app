@@ -6,7 +6,10 @@ import {
   EMPTY,
   finalize,
   Observable,
+  of,
   ReplaySubject,
+  Subject,
+  switchMap,
   tap,
 } from 'rxjs';
 
@@ -24,6 +27,7 @@ export class PayerService {
   private readonly savingSubject = new BehaviorSubject(false);
   private readonly deletingSubject = new BehaviorSubject<string | null>(null);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
+  private readonly loadByWalletIdTrigger$ = new Subject<string | null>();
 
   readonly payers$ = this.payersSubject.asObservable();
   readonly loading$ = this.loadingSubject.asObservable();
@@ -31,27 +35,49 @@ export class PayerService {
   readonly deleting$ = this.deletingSubject.asObservable();
   readonly error$ = this.errorSubject.asObservable();
 
-  loadByWalletId(walletId: string | null): void {
-    this.loadingSubject.next(true);
-    this.errorSubject.next(null);
-
-    if (!walletId) {
-      this.payersSubject.next([]);
-      this.loadingSubject.next(false);
-      return;
-    }
-
-    this.http
-      .get<Payer[]>(`${this.walletsUrl}/${walletId}/payers`)
+  constructor() {
+    /**
+     * Bug fix (2026-09-05, Victor's report — "Total Due ainda está aparecendo
+     * o último total due e não baseando-se no mês"): `loadByWalletId` used to
+     * fire an independent `.subscribe()` per call with no cancellation of the
+     * previous in-flight request. Switching wallets (= switching "month" in
+     * this app) fast enough that the OLD wallet's GET resolves AFTER the NEW
+     * wallet's GET let the stale response win the race and silently overwrite
+     * `payersSubject` with the previous month's `amountDue` values — the
+     * header (and list) would show "the last" total instead of the one for
+     * the currently selected wallet. `switchMap` cancels the previous
+     * request's subscription the instant a new `walletId` comes in, so only
+     * the most-recently-requested wallet's response can ever land, same
+     * pattern `WalletService.selectWalletTrigger$` already uses for exactly
+     * this reason.
+     */
+    this.loadByWalletIdTrigger$
       .pipe(
-        tap((payers) => this.payersSubject.next(payers)),
-        catchError(() => {
-          this.errorSubject.next('Não foi possível carregar os payers.');
-          return EMPTY;
+        tap(() => {
+          this.loadingSubject.next(true);
+          this.errorSubject.next(null);
         }),
-        finalize(() => this.loadingSubject.next(false)),
+        switchMap((walletId) => {
+          if (!walletId) {
+            this.payersSubject.next([]);
+            this.loadingSubject.next(false);
+            return EMPTY;
+          }
+          return this.http.get<Payer[]>(`${this.walletsUrl}/${walletId}/payers`).pipe(
+            tap((payers) => this.payersSubject.next(payers)),
+            catchError(() => {
+              this.errorSubject.next('Não foi possível carregar os payers.');
+              return of(null);
+            }),
+            finalize(() => this.loadingSubject.next(false)),
+          );
+        }),
       )
       .subscribe();
+  }
+
+  loadByWalletId(walletId: string | null): void {
+    this.loadByWalletIdTrigger$.next(walletId);
   }
 
   save(request: CreatePayerRequest): Observable<Payer> {

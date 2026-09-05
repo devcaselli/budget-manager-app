@@ -188,6 +188,29 @@ describe('ShareService', () => {
       expect(walletEmitted).toEqual(walletShares);
     });
 
+    // Regression (2026-09-05, Victor's report — Payers screen "Total Due" not
+    // following the selected month/wallet): a fast wallet switch used to let
+    // the OLD wallet's in-flight GET resolve after the NEW wallet's, silently
+    // overwriting walletShares$ with the wrong month's shares.
+    it('cancels a stale in-flight request when the wallet changes before it resolves', () => {
+      const emitted: (readonly Share[])[] = [];
+      service.walletShares$.subscribe((value) => emitted.push(value));
+
+      service.loadByWalletId('wallet-old');
+      service.loadByWalletId('wallet-new');
+
+      // switchMap unsubscribes from wallet-old's request the instant
+      // wallet-new is requested — marked cancelled, can't update walletShares$.
+      const reqOld = httpMock.expectOne('/api/wallets/wallet-old/shares');
+      expect(reqOld.cancelled).toBe(true);
+      const reqNew = httpMock.expectOne('/api/wallets/wallet-new/shares');
+
+      const freshShares = [buildShare({ id: 'share-new', walletId: 'wallet-new' })];
+      reqNew.flush(freshShares);
+
+      expect(emitted.at(-1)).toEqual(freshShares);
+    });
+
     it('should not clear shares$ when a wallet-scoped load fails after shares$ was already populated', () => {
       const ownerShares = [buildShare({ id: 'owner-share' })];
       service.loadAll();
