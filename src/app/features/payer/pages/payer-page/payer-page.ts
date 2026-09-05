@@ -145,8 +145,20 @@ export class PayerPage {
 
   protected readonly totalCount = computed(() => this.payers().length);
 
+  /**
+   * Bug fix (2026-09-05, Victor's report): this used to sum `this.payers()`
+   * unconditionally, ignoring `selectedPayerId`. Every other number on this
+   * screen — the list panel (`filteredPayers`), the Obligations panel
+   * (`filteredObligationRows`) — already respects the payer filter; the
+   * header total didn't, so selecting a single payer left "Total due" (and
+   * the hero strip's mirror of it) showing the grand total for every payer
+   * while the panels below showed just the one selected — reading as if the
+   * header had stopped tracking the list. Summing `filteredPayers()` instead
+   * keeps the header in lockstep with what's actually on screen, in both the
+   * "All" (id === null) and single-payer states.
+   */
   protected readonly totalAmountDue = computed(() =>
-    this.payers().reduce((sum, p) => sum + p.amountDue, 0),
+    this.filteredPayers().reduce((sum, p) => sum + p.amountDue, 0),
   );
 
   protected readonly nextPaymentDate = computed(() => {

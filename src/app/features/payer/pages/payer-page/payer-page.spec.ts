@@ -165,6 +165,88 @@ describe('PayerPage — activeShareAmount badge', () => {
   });
 });
 
+// ── Bug fix (2026-09-05, Victor's report): header "Total due" vs. the list below ──
+// `totalAmountDue` used to sum every payer regardless of `selectedPayerId`, while
+// the list panel and Obligations panel both already respected the filter — picking
+// a single payer left the header showing the grand total while everything below it
+// showed just that payer's figure, reading as if the header didn't track the list.
+
+describe('PayerPage — totalAmountDue follows the selected payer filter', () => {
+  let fixture: ComponentFixture<PayerPage>;
+  let component: PayerPage;
+  let payerService: FakePayerService;
+  let walletService: FakeWalletService;
+  let shareService: FakeShareService;
+
+  function selectPayer(id: string | null): void {
+    (component as unknown as { selectPayer: (id: string | null) => void }).selectPayer(id);
+  }
+
+  function totalAmountDue(): number {
+    return (component as unknown as { totalAmountDue: () => number }).totalAmountDue();
+  }
+
+  beforeEach(() => {
+    payerService = new FakePayerService();
+    walletService = new FakeWalletService();
+    shareService = new FakeShareService();
+
+    TestBed.configureTestingModule({
+      imports: [PayerPage],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: PayerService, useValue: payerService },
+        { provide: WalletService, useValue: walletService },
+        { provide: ShareService, useValue: shareService },
+        { provide: MatDialog, useValue: { open: vi.fn() } },
+      ],
+    });
+
+    fixture = TestBed.createComponent(PayerPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    payerService.payers$.next([
+      makePayer({ id: 'payer-1', name: 'Alice', amountDue: 100 }),
+      makePayer({ id: 'payer-2', name: 'Bob', amountDue: 250 }),
+    ]);
+    fixture.detectChanges();
+  });
+
+  it('sums every payer when "All" is selected (selectedPayerId === null)', () => {
+    expect(totalAmountDue()).toBe(350);
+  });
+
+  it('sums only the selected payer once a specific payer is filtered', () => {
+    selectPayer('payer-1');
+    fixture.detectChanges();
+
+    expect(totalAmountDue()).toBe(100);
+  });
+
+  it('matches the sum shown in the filtered list panel below it', () => {
+    selectPayer('payer-2');
+    fixture.detectChanges();
+
+    const listAmount: HTMLElement | null = fixture.nativeElement.querySelector(
+      '.payer-alloc-nums b',
+    );
+    // BrlCurrencyPipe renders the R$/amount gap as U+00A0 (non-breaking space).
+    expect(listAmount?.textContent?.replace(/ /g, ' ').trim()).toBe('R$ 250,00');
+    expect(totalAmountDue()).toBe(250);
+  });
+
+  it('reverts to the grand total after switching back to "All"', () => {
+    selectPayer('payer-1');
+    fixture.detectChanges();
+    selectPayer(null);
+    fixture.detectChanges();
+
+    expect(totalAmountDue()).toBe(350);
+  });
+});
+
 // ── Task 10 (improvement-shares/frontend-tasks.md): Obligations panel ────────────
 // Share-by-share decomposition of the activeShareAmount badge (Task 6).
 
