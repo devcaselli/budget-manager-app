@@ -34,6 +34,15 @@ export interface OmegaViewerPayment {
   readonly bulletDescription: string;
   readonly reversal: boolean;
   readonly reversed: boolean;
+  /**
+   * Id of the payment this one reverses — non-null only on a reversal line, and `null`
+   * whenever the backend hasn't rolled the field out yet (the mapping layer normalizes an
+   * absent property to `null`, it never leaves `undefined` in the domain shape). Consumed
+   * ONLY by `pairPaymentTrace`, which needs a deterministic original→reversal link; when
+   * every reversal line has `null` here the pairing degrades to the previous flat rendering
+   * rather than inferring a pair from amount/date.
+   */
+  readonly reversedPaymentId: string | null;
   readonly payerIds: readonly string[];
   readonly kind: PaymentKind;
 }

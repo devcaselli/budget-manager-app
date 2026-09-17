@@ -10,6 +10,7 @@ function buildPayment(overrides: Partial<OmegaViewerPayment> = {}): OmegaViewerP
     bulletDescription: 'Mercado',
     reversal: false,
     reversed: false,
+    reversedPaymentId: null,
     payerIds: ['payer-1'],
     kind: 'NORMAL',
     ...overrides,

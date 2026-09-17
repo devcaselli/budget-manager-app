@@ -32,6 +32,20 @@ export interface PaymentTraceLineResponseDto {
   readonly bulletDescription: string;
   readonly reversal: boolean;
   readonly reversed: boolean;
+  /**
+   * Id of the payment THIS line reverses — non-null only when `reversal === true`. Added
+   * additively to the backend's `PaymentTraceLine` so the viewer can pair a reversal with its
+   * original deterministically instead of rendering both as sibling rows of equal weight
+   * (which reads to users as a duplicated payment).
+   *
+   * Typed `string | null` to mirror the Java `String` nullable field, but the mapping layer
+   * ALSO tolerates the property being absent entirely (`undefined`) at runtime: the frontend
+   * may ship before the backend field rolls out. `mapPaymentTraceLine` normalizes
+   * missing/undefined to `null`, and `pairPaymentTrace` falls back to flat rendering when no
+   * reversal line carries an id — never guessing a pairing from amount/bullet/date heuristics,
+   * since a WRONG pairing is worse than no pairing.
+   */
+  readonly reversedPaymentId: string | null;
   readonly payerIds: readonly string[];
   /**
    * `PaymentKind` (`NORMAL` | `SHARED`) — added in `budget-manager-api-public` commit

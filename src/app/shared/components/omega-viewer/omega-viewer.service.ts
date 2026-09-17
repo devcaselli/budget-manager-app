@@ -255,6 +255,12 @@ function mapPaymentTraceLine(line: PaymentTraceLineResponseDto): OmegaViewerPaym
     bulletDescription: line.bulletDescription,
     reversal: line.reversal,
     reversed: line.reversed,
+    // `?? null` is load-bearing, not defensive noise: the field is being added to the backend
+    // DTO additively, so a frontend deployed ahead of the backend receives payloads where the
+    // property is ABSENT (`undefined`), not `null`. Normalizing here — once, at the mapping
+    // boundary — keeps `undefined` out of the domain shape entirely, so `pairPaymentTrace`
+    // only ever has to reason about `string | null`.
+    reversedPaymentId: line.reversedPaymentId ?? null,
     payerIds: line.payerIds,
     kind: line.kind,
   };

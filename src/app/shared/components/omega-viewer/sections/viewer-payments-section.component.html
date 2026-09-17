@@ -12,7 +12,18 @@
   } @else {
     <ul class="vps__list">
       @for (row of rows(); track row.id) {
-        <li class="vps__row" [class.vps__row--reversal]="row.status === 'reversal'" [class.vps__row--reversed]="row.status === 'reversed'">
+        <!--
+          `role="group"` only on a PAIRED row: it binds the original and its nested reversal
+          into one announced unit ("Pagamento de <data>, revertido"). An unpaired row stays a
+          plain <li> — adding a group wrapper around a single payment would be noise.
+        -->
+        <li
+          class="vps__row"
+          [class.vps__row--reversal]="row.status === 'reversal'"
+          [class.vps__row--reversed]="row.status === 'reversed'"
+          [attr.role]="row.reversal ? 'group' : null"
+          [attr.aria-label]="row.reversal ? row.groupAriaLabel : null"
+        >
           <div class="vps__row-main">
             <span class="vps__date">{{ row.dateLabel }}</span>
             <span class="vps__bullet">{{ row.bulletDescription }}</span>
@@ -36,7 +47,11 @@
                 </span>
               }
             }
-            <span class="vps__amount ew-blur">{{ row.amountLabel }}</span>
+            <span
+              class="vps__amount ew-blur"
+              [class.vps__amount--reversed]="row.status === 'reversed'"
+              [attr.aria-describedby]="row.reversal ? 'reversal-' + row.reversal.id : null"
+            >{{ row.amountLabel }}</span>
 
             @if (row.revertable) {
               <button
@@ -59,6 +74,28 @@
               </span>
             }
           </div>
+
+          @if (row.reversal; as reversal) {
+            <!--
+              Nested INSIDE the original's own <li>, which gives reading ORDER — but DOM
+              containment alone is not a programmatic relationship: in browse mode a screen
+              reader would still meet two unlabeled amounts with nothing binding them. The
+              association is explicit: the original's amount points at the label below via
+              `aria-describedby`, and the nested amount carries its own self-describing name.
+              The reverted state is carried by the visible words "Revertido em ..." and by the
+              "Revertido" pill above, never by the strikethrough/dimming alone.
+            -->
+            <div class="vps__reversal" data-testid="payment-nested-reversal">
+              <span class="vps__reversal-label" [id]="'reversal-' + reversal.id">{{
+                reversal.label
+              }}</span>
+              <span
+                class="vps__reversal-amount ew-blur"
+                [attr.aria-label]="reversal.amountAriaLabel"
+                >-{{ reversal.amountLabel }}</span
+              >
+            </div>
+          }
         </li>
       }
     </ul>

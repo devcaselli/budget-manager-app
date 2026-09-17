@@ -7,6 +7,8 @@ import {
   OmegaViewerPayment,
   OmegaViewerSubscriptionDetail,
 } from '../models/omega-viewer-detail';
+import { formatBrl } from '@shared/utils/currency';
+
 import { ViewerPaymentsSectionComponent } from './viewer-payments-section.component';
 
 function buildPayment(overrides: Partial<OmegaViewerPayment> = {}): OmegaViewerPayment {
@@ -18,6 +20,7 @@ function buildPayment(overrides: Partial<OmegaViewerPayment> = {}): OmegaViewerP
     bulletDescription: 'Mercado',
     reversal: false,
     reversed: false,
+    reversedPaymentId: null,
     payerIds: ['payer-1'],
     kind: 'NORMAL',
     ...overrides,
@@ -356,6 +359,194 @@ describe('ViewerPaymentsSectionComponent', () => {
 
       const alert = (fixture.nativeElement as HTMLElement).querySelector('.ew-alert[role="alert"]');
       expect(alert).toBeNull();
+    });
+  });
+
+  describe('reverted pair rendering — one row per economic event', () => {
+    // Real confirmed repro: expense 26973c22-... ("DL *UberRides", R$30.96). Two legitimate,
+    // non-duplicated trace lines that previously rendered as sibling rows of equal weight.
+    const ORIGINAL_ID = '5c6a38c5-e062-4a43-9faa-ffb30c5a0360';
+    const REVERSAL_ID = '6cdc9e14-1988-42e0-9583-72fff4366abb';
+
+    function reproTrace(): OmegaViewerPayment[] {
+      return [
+        buildPayment({
+          id: ORIGINAL_ID,
+          amount: 30.96,
+          paymentDate: '2026-09-08T12:00:00.000Z',
+          reversal: false,
+          reversed: true,
+        }),
+        buildPayment({
+          id: REVERSAL_ID,
+          amount: 30.96,
+          paymentDate: '2026-09-09T12:00:00.000Z',
+          reversal: true,
+          reversed: false,
+          reversedPaymentId: ORIGINAL_ID,
+        }),
+      ];
+    }
+
+    it('renders a reverted pair as ONE top-level row, not two', () => {
+      setup(buildExpenseDetail({ payments: reproTrace() }));
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelectorAll('.vps__row').length).toBe(1);
+    });
+
+    it('nests the reversal inside its original row, not as a sibling li', () => {
+      setup(buildExpenseDetail({ payments: reproTrace() }));
+
+      const root = fixture.nativeElement as HTMLElement;
+      const row = root.querySelector('.vps__row');
+      const nested = root.querySelector('[data-testid="payment-nested-reversal"]');
+      expect(nested).not.toBeNull();
+      // DOM containment gives reading ORDER only. The programmatic association is asserted
+      // separately below — the two are different guarantees.
+      expect(row?.contains(nested as Node)).toBe(true);
+    });
+
+    it('binds the original amount to the reversal label via aria-describedby', () => {
+      setup(buildExpenseDetail({ payments: reproTrace() }));
+
+      const root = fixture.nativeElement as HTMLElement;
+      const describedBy = root.querySelector('.vps__amount')?.getAttribute('aria-describedby');
+      expect(describedBy).toBe(`reversal-${REVERSAL_ID}`);
+
+      // The referenced id must actually resolve to the label element, otherwise the
+      // association is dangling and announces nothing. Looked up by id rather than a CSS
+      // selector: the ids are UUID-shaped, and `CSS.escape` is not available in this env.
+      const target = Array.from(root.querySelectorAll('[id]')).find(
+        (el) => el.id === describedBy,
+      );
+      expect(target).toBeDefined();
+      expect(target?.textContent).toContain('Revertido em 09/09/2026');
+    });
+
+    it('groups a paired row so the original and its reversal announce as one unit', () => {
+      setup(buildExpenseDetail({ payments: reproTrace() }));
+
+      const row = (fixture.nativeElement as HTMLElement).querySelector('.vps__row');
+      expect(row?.getAttribute('role')).toBe('group');
+      expect(row?.getAttribute('aria-label')).toBe('Pagamento de 08/09/2026, revertido');
+    });
+
+    it('gives the nested amount a self-describing accessible name, not a bare number', () => {
+      setup(buildExpenseDetail({ payments: reproTrace() }));
+
+      const amount = (fixture.nativeElement as HTMLElement).querySelector('.vps__reversal-amount');
+      // Built via `formatBrl` rather than a literal: Intl emits a non-breaking space after
+      // "R$", so a hand-typed expectation looks identical but never matches.
+      expect(amount?.getAttribute('aria-label')).toBe(
+        `Estorno de ${formatBrl(30.96)} em 09/09/2026`,
+      );
+    });
+
+    it('adds no group role to an unpaired row — a lone payment needs no grouping', () => {
+      setup(buildExpenseDetail({ payments: [buildPayment({ id: 'p1' })] }));
+
+      const row = (fixture.nativeElement as HTMLElement).querySelector('.vps__row');
+      expect(row?.getAttribute('role')).toBeNull();
+      expect(row?.getAttribute('aria-label')).toBeNull();
+    });
+
+    it('strikes through a reverted amount even in the unpaired fallback', () => {
+      // Keyed on status, not on pairing: in the fallback a reverted payment still gets the
+      // pill, so it must still get the strikethrough.
+      setup(
+        buildExpenseDetail({
+          payments: [
+            buildPayment({ id: ORIGINAL_ID, reversed: true }),
+            buildPayment({ id: REVERSAL_ID, reversal: true, reversedPaymentId: null }),
+          ],
+        }),
+      );
+
+      const amounts = (fixture.nativeElement as HTMLElement).querySelectorAll('.vps__amount');
+      expect(amounts[0].classList.contains('vps__amount--reversed')).toBe(true);
+    });
+
+    it('states the reverted date in words on the nested line, not by styling alone', () => {
+      setup(buildExpenseDetail({ payments: reproTrace() }));
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('[data-testid="payment-nested-reversal"]')?.textContent).toContain(
+        'Revertido em 09/09/2026',
+      );
+    });
+
+    it('keeps the Revertido pill on the paired row and drops the standalone Reversão pill', () => {
+      setup(buildExpenseDetail({ payments: reproTrace() }));
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('[data-testid="payment-status-reversed"]')).not.toBeNull();
+      expect(root.querySelector('[data-testid="payment-status-reversal"]')).toBeNull();
+    });
+
+    it('keeps the ew-blur privacy class on the nested reversal amount', () => {
+      setup(buildExpenseDetail({ payments: reproTrace() }));
+
+      const root = fixture.nativeElement as HTMLElement;
+      const amount = root.querySelector('.vps__reversal-amount');
+      expect(amount?.classList.contains('ew-blur')).toBe(true);
+    });
+
+    it('offers no revert action on a paired row — it is already reverted', () => {
+      setup(buildExpenseDetail({ payments: reproTrace() }));
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('.vps__revert-btn')).toBeNull();
+      expect(
+        root.querySelector('[data-testid="payment-ineligible-hint"]')?.getAttribute('title'),
+      ).toContain('já foi revertido');
+    });
+
+    it('regression: a trace with no reversals renders exactly as before, one row each', () => {
+      setup(
+        buildExpenseDetail({
+          payments: [buildPayment({ id: 'p1' }), buildPayment({ id: 'p2' })],
+        }),
+      );
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelectorAll('.vps__row').length).toBe(2);
+      expect(root.querySelector('[data-testid="payment-nested-reversal"]')).toBeNull();
+      expect(root.querySelectorAll('.vps__revert-btn').length).toBe(2);
+    });
+
+    it('falls back to flat sibling rows when the backend omits reversedPaymentId', () => {
+      setup(
+        buildExpenseDetail({
+          payments: [
+            buildPayment({ id: ORIGINAL_ID, reversed: true }),
+            buildPayment({ id: REVERSAL_ID, reversal: true, reversedPaymentId: null }),
+          ],
+        }),
+      );
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelectorAll('.vps__row').length).toBe(2);
+      expect(root.querySelector('[data-testid="payment-status-reversal"]')).not.toBeNull();
+      expect(root.querySelector('[data-testid="payment-status-reversed"]')).not.toBeNull();
+    });
+
+    it('still shows an orphan reversal rather than dropping it', () => {
+      setup(
+        buildExpenseDetail({
+          payments: [
+            buildPayment({
+              id: REVERSAL_ID,
+              reversal: true,
+              reversedPaymentId: 'original-outside-this-trace',
+            }),
+          ],
+        }),
+      );
+
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelectorAll('.vps__row').length).toBe(1);
+      expect(root.querySelector('[data-testid="payment-status-reversal"]')).not.toBeNull();
     });
   });
 });

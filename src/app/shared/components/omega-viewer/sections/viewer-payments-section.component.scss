@@ -95,6 +95,54 @@
   font-weight: 600;
   font-size: 14px;
   white-space: nowrap;
+
+  // Strikethrough is a REDUNDANT cue only — the reverted state is also stated in words by the
+  // "Revertido" pill and the nested "Revertido em <data>" line, so nothing is conveyed by
+  // decoration alone (WCAG 1.4.1).
+  &--reversed {
+    text-decoration: line-through;
+    color: var(--ew-ink-3);
+  }
+}
+
+// ── Nested reversal detail ───────────────────────────────────────────────────────────────
+// Subordinate to its original payment, not a sibling row: indented, quieter, and spanning
+// both grid columns of the parent .vps__row.
+.vps__reversal {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  padding-left: 14px;
+  border-left: 2px solid var(--ew-line-2);
+
+  // Cancels the parent .vps__row--reversed dim (opacity: 0.7) for this block only. Measured:
+  // --ew-ink-3 at 0.7 composites to 2.49:1 on the dark ground and 2.04:1 on the light one,
+  // both failing WCAG 1.4.3 (4.5:1) for 12px text. --ew-ink-2 at 0.7 still fails light (2.88:1).
+  // Only lifting the dim passes both grounds (6.92:1 dark / 5.20:1 light). The row-level dim
+  // stays where it belongs — on the struck-through original above.
+  opacity: 1;
+}
+
+.vps__reversal-label {
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+}
+
+// `--ew-bad` measures 4.43:1 on the light ground — just under WCAG 1.4.3's 4.5:1, and 12px/600
+// does not qualify as large text (that needs ~18.66px bold). `--ew-ink-2` clears it on both
+// grounds (6.92:1 dark / 5.20:1 light); the credit is already unambiguous from the leading
+// minus sign and the "Revertido em ..." label beside it, so colour was never carrying meaning
+// here on its own.
+.vps__reversal-amount {
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .vps__revert-btn {
