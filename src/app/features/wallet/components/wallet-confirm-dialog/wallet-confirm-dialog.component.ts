@@ -7,7 +7,9 @@ export interface WalletConfirmDialogData {
   readonly titlePrefix: string;
   readonly titleEmphasis: string;
   readonly subtitle: string;
-  readonly message: string;
+  readonly messagePrefix: string;
+  readonly walletName: string;
+  readonly messageSuffix: string;
   readonly confirmLabel: string;
   readonly confirmIcon: string;
   readonly tone?: 'danger' | 'positive';

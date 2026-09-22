@@ -11,7 +11,9 @@
 </div>
 
 <mat-dialog-content class="wrd-body">
-  <p class="wrd-message">{{ data.message }}</p>
+  <p class="wrd-message">
+    {{ data.messagePrefix }} <strong>{{ data.walletName }}</strong> {{ data.messageSuffix }}
+  </p>
 </mat-dialog-content>
 
 <mat-dialog-actions class="wrd-actions" align="end">

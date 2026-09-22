@@ -60,12 +60,13 @@ export class WalletPage {
   }
 
   protected onReviewWallet(wallet: Wallet): void {
-    const description = wallet.description ?? 'Unnamed';
     const data: WalletConfirmDialogData = {
       titlePrefix: 'Send to',
       titleEmphasis: 'review?',
       subtitle: 'This action cannot be undone',
-      message: `You are about to send the wallet ${description} to review. It will become read-only and cannot be reopened afterward.`,
+      messagePrefix: 'You are about to send the wallet',
+      walletName: wallet.description ?? 'Unnamed',
+      messageSuffix: 'to review. It will become read-only and cannot be reopened afterward.',
       confirmLabel: 'Send to review',
       confirmIcon: 'lock_outline',
       tone: 'danger',
@@ -77,12 +78,13 @@ export class WalletPage {
   }
 
   protected onReopenWallet(wallet: Wallet): void {
-    const description = wallet.description ?? 'Unnamed';
     const data: WalletConfirmDialogData = {
       titlePrefix: 'Reopen',
       titleEmphasis: 'wallet?',
       subtitle: 'It will accept new spending again',
-      message: `You are about to reopen the wallet ${description}. It will leave the closed state and be spendable again.`,
+      messagePrefix: 'You are about to reopen the wallet',
+      walletName: wallet.description ?? 'Unnamed',
+      messageSuffix: 'It will leave the closed state and be spendable again.',
       confirmLabel: 'Reopen wallet',
       confirmIcon: 'lock_open',
       tone: 'positive',
@@ -94,12 +96,13 @@ export class WalletPage {
   }
 
   protected onPromoteWallet(wallet: Wallet): void {
-    const description = wallet.description ?? 'Unnamed';
     const data: WalletConfirmDialogData = {
       titlePrefix: 'Move to',
       titleEmphasis: 'production?',
       subtitle: 'This becomes the active wallet for its month',
-      message: `You are about to move the wallet ${description} from preview to production.`,
+      messagePrefix: 'You are about to move the wallet',
+      walletName: wallet.description ?? 'Unnamed',
+      messageSuffix: 'from preview to production.',
       confirmLabel: 'Move to production',
       confirmIcon: 'rocket_launch',
       tone: 'positive',
