@@ -36,6 +36,11 @@
     color: var(--ew-bad);
     font-weight: 300;
   }
+
+}
+
+.wrd-title--positive em {
+  color: var(--ew-teal);
 }
 
 .wrd-subtitle {
@@ -82,4 +87,8 @@
 .wrd-confirm-btn {
   background: var(--ew-bad) !important;
   color: #fff !important;
+
+  &--positive {
+    background: var(--ew-teal) !important;
+  }
 }

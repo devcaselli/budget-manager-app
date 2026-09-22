@@ -16,9 +16,9 @@ import { WalletDetailComponent } from '../../components/wallet-detail/wallet-det
 import { WalletFormComponent } from '../../components/wallet-form/wallet-form.component';
 import { WalletListComponent } from '../../components/wallet-list/wallet-list.component';
 import {
-  WalletReviewDialogComponent,
-  WalletReviewDialogData,
-} from '../../components/wallet-review-dialog/wallet-review-dialog.component';
+  WalletConfirmDialogComponent,
+  WalletConfirmDialogData,
+} from '../../components/wallet-confirm-dialog/wallet-confirm-dialog.component';
 import { CreateWalletRequest, Wallet } from '../../models/wallet';
 import { WalletService } from '../../services/wallet.service';
 import { PreferencesService } from '@core/services/preferences.service';
@@ -60,18 +60,64 @@ export class WalletPage {
   }
 
   protected onReviewWallet(wallet: Wallet): void {
-    const data: WalletReviewDialogData = { walletDescription: wallet.description ?? 'Unnamed' };
+    const description = wallet.description ?? 'Unnamed';
+    const data: WalletConfirmDialogData = {
+      titlePrefix: 'Send to',
+      titleEmphasis: 'review?',
+      subtitle: 'This action cannot be undone',
+      message: `You are about to send the wallet ${description} to review. It will become read-only and cannot be reopened afterward.`,
+      confirmLabel: 'Send to review',
+      confirmIcon: 'lock_outline',
+      tone: 'danger',
+    };
 
-    this.dialog
-      .open<WalletReviewDialogComponent, WalletReviewDialogData, boolean>(
-        WalletReviewDialogComponent,
+    this.openConfirmDialog(data).subscribe((confirmed) => {
+      if (confirmed) this.sendToReview(wallet.id);
+    });
+  }
+
+  protected onReopenWallet(wallet: Wallet): void {
+    const description = wallet.description ?? 'Unnamed';
+    const data: WalletConfirmDialogData = {
+      titlePrefix: 'Reopen',
+      titleEmphasis: 'wallet?',
+      subtitle: 'It will accept new spending again',
+      message: `You are about to reopen the wallet ${description}. It will leave the closed state and be spendable again.`,
+      confirmLabel: 'Reopen wallet',
+      confirmIcon: 'lock_open',
+      tone: 'positive',
+    };
+
+    this.openConfirmDialog(data).subscribe((confirmed) => {
+      if (confirmed) this.reopenWallet(wallet.id);
+    });
+  }
+
+  protected onPromoteWallet(wallet: Wallet): void {
+    const description = wallet.description ?? 'Unnamed';
+    const data: WalletConfirmDialogData = {
+      titlePrefix: 'Move to',
+      titleEmphasis: 'production?',
+      subtitle: 'This becomes the active wallet for its month',
+      message: `You are about to move the wallet ${description} from preview to production.`,
+      confirmLabel: 'Move to production',
+      confirmIcon: 'rocket_launch',
+      tone: 'positive',
+    };
+
+    this.openConfirmDialog(data).subscribe((confirmed) => {
+      if (confirmed) this.promoteWallet(wallet.id);
+    });
+  }
+
+  private openConfirmDialog(data: WalletConfirmDialogData) {
+    return this.dialog
+      .open<WalletConfirmDialogComponent, WalletConfirmDialogData, boolean>(
+        WalletConfirmDialogComponent,
         { width: '28rem', maxWidth: 'calc(100vw - 2rem)', data },
       )
       .afterClosed()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((confirmed) => {
-        if (confirmed) this.sendToReview(wallet.id);
-      });
+      .pipe(takeUntilDestroyed(this.destroyRef));
   }
 
   private sendToReview(id: string): void {
@@ -79,6 +125,26 @@ export class WalletPage {
 
     this.walletService
       .patch(id, { state: 'REVIEW', closed: true, closedDate })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.walletService.loadWallets(),
+        error: () => undefined,
+      });
+  }
+
+  private reopenWallet(id: string): void {
+    this.walletService
+      .reopen(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.walletService.loadWallets(),
+        error: () => undefined,
+      });
+  }
+
+  private promoteWallet(id: string): void {
+    this.walletService
+      .promoteToProduction(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => this.walletService.loadWallets(),

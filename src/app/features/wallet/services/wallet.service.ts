@@ -157,6 +157,22 @@ export class WalletService {
     return subject.asObservable();
   }
 
+  reopen(id: string): Observable<Wallet> {
+    return this.patch(
+      id,
+      { closed: false, closedDate: null },
+      'Não foi possível reabrir a wallet.',
+    );
+  }
+
+  promoteToProduction(id: string): Observable<Wallet> {
+    return this.patch(
+      id,
+      { state: 'PRODUCTION' },
+      'Não foi possível mover a wallet para produção.',
+    );
+  }
+
   loadWallets(): void {
     this.loadWalletsTrigger$.next();
   }

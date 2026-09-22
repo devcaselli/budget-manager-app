@@ -55,6 +55,22 @@
                 (click)="onReviewClick($event, wallet)"
               >Send to review</button>
             }
+            @if (canReopen(wallet)) {
+              <button
+                type="button"
+                class="wl-reopen-btn"
+                title="Reopen wallet"
+                (click)="onReopenClick($event, wallet)"
+              >Reopen</button>
+            }
+            @if (canPromote(wallet)) {
+              <button
+                type="button"
+                class="wl-promote-btn"
+                title="Move to production"
+                (click)="onPromoteClick($event, wallet)"
+              >Move to production</button>
+            }
           </td>
           <td class="ew-blur">{{ wallet.budget | brlCurrency }}</td>
           <td class="ew-blur">{{ wallet.remaining | brlCurrency }}</td>

@@ -395,4 +395,70 @@ describe('WalletService', () => {
 
     expect(errors.at(-1)).toBe('Não foi possível atualizar a wallet.');
   });
+
+  it('should reopen a wallet via PATCH /api/wallets/:id', () => {
+    const wallet: Wallet = {
+      id: 'wallet-1',
+      description: 'Abril 2026',
+      budget: 5000,
+      remaining: 3200,
+      startDate: '2026-04-01',
+      closedDate: null,
+      closed: false,
+      effectiveMonth: '2026-04',
+      state: 'PRODUCTION',
+    };
+
+    service.reopen(wallet.id).subscribe((result) => expect(result).toEqual(wallet));
+
+    const request = httpMock.expectOne('/api/wallets/wallet-1');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ closed: false, closedDate: null });
+    request.flush(wallet);
+  });
+
+  it('should set error$ when reopen fails', () => {
+    const errors: (string | null)[] = [];
+
+    service.error$.subscribe((value) => errors.push(value));
+    service.reopen('wallet-1').subscribe({ error: () => undefined });
+
+    const request = httpMock.expectOne('/api/wallets/wallet-1');
+    request.flush({ message: 'Internal server error' }, { status: 500, statusText: 'Server Error' });
+
+    expect(errors.at(-1)).toBe('Não foi possível reabrir a wallet.');
+  });
+
+  it('should promote a wallet to production via PATCH /api/wallets/:id', () => {
+    const wallet: Wallet = {
+      id: 'wallet-1',
+      description: 'Abril 2026',
+      budget: 5000,
+      remaining: 3200,
+      startDate: '2026-04-01',
+      closedDate: null,
+      closed: false,
+      effectiveMonth: '2026-04',
+      state: 'PRODUCTION',
+    };
+
+    service.promoteToProduction(wallet.id).subscribe((result) => expect(result).toEqual(wallet));
+
+    const request = httpMock.expectOne('/api/wallets/wallet-1');
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ state: 'PRODUCTION' });
+    request.flush(wallet);
+  });
+
+  it('should set error$ when promoteToProduction fails', () => {
+    const errors: (string | null)[] = [];
+
+    service.error$.subscribe((value) => errors.push(value));
+    service.promoteToProduction('wallet-1').subscribe({ error: () => undefined });
+
+    const request = httpMock.expectOne('/api/wallets/wallet-1');
+    request.flush({ message: 'Internal server error' }, { status: 500, statusText: 'Server Error' });
+
+    expect(errors.at(-1)).toBe('Não foi possível mover a wallet para produção.');
+  });
 });
