@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 
 import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
@@ -38,6 +39,7 @@ class FakeExpenseService {
   readonly error$ = new BehaviorSubject<string | null>(null);
   loadByWalletId = vi.fn();
   assignTags = vi.fn().mockReturnValue(of(buildExpense()));
+  create = vi.fn().mockReturnValue(of(buildExpense()));
 }
 
 class FakeTagService {
@@ -92,6 +94,7 @@ class FakePendingReviewService {
   readonly pendingReviews$ = new BehaviorSubject<readonly unknown[]>([]);
   readonly loading$ = new BehaviorSubject(false);
   readonly error$ = new BehaviorSubject<string | null>(null);
+  readonly lastSyncReport$ = new BehaviorSubject<unknown>(null);
   applySyncResult = vi.fn();
 }
 
@@ -143,7 +146,6 @@ describe('ExpensePage — share derivation & split button visibility', () => {
   let component: ExpensePage;
   let expenseService: FakeExpenseService;
   let shareService: FakeShareService;
-  let syncService: FakeSyncService;
   let pendingReviewService: FakePendingReviewService;
   let dialog: { open: ReturnType<typeof vi.fn> };
   let dialogAfterClosed: BehaviorSubject<unknown>;
@@ -152,7 +154,6 @@ describe('ExpensePage — share derivation & split button visibility', () => {
   beforeEach(() => {
     expenseService = new FakeExpenseService();
     shareService = new FakeShareService();
-    syncService = new FakeSyncService();
     pendingReviewService = new FakePendingReviewService();
     omegaViewerLauncher = new FakeOmegaViewerLauncher();
     dialogAfterClosed = new BehaviorSubject<unknown>(undefined);
@@ -174,7 +175,6 @@ describe('ExpensePage — share derivation & split button visibility', () => {
         { provide: InstallmentService, useClass: FakeInstallmentService },
         { provide: WalletService, useClass: FakeWalletService },
         { provide: TagService, useClass: FakeTagService },
-        { provide: SyncService, useValue: syncService },
         { provide: PendingReviewService, useValue: pendingReviewService },
         { provide: MatDialog, useValue: dialog },
         { provide: OmegaViewerLauncher, useValue: omegaViewerLauncher },
@@ -233,7 +233,7 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     expect(item.hasShare).toBe(false);
   });
 
-  it('renders the split button only for expenses without an active share', () => {
+  it('renders the split menu item only for expenses without an active share', () => {
     expenseService.expenses$.next([
       buildExpense({ id: 'expense-1' }),
       buildExpense({ id: 'expense-2', name: 'Fuel' }),
@@ -241,9 +241,19 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     shareService.shares$.next([buildShare({ sourceId: 'expense-1' })]);
     fixture.detectChanges();
 
-    const splitButtons = fixture.nativeElement.querySelectorAll('button[title="Split expense"]');
-    // expense-1 is shared (button hidden), expense-2 is not (button shown).
-    expect(splitButtons.length).toBe(1);
+    // P0-3: "Split expense" moved from an always-visible icon button to a
+    // MatMenu item behind the row's "⋯" trigger — open both rows' menus (each
+    // row has its own #rowMenu instance) before asserting on their content.
+    const menuTriggers = fixture.nativeElement.querySelectorAll('button[aria-label="More actions"]') as NodeListOf<HTMLButtonElement>;
+    expect(menuTriggers.length).toBe(2);
+    menuTriggers.forEach((trigger) => trigger.click());
+    fixture.detectChanges();
+
+    const splitItems = Array.from(document.querySelectorAll('.mat-mdc-menu-item')).filter(
+      (el) => el.textContent?.trim() === 'Split expense',
+    );
+    // expense-1 is shared (item hidden), expense-2 is not (item shown).
+    expect(splitItems.length).toBe(1);
   });
 
   it('openShareDialog is a no-op when the expense already has an active share', () => {
@@ -287,70 +297,6 @@ describe('ExpensePage — share derivation & split button visibility', () => {
     (component as unknown as { onTagsClick: (e: unknown) => void }).onTagsClick(item);
 
     expect(expenseService.assignTags).not.toHaveBeenCalled();
-  });
-
-  it('calls SyncService.ingest, applies the result to PendingReviewService, and opens the review dialog', () => {
-    const walletService = TestBed.inject(WalletService) as unknown as {
-      selectedWallet$: BehaviorSubject<Wallet | null>;
-    };
-    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
-    fixture.detectChanges();
-
-    const result = buildSyncIngestResult({ created: 3, skipped: 1 });
-    syncService.ingest.mockReturnValue(of(result));
-
-    (component as unknown as { syncNow: () => void }).syncNow();
-
-    expect(syncService.ingest).toHaveBeenCalled();
-    expect(pendingReviewService.applySyncResult).toHaveBeenCalledWith(result);
-    expect(dialog.open).toHaveBeenCalledTimes(1);
-  });
-
-  it('reloads the wallet expenses when the review dialog closes, even with no new items at sync time', () => {
-    const walletService = TestBed.inject(WalletService) as unknown as {
-      selectedWallet$: BehaviorSubject<Wallet | null>;
-    };
-    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
-    fixture.detectChanges();
-
-    // Expense creation now happens inside the modal on confirm, not at sync time, so
-    // `report.created === 0` must still reload once the dialog closes — items may have
-    // been confirmed during the dialog session (CA #6). The fake dialog's `afterClosed()`
-    // is a BehaviorSubject, so closing is observed synchronously on subscribe here.
-    syncService.ingest.mockReturnValue(of(buildSyncIngestResult({ created: 0, skipped: 4 })));
-    expenseService.loadByWalletId.mockClear();
-
-    (component as unknown as { syncNow: () => void }).syncNow();
-
-    expect(expenseService.loadByWalletId).toHaveBeenCalledWith('wallet-1');
-  });
-
-  it('reloads again if the dialog is closed a second time (no stale unconditional-reload guard)', () => {
-    const walletService = TestBed.inject(WalletService) as unknown as {
-      selectedWallet$: BehaviorSubject<Wallet | null>;
-    };
-    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
-    fixture.detectChanges();
-
-    syncService.ingest.mockReturnValue(of(buildSyncIngestResult({ created: 0 })));
-    expenseService.loadByWalletId.mockClear();
-
-    (component as unknown as { syncNow: () => void }).syncNow();
-    expect(expenseService.loadByWalletId).toHaveBeenCalledTimes(1);
-
-    dialogAfterClosed.next(undefined);
-
-    expect(expenseService.loadByWalletId).toHaveBeenCalledTimes(2);
-  });
-
-  it('is a no-op when a sync is already in flight', () => {
-    syncService.syncing$.next(true);
-    fixture.detectChanges();
-
-    (component as unknown as { syncNow: () => void }).syncNow();
-
-    expect(syncService.ingest).not.toHaveBeenCalled();
-    expect(dialog.open).not.toHaveBeenCalled();
   });
 
   describe('openViewer — Omega Viewer launcher integration (F-14)', () => {
@@ -413,14 +359,25 @@ describe('ExpensePage — share derivation & split button visibility', () => {
       expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'EXPENSE', id: 'expense-1' });
     });
 
-    it('opens the viewer from the visibility icon button in the row actions cluster', () => {
+    it('opens the viewer from "View expense" in the row actions overflow menu', () => {
       expenseService.expenses$.next([buildExpense({ id: 'expense-1', name: 'Groceries' })]);
       fixture.detectChanges();
 
-      const viewButton = fixture.nativeElement.querySelector('button[title="View expense"]');
-      expect(viewButton).toBeTruthy();
+      // P0-3: "View expense" moved from an always-visible icon button to a
+      // MatMenu item behind the row's "⋯" trigger.
+      const menuTrigger = fixture.nativeElement.querySelector(
+        'button[aria-label="More actions"]',
+      ) as HTMLButtonElement;
+      expect(menuTrigger).toBeTruthy();
+      menuTrigger.click();
+      fixture.detectChanges();
 
-      viewButton.click();
+      const viewItem = Array.from(document.querySelectorAll('.mat-mdc-menu-item')).find(
+        (el) => el.textContent?.trim() === 'View expense',
+      ) as HTMLButtonElement;
+      expect(viewItem).toBeTruthy();
+
+      viewItem.click();
 
       expect(omegaViewerLauncher.open).toHaveBeenCalledWith({ kind: 'EXPENSE', id: 'expense-1' });
     });
@@ -585,5 +542,743 @@ describe('ExpensePage — unhidden filter checkbox (Task 8a) & share indicator (
     expect(partiallyShared.hasShare).toBe(true);
     expect(partiallyShared.statusLabel).toBe('OPEN');
     expect(partiallyShared.remaining).toBe(150);
+  });
+});
+
+describe('ExpensePage — D6 redesign: stat cards, toolbar, layouts, chips, import banner', () => {
+  let fixture: ComponentFixture<ExpensePage>;
+  let component: ExpensePage;
+  let expenseService: FakeExpenseService;
+  let pendingReviewService: FakePendingReviewService;
+
+  function query<T extends Element = Element>(selector: string): T | null {
+    return fixture.nativeElement.querySelector(selector);
+  }
+
+  function queryAll<T extends Element = Element>(selector: string): T[] {
+    return Array.from(fixture.nativeElement.querySelectorAll(selector));
+  }
+
+  beforeEach(() => {
+    expenseService = new FakeExpenseService();
+    pendingReviewService = new FakePendingReviewService();
+
+    TestBed.configureTestingModule({
+      imports: [ExpensePage],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ExpenseService, useValue: expenseService },
+        { provide: ShareService, useClass: FakeShareService },
+        { provide: PaymentService, useClass: FakePaymentService },
+        { provide: BulletService, useClass: FakeBulletService },
+        { provide: InstallmentService, useClass: FakeInstallmentService },
+        { provide: WalletService, useClass: FakeWalletService },
+        { provide: TagService, useClass: FakeTagService },
+        { provide: SyncService, useClass: FakeSyncService },
+        { provide: PendingReviewService, useValue: pendingReviewService },
+        {
+          provide: MatDialog,
+          useValue: { open: vi.fn().mockReturnValue({ afterClosed: () => of(undefined) }) },
+        },
+        { provide: OmegaViewerLauncher, useClass: FakeOmegaViewerLauncher },
+      ],
+    });
+
+    fixture = TestBed.createComponent(ExpensePage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  // ── Stat cards ─────────────────────────────────────────────────────────
+
+  it('stat cards: total/open/paid and the paid-vs-open percentage derive from loaded expenses', () => {
+    expenseService.expenses$.next([
+      buildExpense({ id: 'e1', cost: 100, remaining: 0 }), // PAID
+      buildExpense({ id: 'e2', cost: 300, remaining: 300 }), // OPEN
+    ]);
+    fixture.detectChanges();
+
+    const c = component as unknown as {
+      totalCost: () => number;
+      totalOpen: () => number;
+      totalPaid: () => number;
+      paidPercent: () => number;
+      openCount: () => number;
+    };
+    expect(c.totalCost()).toBe(400);
+    expect(c.totalOpen()).toBe(300);
+    expect(c.totalPaid()).toBe(100);
+    expect(c.paidPercent()).toBe(25);
+    expect(c.openCount()).toBe(1);
+  });
+
+  it('paidPercent is 0 (not NaN) when there are no expenses at all', () => {
+    expenseService.expenses$.next([]);
+    fixture.detectChanges();
+
+    const c = component as unknown as { paidPercent: () => number };
+    expect(c.paidPercent()).toBe(0);
+  });
+
+  it('binds the paid-bar width via [style.--bar-width.%] — a CSS custom property, not a concatenated inline style object', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', cost: 200, remaining: 50 })]);
+    fixture.detectChanges();
+
+    const fill = query('.ep-stat-bar-fill') as HTMLElement;
+    expect(fill).toBeTruthy();
+    expect(fill.style.getPropertyValue('--bar-width')).toBe('75%');
+  });
+
+  // ── Import-pending banner ─────────────────────────────────────────────
+
+  it('shows the import banner reusing PendingReviewService.pendingReviews$, with the live count', () => {
+    pendingReviewService.pendingReviews$.next([{}, {}] as never);
+    fixture.detectChanges();
+
+    const banner = query('.ep-import-banner');
+    expect(banner).toBeTruthy();
+    expect(banner!.textContent).toContain('2 imported expense(s) waiting for review');
+  });
+
+  it('hides the import banner when there are no pending reviews', () => {
+    pendingReviewService.pendingReviews$.next([]);
+    fixture.detectChanges();
+
+    expect(query('.ep-import-banner')).toBeNull();
+  });
+
+  it('dismissing the banner ("Later") hides it until the pending count changes again', () => {
+    pendingReviewService.pendingReviews$.next([{}] as never);
+    fixture.detectChanges();
+
+    const laterBtn = queryAll('.ep-banner-btn--ghost').find((b) => b.textContent?.trim() === 'Later');
+    laterBtn!.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(query('.ep-import-banner')).toBeNull();
+  });
+
+  // ── Status tabs (sliding thumb) ────────────────────────────────────────
+
+  it('status tabs: clicking Open/Paid/All updates the filters form and the thumb index', () => {
+    const c = component as unknown as { statusTabIndex: () => number };
+    expect(c.statusTabIndex()).toBe(0); // ALL by default
+
+    const openTab = queryAll('.ep-status-tab').find((b) => b.textContent?.trim() === 'Open')!;
+    openTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    expect(c.statusTabIndex()).toBe(1);
+
+    const paidTab = queryAll('.ep-status-tab').find((b) => b.textContent?.trim() === 'Paid')!;
+    paidTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    expect(c.statusTabIndex()).toBe(2);
+  });
+
+  it('status tab click actually filters the ledger by status', () => {
+    expenseService.expenses$.next([
+      buildExpense({ id: 'e1', cost: 100, remaining: 0 }), // PAID
+      buildExpense({ id: 'e2', cost: 100, remaining: 100 }), // OPEN
+    ]);
+    fixture.detectChanges();
+
+    const paidTab = queryAll('.ep-status-tab').find((b) => b.textContent?.trim() === 'Paid')!;
+    paidTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    const filtered = (component as unknown as { filteredExpenseItems: () => readonly { id: string }[] })
+      .filteredExpenseItems();
+    expect(filtered.map((i) => i.id)).toEqual(['e1']);
+  });
+
+  // ── Layout tabs (Table / By day) ────────────────────────────────────────
+
+  it('layout tabs: defaults to Table (ledger) and switches to grouped-by-day on click', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1' })]);
+    fixture.detectChanges();
+
+    expect(query('.ew-table')).toBeTruthy();
+    expect(query('.ep-day-groups')).toBeNull();
+
+    const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
+    byDayTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(query('.ew-table')).toBeNull();
+    expect(query('.ep-day-groups')).toBeTruthy();
+  });
+
+  // ── Filter chips ──────────────────────────────────────────────────────
+
+  function filtersForm() {
+    return (
+      component as unknown as {
+        filtersForm: {
+          controls: {
+            search: { setValue: (v: string) => void };
+            paymentStatus: { setValue: (v: string) => void };
+            sortOrder: { setValue: (v: string) => void };
+            creditCardId: { setValue: (v: string) => void };
+          };
+        };
+      }
+    ).filtersForm;
+  }
+
+  it('shows a removable chip for an active search filter and clears it on click', () => {
+    filtersForm().controls.search.setValue('mercado');
+    fixture.detectChanges();
+
+    const chips = queryAll('.ep-chip');
+    expect(chips.length).toBe(1);
+    expect(chips[0].textContent).toContain('mercado');
+
+    chips[0].dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(queryAll('.ep-chip').length).toBe(0);
+  });
+
+  it('"Clear all" resets every active filter at once', () => {
+    filtersForm().controls.search.setValue('mercado');
+    filtersForm().controls.paymentStatus.setValue('OPEN');
+    fixture.detectChanges();
+
+    expect(queryAll('.ep-chip').length).toBe(2);
+
+    query('.ep-chip-clear-all')!.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(queryAll('.ep-chip').length).toBe(0);
+    const c = component as unknown as { statusTabIndex: () => number };
+    expect(c.statusTabIndex()).toBe(0);
+  });
+
+  it('shows no chips row when no filters are active', () => {
+    expect(query('.ep-chips-row')).toBeNull();
+  });
+
+  // ── Empty state ──────────────────────────────────────────────────────────
+
+  it('renders a designed empty state (not a blank screen) when filters produce zero results', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', name: 'Groceries' })]);
+    fixture.detectChanges();
+
+    filtersForm().controls.search.setValue('no-such-expense-name');
+    fixture.detectChanges();
+
+    const empty = query('.ep-empty-state');
+    expect(empty).toBeTruthy();
+    expect(empty!.textContent).toContain('No expenses match filters');
+
+    query('.ep-empty-clear-btn')!.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(query('.ep-empty-state')).toBeNull();
+    expect(query('.ew-table')).toBeTruthy();
+  });
+
+  it('renders the empty state at 0 items with no filters active', () => {
+    expenseService.expenses$.next([]);
+    fixture.detectChanges();
+
+    expect(query('.ep-empty-state')).toBeTruthy();
+  });
+
+  // ── Day grouping: correctness at 0 / 1 / 500+ items, no O(n·m) lookups ──
+
+  function dayGroups() {
+    return (
+      component as unknown as {
+        dayGroups: () => readonly { date: string; items: readonly { id: string }[]; subtotal: number }[];
+      }
+    ).dayGroups();
+  }
+
+  it('dayGroups is empty when there are no expenses', () => {
+    expenseService.expenses$.next([]);
+    fixture.detectChanges();
+
+    expect(dayGroups()).toEqual([]);
+  });
+
+  it('dayGroups produces a single group with the right subtotal for exactly 1 item', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', purchaseDate: '2026-06-01', cost: 50, remaining: 50 })]);
+    fixture.detectChanges();
+
+    const groups = dayGroups();
+    expect(groups.length).toBe(1);
+    expect(groups[0].date).toBe('2026-06-01');
+    expect(groups[0].items.map((i) => i.id)).toEqual(['e1']);
+    expect(groups[0].subtotal).toBe(50); // OPEN → uses remaining
+  });
+
+  it('dayGroups buckets by purchaseDate, sums subtotals correctly (OPEN uses remaining, PAID uses cost), and sorts groups DATE_DESC by default', () => {
+    expenseService.expenses$.next([
+      buildExpense({ id: 'e1', purchaseDate: '2026-06-01', cost: 100, remaining: 40 }), // OPEN, subtotal uses 40
+      buildExpense({ id: 'e2', purchaseDate: '2026-06-01', cost: 20, remaining: 0 }), // PAID, subtotal uses 20
+      buildExpense({ id: 'e3', purchaseDate: '2026-06-03', cost: 15, remaining: 15 }), // OPEN
+    ]);
+    fixture.detectChanges();
+
+    const groups = dayGroups();
+    expect(groups.map((g) => g.date)).toEqual(['2026-06-03', '2026-06-01']); // DATE_DESC
+    const juneFirst = groups.find((g) => g.date === '2026-06-01')!;
+    expect(juneFirst.items.length).toBe(2);
+    expect(juneFirst.subtotal).toBe(60); // 40 + 20
+  });
+
+  it('dayGroups handles 500 expenses across many dates correctly and without a perf cliff (O(n) bucketing)', () => {
+    const days = 25;
+    const perDay = 20;
+    const expenses = Array.from({ length: days * perDay }, (_, i) => {
+      const day = String((i % days) + 1).padStart(2, '0');
+      return buildExpense({
+        id: `e${i}`,
+        purchaseDate: `2026-01-${day}`,
+        cost: 10,
+        remaining: 10,
+      });
+    });
+    expenseService.expenses$.next(expenses);
+
+    const start = performance.now();
+    fixture.detectChanges();
+    const groups = dayGroups();
+    const elapsedMs = performance.now() - start;
+
+    expect(groups.length).toBe(days);
+    expect(groups.reduce((acc, g) => acc + g.items.length, 0)).toBe(days * perDay);
+    // Every group of 10 same-cost OPEN items sums to 100.
+    expect(groups.every((g) => g.subtotal === perDay * 10)).toBe(true);
+    // Not a strict perf assertion (CI variance), just a smoke check against an O(n·m) cliff.
+    expect(elapsedMs).toBeLessThan(2000);
+  });
+
+  it('renders 500+ grouped rows in the template without error when the By-day layout is active', () => {
+    const expenses = Array.from({ length: 500 }, (_, i) =>
+      buildExpense({ id: `e${i}`, purchaseDate: `2026-02-${String((i % 28) + 1).padStart(2, '0')}` }),
+    );
+    expenseService.expenses$.next(expenses);
+    fixture.detectChanges();
+
+    const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
+    byDayTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(queryAll('.ep-day-row').length).toBe(500);
+  });
+
+  // ── Accessibility fixes (code review) ───────────────────────────────────
+
+  it('layout and status filter buttons use aria-pressed, not the tablist/tab APG pattern (no tabpanel exists)', () => {
+    expect(query('[role="tablist"]')).toBeNull();
+    expect(query('[role="tab"]')).toBeNull();
+
+    const tableTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'Table')!;
+    const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
+    expect(tableTab.getAttribute('aria-pressed')).toBe('true');
+    expect(byDayTab.getAttribute('aria-pressed')).toBe('false');
+
+    byDayTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    expect(tableTab.getAttribute('aria-pressed')).toBe('false');
+    expect(byDayTab.getAttribute('aria-pressed')).toBe('true');
+
+    const allTab = queryAll('.ep-status-tab').find((b) => b.textContent?.trim() === 'All')!;
+    expect(allTab.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  // D9: the inline `.ep-filters` panel (search/card/status/sort/date-range/hidden) was
+  // replaced by a "Filters" button that opens `ExpenseFiltersDialogComponent` as a 544px
+  // modal — the value-sort-disabled-while-grouped behavior these two tests used to assert
+  // against the inline `<select>` now lives entirely in that component and is covered by
+  // its own spec (`expense-filters-dialog.component.spec.ts`). What stays ExpensePage's
+  // responsibility is wiring: the button renders, is enabled, and opens the dialog with
+  // the live isGroupedLayout() accessor so the dialog can react to layout toggles itself.
+
+  it('the Filters button opens the filters dialog with the live isGroupedLayout accessor', () => {
+    const dialog = TestBed.inject(MatDialog) as unknown as { open: ReturnType<typeof vi.fn> };
+    const filtersBtn = query('.ep-filters-btn') as HTMLButtonElement;
+    expect(filtersBtn).toBeTruthy();
+
+    filtersBtn.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const [, config] = dialog.open.mock.calls[0] as [unknown, { data: { isGroupedLayout: () => boolean } }];
+    expect(config.data.isGroupedLayout()).toBe(false);
+
+    const byDayTab = queryAll('.ep-layout-tab').find((b) => b.textContent?.trim() === 'By day')!;
+    byDayTab.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    // Same accessor reference — reflects the layout toggle without a second dialog.open call.
+    expect(config.data.isGroupedLayout()).toBe(true);
+  });
+
+  it('the Filters button shows an active-count badge once a filter chip is present', () => {
+    expect(query('.ep-filters-count')).toBeNull();
+
+    filtersForm().controls.creditCardId.setValue('card-1');
+    fixture.detectChanges();
+
+    expect(query('.ep-filters-count')?.textContent?.trim()).toBe('1');
+  });
+
+  // D9 code review Major-2: the delete dialog is the one modal in this epic that disables
+  // Escape/backdrop-click, since it's the only destructive/irreversible action — asserted
+  // here so a future edit can't silently drop it back to Material's plain default.
+  it('onDeleteClick opens the delete dialog with disableClose: true (the one destructive-action exception)', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', name: 'Mercado' })]);
+    fixture.detectChanges();
+
+    // P0-3: "Delete" moved from an always-visible icon button to a MatMenu item
+    // behind the row's "⋯" trigger.
+    const dialog = TestBed.inject(MatDialog) as unknown as { open: ReturnType<typeof vi.fn> };
+    const menuTrigger = query('button[aria-label="More actions"]') as HTMLButtonElement;
+    expect(menuTrigger).toBeTruthy();
+    menuTrigger.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    const deleteItem = Array.from(document.querySelectorAll('.mat-mdc-menu-item')).find(
+      (el) => el.textContent?.trim() === 'Delete',
+    ) as HTMLButtonElement;
+    expect(deleteItem).toBeTruthy();
+
+    deleteItem.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const [, config] = dialog.open.mock.calls[0] as [unknown, { disableClose?: boolean }];
+    expect(config.disableClose).toBe(true);
+  });
+
+  it('the card filter chip resolves its label from the shared creditCardNameById Map (O(1), not a fresh .find() scan)', () => {
+    const installmentService = TestBed.inject(InstallmentService) as unknown as {
+      creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
+    };
+    installmentService.creditCards$.next([{ id: 'card-9', name: 'Nubank Platinum' }]);
+    fixture.detectChanges();
+
+    filtersForm().controls.creditCardId.setValue('card-9');
+    fixture.detectChanges();
+
+    const chips = queryAll('.ep-chip');
+    expect(chips.some((c) => c.textContent?.includes('Nubank Platinum'))).toBe(true);
+  });
+
+  it('moving focus after chip removal: focuses the next remaining chip', () => {
+    filtersForm().controls.search.setValue('a');
+    filtersForm().controls.paymentStatus.setValue('OPEN');
+    fixture.detectChanges();
+
+    const chips = queryAll<HTMLButtonElement>('.ep-chip');
+    expect(chips.length).toBe(2);
+
+    chips[0].dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    const remaining = queryAll<HTMLButtonElement>('.ep-chip');
+    expect(remaining.length).toBe(1);
+    expect(document.activeElement).toBe(remaining[0]);
+  });
+
+  it('moving focus after removing the last chip: focuses "Clear all" if present, else the search input', () => {
+    filtersForm().controls.search.setValue('a');
+    fixture.detectChanges();
+
+    const chips = queryAll<HTMLButtonElement>('.ep-chip');
+    expect(chips.length).toBe(1);
+
+    chips[0].dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    // No filters remain, so the whole chips row (including Clear all) unmounts —
+    // focus must fall back to the search input rather than being dropped to <body>.
+    expect(query('.ep-chips-row')).toBeNull();
+    expect(document.activeElement).toBe(query('.ep-search-input'));
+  });
+
+  it('announces the removed filter via LiveAnnouncer (polite)', () => {
+    filtersForm().controls.search.setValue('groceries');
+    fixture.detectChanges();
+
+    const announcer = TestBed.inject(LiveAnnouncer);
+    const announceSpy = vi.spyOn(announcer, 'announce');
+
+    query<HTMLButtonElement>('.ep-chip')!.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+
+    expect(announceSpy).toHaveBeenCalledWith(expect.stringContaining('groceries'), 'polite');
+  });
+
+});
+
+// ── Post-epic-audit P0 fixes ────────────────────────────────────────────────
+// P0-1: full-width ledger card + horizontal quick-add footer strip (replaces the
+//       old 2-column grid with a sidebar "New expense" panel).
+// P0-3: "Pay" text button (OPEN only) + "⋯" overflow menu (replaces 5 always-
+//       visible icon buttons).
+describe('ExpensePage — post-epic-audit P0 fixes (no 2-col grid, quick-add strip, Pay/overflow menu)', () => {
+  let fixture: ComponentFixture<ExpensePage>;
+  let component: ExpensePage;
+  let expenseService: FakeExpenseService;
+  let dialog: { open: ReturnType<typeof vi.fn> };
+
+  function query<T extends Element = Element>(selector: string): T | null {
+    return fixture.nativeElement.querySelector(selector);
+  }
+
+  beforeEach(() => {
+    expenseService = new FakeExpenseService();
+    dialog = { open: vi.fn().mockReturnValue({ afterClosed: () => of(undefined) }) };
+
+    TestBed.configureTestingModule({
+      imports: [ExpensePage],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ExpenseService, useValue: expenseService },
+        { provide: ShareService, useClass: FakeShareService },
+        { provide: PaymentService, useClass: FakePaymentService },
+        { provide: BulletService, useClass: FakeBulletService },
+        { provide: InstallmentService, useClass: FakeInstallmentService },
+        { provide: WalletService, useClass: FakeWalletService },
+        { provide: TagService, useClass: FakeTagService },
+        { provide: SyncService, useClass: FakeSyncService },
+        { provide: PendingReviewService, useClass: FakePendingReviewService },
+        { provide: MatDialog, useValue: dialog },
+        { provide: OmegaViewerLauncher, useClass: FakeOmegaViewerLauncher },
+      ],
+    });
+
+    fixture = TestBed.createComponent(ExpensePage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('the ledger no longer sits in a 2-column grid with a sidebar quick-add panel', () => {
+    expect(query('.ew-row')).toBeNull();
+    // Old sidebar panel had its own "New expense" heading — gone.
+    expect(fixture.nativeElement.textContent).not.toContain('New expense');
+  });
+
+  it('renders the quick-add footer strip with name + cost fields, an Add button, and "More options →"', () => {
+    const strip = query('.ep-quick-add');
+    expect(strip).toBeTruthy();
+    expect(query('.ep-quick-add-name')).toBeTruthy();
+    expect(query('.ep-quick-add-cost')).toBeTruthy();
+
+    const moreBtn = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'More options →',
+    );
+    expect(moreBtn).toBeTruthy();
+  });
+
+  it('quick-add strip submit calls ExpenseService.create() via the shared `form` FormGroup', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    const installmentService = TestBed.inject(InstallmentService) as unknown as {
+      creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
+    };
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+
+    const createSpy = vi
+      .fn()
+      .mockReturnValue(of(buildExpense({ id: 'e-new', name: 'Padaria', cost: 12.5 })));
+    (expenseService as unknown as { create: typeof createSpy }).create = createSpy;
+
+    const c = component as unknown as {
+      form: { patchValue: (v: Record<string, unknown>) => void };
+    };
+    c.form.patchValue({ name: 'Padaria', cost: 12.5 });
+    fixture.detectChanges();
+
+    const form = query('form.ep-quick-add') as HTMLFormElement;
+    expect(form).toBeTruthy();
+    form.dispatchEvent(new Event('submit'));
+
+    expect(createSpy).toHaveBeenCalledTimes(1);
+    const [payload] = createSpy.mock.calls[0] as [{ name: string; cost: number; walletId: string }];
+    expect(payload.name).toBe('Padaria');
+    expect(payload.cost).toBe(12.5);
+    expect(payload.walletId).toBe('wallet-1');
+  });
+
+  it('P0-5: auto-defaults creditCardId to the first available card, so the "Add" button is enabled from name + cost alone (no manual card selection in the strip)', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    const installmentService = TestBed.inject(InstallmentService) as unknown as {
+      creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
+    };
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+
+    const c = component as unknown as {
+      form: { patchValue: (v: Record<string, unknown>) => void; get: (k: string) => { value: unknown } };
+    };
+    // Deliberately does NOT patch creditCardId — the effect under test must have
+    // already defaulted it once creditCards() emitted.
+    c.form.patchValue({ name: 'Padaria', cost: 12.5 });
+    fixture.detectChanges();
+
+    expect(c.form.get('creditCardId')?.value).toBe('card-1');
+
+    const addBtn = query<HTMLButtonElement>('.ep-quick-add-btn');
+    expect(addBtn).toBeTruthy();
+    expect(addBtn!.disabled).toBe(false);
+  });
+
+  it('bug fix: creditCards() changing reference does not re-trigger the wallet-switch effect (infinite request loop regression)', () => {
+    // Reproduces the real bug: InstallmentService.loadCreditCards() always pushes a NEW
+    // array reference on every HTTP response, even when the wallet and content are
+    // unchanged. resetForm() (called from inside the wallet-switch effect) used to read
+    // `this.creditCards()` WITHOUT untracked(), making it a second tracked dependency of
+    // that effect — so every creditCards() emission re-ran the wallet-switch effect, which
+    // called installmentService.loadByWalletId() again, which fetched credit cards again,
+    // which emitted a new reference again: an infinite loop of 5 wallet-scoped HTTP calls,
+    // confirmed live via the Network tab (266 requests in 4s) before the fix.
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    const installmentService = TestBed.inject(InstallmentService) as unknown as {
+      creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
+      loadByWalletId: ReturnType<typeof vi.fn>;
+    };
+    const shareService = TestBed.inject(ShareService) as unknown as {
+      loadAll: ReturnType<typeof vi.fn>;
+    };
+
+    walletService.selectedWallet$.next({ id: 'wallet-1' } as Wallet);
+    fixture.detectChanges();
+
+    installmentService.loadByWalletId.mockClear();
+    shareService.loadAll.mockClear();
+
+    // Simulate loadCreditCards() resolving multiple times with a fresh array reference
+    // each time (same content, different identity) — exactly what the real service does.
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+
+    // The wallet-switch effect must NOT have re-run: selectedWallet() never changed here,
+    // only creditCards() did. Before the fix these were both > 0 (once per emission above).
+    expect(installmentService.loadByWalletId).not.toHaveBeenCalled();
+    expect(shareService.loadAll).not.toHaveBeenCalled();
+  });
+
+  it('P0-5: quick-add name/cost inputs render with real field chrome (border), not the borderless dialog `.ew-input` look', () => {
+    const nameInput = query<HTMLInputElement>('.ep-quick-add-name');
+    const costInput = query<HTMLInputElement>('.ep-quick-add-cost');
+    expect(nameInput).toBeTruthy();
+    expect(costInput).toBeTruthy();
+    // Regression guard: these fields must not carry the shared `.ew-input` class,
+    // which renders borderless with a serif italic placeholder (dialog-field style).
+    expect(nameInput!.classList.contains('ew-input')).toBe(false);
+    expect(costInput!.classList.contains('ew-input')).toBe(false);
+    expect(costInput!.placeholder).toBe('R$ 0,00');
+  });
+
+  it('"More options →" opens the full expense-create-dialog with bullets and credit cards', () => {
+    const walletService = TestBed.inject(WalletService) as unknown as {
+      selectedWallet$: BehaviorSubject<Wallet | null>;
+    };
+    walletService.selectedWallet$.next({
+      id: 'wallet-1',
+      description: 'Main',
+      effectiveMonth: 'september',
+      startDate: '2026-09-01',
+    } as Wallet);
+    const installmentService = TestBed.inject(InstallmentService) as unknown as {
+      creditCards$: BehaviorSubject<readonly { id: string; name: string }[]>;
+    };
+    installmentService.creditCards$.next([{ id: 'card-1', name: 'Nubank' }]);
+    fixture.detectChanges();
+
+    dialog.open.mockReturnValue({
+      componentInstance: { submitted: of() },
+      afterClosed: () => of(undefined),
+    });
+
+    const moreBtn = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+      (b) => (b as HTMLButtonElement).textContent?.trim() === 'More options →',
+    ) as HTMLButtonElement;
+    moreBtn.click();
+    fixture.detectChanges();
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const [, config] = dialog.open.mock.calls[0] as [
+      unknown,
+      {
+        data: {
+          walletDescription: string;
+          walletMonth: string;
+          cycle: string;
+          creditCards: readonly { id: string }[];
+        };
+      },
+    ];
+    expect(config.data.walletDescription).toBe('Main');
+    // P2-4 (post-epic-audit): "WALLET {MONTH} · CYCLE {YYYY-MM}" eyebrow inputs —
+    // derived from the wallet's own effectiveMonth/startDate, no hardcoded string.
+    expect(config.data.walletMonth).toBe('SEPTEMBER');
+    expect(config.data.cycle).toBe('2026-09');
+    expect(config.data.creditCards).toEqual([{ id: 'card-1', name: 'Nubank' }]);
+  });
+
+  it('"More options →" is a no-op when no wallet is selected', () => {
+    const c = component as unknown as { openCreateDialog: () => void };
+    c.openCreateDialog();
+
+    expect(dialog.open).not.toHaveBeenCalled();
+  });
+
+  it('shows the "Pay" text button only for OPEN expenses, not PAID ones', () => {
+    expenseService.expenses$.next([
+      buildExpense({ id: 'e-open', name: 'Open one', cost: 100, remaining: 100 }),
+      buildExpense({ id: 'e-paid', name: 'Paid one', cost: 50, remaining: 0 }),
+    ]);
+    fixture.detectChanges();
+
+    const payButtons = Array.from(fixture.nativeElement.querySelectorAll('.ep-pay-btn'));
+    expect(payButtons.length).toBe(1);
+    expect((payButtons[0] as HTMLButtonElement).textContent?.trim()).toBe('Pay');
+  });
+
+  it('no row renders more than the Pay button + the "⋯" overflow trigger (no always-visible icon cluster)', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', cost: 100, remaining: 100 })]);
+    fixture.detectChanges();
+
+    const actionsCell = query('.ep-row-actions') as HTMLElement;
+    expect(actionsCell).toBeTruthy();
+    const directButtons = Array.from(actionsCell.querySelectorAll(':scope > button'));
+    // Pay button + "⋯" trigger — never the old 5-icon cluster.
+    expect(directButtons.length).toBe(2);
+  });
+
+  it('the overflow menu exposes View expense, Manage tags, Split expense, and Delete', () => {
+    expenseService.expenses$.next([buildExpense({ id: 'e1', name: 'Groceries' })]);
+    fixture.detectChanges();
+
+    const trigger = query('button[aria-label="More actions"]') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const labels = Array.from(document.querySelectorAll('.mat-mdc-menu-item')).map((el) =>
+      el.textContent?.trim(),
+    );
+    expect(labels).toEqual(
+      expect.arrayContaining(['View expense', 'Manage tags', 'Split expense', 'Delete']),
+    );
   });
 });

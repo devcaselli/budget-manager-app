@@ -196,10 +196,6 @@ describe('ReservedBudgetPage — reload fan-out after migration mutations (RBM-F
     );
   }
 
-  function deleteReservedBudget(item: ReturnType<typeof reservedBudgetItem>): void {
-    (component as unknown as { deleteReservedBudget: (item: unknown) => void }).deleteReservedBudget(item);
-  }
-
   beforeEach(() => configure());
 
   it('creation dispatches exactly 3 loads with the selected wallet effectiveMonth', () => {

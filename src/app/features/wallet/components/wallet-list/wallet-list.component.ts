@@ -19,6 +19,8 @@ export class WalletListComponent {
   readonly walletSelect = output<Wallet>();
   readonly favoriteToggle = output<Wallet>();
   readonly walletReview = output<Wallet>();
+  readonly walletReopen = output<Wallet>();
+  readonly walletPromote = output<Wallet>();
 
   protected isSelected(wallet: Wallet): boolean {
     return this.selectedWalletId() === wallet.id;
@@ -38,8 +40,26 @@ export class WalletListComponent {
     this.walletReview.emit(wallet);
   }
 
+  protected onReopenClick(event: Event, wallet: Wallet): void {
+    event.stopPropagation();
+    this.walletReopen.emit(wallet);
+  }
+
+  protected onPromoteClick(event: Event, wallet: Wallet): void {
+    event.stopPropagation();
+    this.walletPromote.emit(wallet);
+  }
+
   protected canReview(wallet: Wallet): boolean {
-    return wallet.state === 'PRODUCTION';
+    return wallet.state === 'PRODUCTION' && !wallet.closed;
+  }
+
+  protected canReopen(wallet: Wallet): boolean {
+    return wallet.state === 'PRODUCTION' && wallet.closed;
+  }
+
+  protected canPromote(wallet: Wallet): boolean {
+    return wallet.state === 'PREVIEW';
   }
 
   protected walletStateClass(state: WalletState): string {

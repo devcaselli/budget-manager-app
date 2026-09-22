@@ -18,21 +18,21 @@ describe('ViewerFieldListComponent', () => {
 
   it('renders one label/value row per input row, in order', () => {
     setup([
-      { key: 'a', label: 'Data', value: '01/01/2026', sensitive: false },
-      { key: 'b', label: 'Cartão', value: 'Nubank', sensitive: false },
+      { key: 'a', label: 'Purchase date', value: '01/01/2026', sensitive: false },
+      { key: 'b', label: 'Credit card', value: 'Nubank', sensitive: false },
     ]);
 
     const root = fixture.nativeElement as HTMLElement;
     const labels = Array.from(root.querySelectorAll('.vfl__label')).map((el) => el.textContent?.trim());
     const values = Array.from(root.querySelectorAll('.vfl__value')).map((el) => el.textContent?.trim());
 
-    expect(labels).toEqual(['Data', 'Cartão']);
+    expect(labels).toEqual(['Purchase date', 'Credit card']);
     expect(values).toEqual(['01/01/2026', 'Nubank']);
   });
 
   it('applies .ew-blur only to rows marked sensitive', () => {
     setup([
-      { key: 'cost', label: 'Valor', value: 'R$ 100,00', sensitive: true },
+      { key: 'cost', label: 'Cost', value: 'R$ 100,00', sensitive: true },
       { key: 'status', label: 'Status', value: 'OPEN', sensitive: false },
     ]);
 

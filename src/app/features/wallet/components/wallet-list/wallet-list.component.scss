@@ -47,7 +47,9 @@
   }
 }
 
-.wl-review-btn {
+.wl-review-btn,
+.wl-reopen-btn,
+.wl-promote-btn {
   margin-left: 8px;
   border: 1px solid var(--ew-line);
   background: none;
@@ -65,4 +67,10 @@
     color: var(--ew-acc);
     border-color: var(--ew-acc);
   }
+}
+
+.wl-reopen-btn:hover,
+.wl-promote-btn:hover {
+  color: var(--ew-teal);
+  border-color: var(--ew-teal);
 }

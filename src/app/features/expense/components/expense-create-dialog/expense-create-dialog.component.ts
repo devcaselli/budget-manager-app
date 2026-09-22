@@ -6,7 +6,6 @@ import {
   ViewChild,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import {
   MAT_DIALOG_DATA,
   MatDialogModule,
@@ -14,6 +13,8 @@ import {
 } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { Subject } from 'rxjs';
+
+import { PreferencesService } from '@core/services/preferences.service';
 
 export interface ExpenseCreateDialogBullet {
   readonly id: string;
@@ -28,6 +29,10 @@ export interface ExpenseCreateDialogCreditCard {
 
 export interface ExpenseCreateDialogData {
   readonly walletDescription: string;
+  /** Wallet's `effectiveMonth`, e.g. "SEPTEMBER" — feeds the "WALLET {MONTH}" eyebrow. */
+  readonly walletMonth: string;
+  /** Wallet's `startDate` sliced to `YYYY-MM` — feeds the "CYCLE {YYYY-MM}" eyebrow. */
+  readonly cycle: string;
   readonly bullets?: readonly ExpenseCreateDialogBullet[];
   readonly creditCards?: readonly ExpenseCreateDialogCreditCard[];
 }
@@ -47,7 +52,6 @@ export interface ExpenseCreateDialogResult {
   selector: 'app-expense-create-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    MatButtonModule,
     MatDialogModule,
     MatIconModule,
     ReactiveFormsModule,
@@ -60,6 +64,7 @@ export class ExpenseCreateDialogComponent {
     MatDialogRef<ExpenseCreateDialogComponent, ExpenseCreateDialogResult>
   >(MatDialogRef);
   private readonly formBuilder = inject(FormBuilder);
+  protected readonly prefs = inject(PreferencesService);
 
   @ViewChild('nameInput') private readonly nameInput?: ElementRef<HTMLInputElement>;
 
@@ -71,12 +76,25 @@ export class ExpenseCreateDialogComponent {
     cost: [0, [Validators.required, Validators.min(0.01)]],
     purchaseDate: [this.today(), Validators.required],
     bulletId: [''],
-    creditCardId: ['', Validators.required],
+    // P2-4: pre-filled from PreferencesService.rememberedCreditCardId when "Remember
+    // the selected card" is on and that card still exists in this wallet's list.
+    creditCardId: [this.resolveInitialCreditCardId(), Validators.required],
     isInstallment: [false],
     installmentCharges: [0],
     keepOpen: [false],
-    keepCreditCard: [false],
   });
+
+  /** "WALLET {MONTH} · CYCLE {YYYY-MM}" eyebrow — matches the design's `modalSub`
+   *  for this dialog (design ref: `new: [..., 'WALLET SEPTEMBER · CYCLE 2026-09']`). */
+  protected readonly subtitle = `WALLET ${this.data.walletMonth} · CYCLE ${this.data.cycle}`;
+
+  private resolveInitialCreditCardId(): string {
+    if (!this.prefs.rememberCard()) return '';
+    const rememberedId = this.prefs.rememberedCreditCardId();
+    if (!rememberedId) return '';
+    const existsInList = (this.data.creditCards ?? []).some((card) => card.id === rememberedId);
+    return existsInList ? rememberedId : '';
+  }
 
   protected get hasBullets(): boolean {
     return (this.data.bullets?.length ?? 0) > 0;
@@ -124,6 +142,10 @@ export class ExpenseCreateDialogComponent {
         : {}),
     };
 
+    if (this.prefs.rememberCard()) {
+      this.prefs.setRememberedCreditCardId(value.creditCardId || null);
+    }
+
     if (value.keepOpen) {
       this.submitted.next(result);
       this.resetForNextTransaction(value.purchaseDate);
@@ -133,9 +155,18 @@ export class ExpenseCreateDialogComponent {
     this.dialogRef.close(result);
   }
 
+  /** "Remember the selected card" toggle (P2-4) — persists via `PreferencesService`,
+   *  independent of this dialog's own `keepOpen` in-session state. */
+  protected toggleRememberCard(): void {
+    this.prefs.toggleRememberCard();
+  }
+
   private resetForNextTransaction(purchaseDate: string): void {
+    // Design (post-epic-audit) drops the separate "Keep selected credit card" switch
+    // that used to gate this — carrying the card forward is now the only behavior
+    // while "Keep adding after saving" is on, which matches the common flow (rapid
+    // entry of several expenses on the same card) without an extra toggle to manage.
     const currentCreditCardId = this.form.controls.creditCardId.getRawValue();
-    const keepCreditCard = this.form.controls.keepCreditCard.getRawValue();
 
     this.form.controls.installmentCharges.clearValidators();
     this.form.controls.installmentCharges.updateValueAndValidity();
@@ -144,11 +175,10 @@ export class ExpenseCreateDialogComponent {
       cost: 0,
       purchaseDate,
       bulletId: '',
-      creditCardId: keepCreditCard ? currentCreditCardId : '',
+      creditCardId: currentCreditCardId,
       isInstallment: false,
       installmentCharges: 0,
       keepOpen: true,
-      keepCreditCard,
     });
     this.form.markAsPristine();
     this.form.markAsUntouched();

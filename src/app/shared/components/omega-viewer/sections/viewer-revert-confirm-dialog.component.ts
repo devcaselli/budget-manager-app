@@ -21,7 +21,7 @@ export interface ViewerRevertConfirmDialogData {
  * "Confirm payment revert?" dialog (F-10) — shown by `ViewerPaymentsSectionComponent`/the
  * Omega Viewer shell before calling `PaymentService.revert()`. A separate component from
  * `ViewerDiscardConfirmDialogComponent` rather than a reuse: that dialog's copy/icon/button
- * ("Descartar alterações?", `delete_outline`, red "Descartar alterações" button) is written
+ * ("Discard changes?", `delete_outline`, red "Discard changes" button) is written
  * specifically for the "you have unsaved form edits" scenario, and this feature's own
  * convention (see that component's doc comment) is bespoke-per-feature confirm dialogs rather
  * than a shared generic one — reverting a payment is a materially different, irreversible

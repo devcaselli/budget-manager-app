@@ -3,159 +3,21 @@
   display: block;
 }
 
-.ew-app {
-  display: grid;
-  grid-template-columns: 230px 1fr;
-  min-height: 100vh;
-  position: relative;
-  z-index: 1;
-}
-
 // ── Sidebar ───────────────────────────────────────────────────────────────────
-.ew-side {
-  border-right: 1px solid var(--ew-line);
-  padding: 24px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-  background: linear-gradient(180deg, #16130f, var(--ew-bg));
-}
+// `.ew-app`, `.ew-side*`, `.ew-brand*` and `.ew-nav*` all moved to `src/styles.scss`
+// (D4) — this component file was already over the `anyComponentStyle` build
+// budget before D4 started (20.7KB against a 20kB warning threshold), so the
+// sidebar regroup/rail/collapse CSS lives in the global `ew-*` partial instead
+// of growing this file further. See the "Sidebar (D4)" section in styles.scss.
 
-.ew-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 4px;
-}
-
-.ew-brand-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, var(--ew-acc-2), var(--ew-acc) 70%);
-  display: grid;
-  place-items: center;
-  font-family: var(--ew-serif);
-  font-size: 24px;
-  font-style: italic;
-  font-weight: 500;
-  color: #1c1814;
-  line-height: 1;
-  flex: 0 0 36px;
-}
-
-.ew-brand-name {
-  font-family: var(--ew-serif);
-  font-size: 22px;
-  line-height: 1;
-  letter-spacing: -0.015em;
-  font-weight: 500;
-
-  span {
-    display: block;
-    font-family: var(--ew-sans);
-    font-size: 10px;
-    color: var(--ew-ink-3);
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    margin-top: 6px;
-  }
-}
-
-// ── Navigation ────────────────────────────────────────────────────────────────
-.ew-nav {
-  display: flex;
-  flex-direction: column;
-}
-
-.ew-nav-section {
-  font-family: var(--ew-sans);
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--ew-ink-3);
-  padding: 18px 8px 6px;
-}
-
-.ew-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 10px;
-  color: var(--ew-ink-2);
-  font-size: 14px;
-  cursor: pointer;
-  border-left: 1px solid transparent;
-  margin-left: -1px;
-  text-decoration: none;
-  transition: color 0.15s;
-
-  &:hover {
-    color: var(--ew-ink);
-  }
-
-  &--active {
-    color: var(--ew-ink);
-    border-left-color: var(--ew-acc);
-
-    .ew-nav-num {
-      color: var(--ew-acc);
-    }
-  }
-}
-
-.ew-nav-num {
-  font-family: var(--ew-mono);
-  font-size: 10px;
-  color: var(--ew-ink-3);
-  width: 18px;
-  letter-spacing: 0.04em;
-  flex: 0 0 18px;
-}
-
-.ew-nav-item--tools {
-  justify-content: space-between;
-}
-
-.ew-nav-tools-chev {
-  width: 13px;
-  height: 13px;
-  color: var(--ew-ink-3);
-  flex: 0 0 13px;
-}
-
+// The spacer no longer grows. `.ew-side-inner` already carries `flex: 1` and
+// pushes the footer (wallet + user chip) to the bottom on its own. When BOTH
+// were `flex: 1` they split the free space evenly, so the spacer stole ~370px
+// of height that the nav needed and squeezed `.ew-side-inner` far below its
+// content height — that, not any width rule, is what produced the visible
+// vertical scrollbar in the sidebar.
 .ew-side-spacer {
-  flex: 1;
-}
-
-.ew-side-card {
-  background: linear-gradient(160deg, #1f1a14 0%, #15120e 100%);
-  border: 1px solid var(--ew-line);
-  border-radius: 12px;
-  padding: 14px;
-  font-size: 12px;
-  color: var(--ew-ink-2);
-
-  b {
-    display: block;
-    color: var(--ew-acc);
-    font-family: var(--ew-serif);
-    font-size: 22px;
-    font-style: italic;
-    margin-bottom: 4px;
-    font-weight: 500;
-    letter-spacing: -0.015em;
-  }
-
-  span {
-    color: var(--ew-ink-3);
-    font-size: 11px;
-    font-family: var(--ew-mono);
-  }
+  flex: 0 0 0;
 }
 
 // ── Topbar ────────────────────────────────────────────────────────────────────
@@ -166,51 +28,173 @@
   background: var(--ew-bg);
 }
 
+// Sticky, height-pinned (design: 68px desktop), blurred over `--bg-blur`
+// (D1 token) so page content shows through while scrolling underneath.
 .ew-topbar {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 18px 36px;
+  height: 68px;
   border-bottom: 1px solid var(--ew-line);
   position: sticky;
   top: 0;
-  background: var(--ew-bg);
-  z-index: 10;
+  background: var(--bg-blur);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 40;
+
+  // P2-5: rises above the scrim (190) while the wallet popover is open, per design —
+  // keeps the ticker trigger visible/clickable-to-close on top of the dimmed page.
+  &--raised {
+    z-index: 58;
+  }
+}
+
+// Inner container caps at the same 1240px column as `.ew-content` below, so the
+// topbar's controls and the page content line up on wide screens (P0-2 fix).
+//
+// The horizontal padding MUST stay identical to `.ew-content`'s (same clamp
+// scale, see the "Content area" section below). It was previously a fixed
+// `36px` against the content's `clamp(28px, 3.6vw, 72px)`, so the breadcrumb
+// and the page title only agreed at narrow viewports and drifted up to 36px
+// apart on wide ones — the topbar column and the content column were literally
+// different widths.
+.ew-topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 100%;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 clamp(28px, 3.6vw, 72px);
+  // Anchors `.ew-side-expand` (below) without taking it out of the page flow.
+  position: relative;
 }
 
 .ew-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--ew-mono);
-  font-size: 11px;
-  color: var(--ew-ink-3);
-  letter-spacing: 0.18em;
+  font-size: 10.5px;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
+}
 
-  b {
-    color: var(--ew-ink);
-    font-weight: 500;
-  }
+.ew-crumb-root {
+  // Design: --text-4. This app's legacy --ew-ink-3 alias maps to --text-4 (not
+  // --text-3, see the D1 alias-layer comment in styles.scss), so --ew-ink-3 is
+  // the correct token here despite the "-3" name.
+  color: var(--ew-ink-3);
+}
+
+.ew-crumb-sep {
+  // Design: --accent-line, which --ew-line-2 already aliases (styles.scss).
+  color: var(--ew-line-2);
+}
+
+.ew-crumb-current {
+  color: var(--ew-ink);
+  font-weight: 500;
 }
 
 .ew-topbar-spacer {
   flex: 1;
 }
 
+// Post-epic-audit P1-3: restored the design's button chrome (border + surface
+// background + radius) — was transparent/borderless, missing the accent dot.
 .ew-ticker {
-  font-family: var(--ew-mono);
-  font-size: 11px;
-  color: var(--ew-ink-3);
-  display: flex;
-  gap: 18px;
-  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 13px;
+  border-radius: 10px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 
-  b {
+  &:hover {
+    border-color: var(--ew-line-2);
+  }
+
+  &[aria-expanded='true'] {
+    // Fix (post-consolidated-review Minor 6): was a hardcoded amber
+    // rgba(214,163,113,*) left over from the pre-redesign palette, leaking the wrong
+    // hue into the dark teal theme's focus/hover ring.
+    border-color: var(--ew-acc-soft);
+    background: var(--ew-panel);
     color: var(--ew-ink);
-    font-weight: 500;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
   }
 }
 
-.ew-up {
-  color: var(--ew-teal);
+.ew-ticker-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 999px;
+  background: var(--ew-acc);
+}
+
+.ew-ticker-month {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ew-ink);
+}
+
+.ew-ticker-meta {
+  font-family: var(--ew-mono);
+  font-size: 10.5px;
+  color: var(--ew-ink-3);
+}
+
+// Post-epic-audit P1-3: Sync trigger, moved here from the Expenses panel head —
+// same rounded-rect chrome as .ew-ticker (not the pill-shaped .ew-btn), per design.
+.ew-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 13px;
+  border-radius: 10px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-line-2);
+    background: var(--ew-panel-2);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.ew-ticker-chev {
+  width: 12px;
+  height: 12px;
+  color: var(--ew-ink-3);
+  flex: 0 0 12px;
+  transition: transform 0.2s, color 0.15s;
+
+  .ew-ticker[aria-expanded='true'] & {
+    color: var(--ew-acc);
+  }
+
+  &--open {
+    transform: rotate(180deg);
+  }
 }
 
 // ── Buttons ───────────────────────────────────────────────────────────────────
@@ -299,6 +283,9 @@
 }
 
 // ── Content area ──────────────────────────────────────────────────────────────
+// Default max-width matches `.ew-topbar-inner` (1240px) so topbar and page content
+// share the same visual column (P0-2 fix). The optional "centered" Tweaks toggle
+// widens that cap for users who prefer more breathing room on very wide screens.
 .ew-content {
   padding: clamp(28px, 3.2vw, 56px) clamp(28px, 3.6vw, 72px) 80px;
   flex: 1;
@@ -306,11 +293,12 @@
   overflow-y: auto;
   width: 100%;
   min-width: 0;
+  max-width: 1240px;
+  margin: 0 auto;
 
-  // Centered mode: cap width and center
+  // Centered mode: widen the cap, still centered
   &--centered {
     max-width: 1720px;
-    margin: 0 auto;
   }
 }
 
@@ -431,6 +419,8 @@
 }
 
 // ── Wallet quick-view ─────────────────────────────────────────────────────────
+// No explicit width: as a flex child of the now-padded `.ew-side` it stretches
+// to the shared 221px content box automatically, matching `.ew-user-chip`.
 .ew-wallet-wrap {
   position: relative;
 }
@@ -441,22 +431,24 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 11px 13px;
+  min-height: 54px;
   border: 1px solid var(--ew-line);
-  border-radius: 14px;
-  background: var(--ew-panel-2);
+  border-radius: 12px;
+  background: var(--surface-2);
   color: var(--ew-ink);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
   font-family: var(--ew-sans);
   text-align: left;
+  box-sizing: border-box;
 
   &:hover {
     border-color: var(--ew-line-2);
   }
 
   &[aria-expanded='true'] {
-    border-color: rgba(214, 163, 113, 0.35);
+    border-color: var(--ew-acc-soft);
     background: var(--ew-panel);
 
     .ew-wb-chev {
@@ -475,25 +467,17 @@
 
 .ew-wb-eyebrow {
   font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
+  font-size: 9px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--ew-ink-3);
+  color: var(--text-3);
 }
 
 .ew-wb-amount {
-  font-family: var(--ew-serif);
-  font-size: 14px;
-  color: var(--ew-ink-2);
+  font-family: var(--ew-mono);
+  font-size: 15px;
+  color: var(--text);
   letter-spacing: -0.01em;
-
-  b {
-    font-family: var(--ew-serif);
-    font-size: 22px;
-    color: var(--ew-acc);
-    font-weight: 500;
-    letter-spacing: -0.02em;
-  }
 }
 
 .ew-wb-chev {
@@ -508,76 +492,45 @@
   }
 }
 
-// Popover — position:fixed so it escapes sidebar overflow:auto
+// Popover — position:fixed so it escapes sidebar overflow:auto. P2-1 (post-epic-audit):
+// design specs 344px/16px-radius/18px-padding and a plain soft shadow with NO arrow — this
+// was ported from an earlier iteration that anchored off the sidebar wallet button (hence
+// the left-pointing arrow and the `translateY(-100%)` "sit above the trigger" math). Since
+// P0/P1 made the topbar ticker the primary trigger, coords are now computed relative to
+// that button's own rect (see `toggleWalletPop()`) with no upward flip and no arrow.
 .ew-wallet-pop {
   position: fixed;
-  width: 320px;
+  width: 344px;
   background: var(--ew-panel);
   border: 1px solid var(--ew-line-2);
-  border-radius: 18px;
-  padding: 22px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(214, 163, 113, 0.06);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 24px 60px rgba(22, 50, 60, 0.16);
   z-index: 200;
   animation: walletPopIn 0.2s cubic-bezier(0.2, 0.7, 0.3, 1);
-  transform: translateY(-100%); // top coord = button bottom → shift up so popover sits above
-
-  // Arrow pointing left
-  &::before {
-    content: '';
-    position: absolute;
-    left: -7px;
-    bottom: 24px;
-    width: 12px;
-    height: 12px;
-    background: var(--ew-panel);
-    border-left: 1px solid var(--ew-line-2);
-    border-bottom: 1px solid var(--ew-line-2);
-    transform: rotate(45deg);
-  }
 }
 
 @keyframes walletPopIn {
-  from { opacity: 0; transform: translateY(-100%) translateX(-8px); }
-  to   { opacity: 1; transform: translateY(-100%) translateX(0); }
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-// Tools submenu — position:fixed so it escapes sidebar overflow:auto
-.ew-tools-submenu {
+// P2-5 (post-epic-audit): scrim behind the wallet popover, matching the design's
+// `position:fixed; inset:0; background:var(--scrim)`. `MatMenu` (row-menu, P0) already
+// ships its own CDK overlay backdrop, so this custom scrim is only needed here.
+// z-index sits between the raised topbar (58, stays visible/clickable above the scrim
+// per design) and the popover itself (200).
+.ew-wallet-scrim {
   position: fixed;
-  min-width: 180px;
-  background: var(--ew-panel);
-  border: 1px solid var(--ew-line-2);
-  border-radius: 14px;
-  padding: 8px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(214, 163, 113, 0.06);
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  animation: toolsSubmenuIn 0.15s cubic-bezier(0.2, 0.7, 0.3, 1);
+  inset: 0;
+  background: var(--scrim);
+  z-index: 57;
+  animation: walletScrimIn 0.15s ease-out;
 }
 
-@keyframes toolsSubmenuIn {
-  from { opacity: 0; transform: translateX(-6px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-
-.ew-tools-submenu-item {
-  padding: 9px 12px;
-  border-radius: 9px;
-  color: var(--ew-ink-2);
-  font-size: 14px;
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s;
-
-  &:hover {
-    color: var(--ew-ink);
-    background: rgba(214, 163, 113, 0.08);
-  }
-
-  &--active {
-    color: var(--ew-acc);
-  }
+@keyframes walletScrimIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .ew-wp-head {
@@ -587,19 +540,19 @@
 
 .ew-wp-eyebrow {
   font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.2em;
+  font-size: 9px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--ew-ink-3);
+  color: var(--text-4);
 }
 
 .ew-wp-amount {
-  font-family: var(--ew-serif);
-  font-size: 34px;
+  font-family: var(--ew-mono);
+  font-size: 26px;
   line-height: 1;
   letter-spacing: -0.025em;
   font-weight: 500;
-  color: var(--ew-acc);
+  color: var(--text);
   margin-top: 8px;
   font-variant-numeric: tabular-nums;
 
@@ -614,10 +567,10 @@
 
 .ew-wp-sec {
   font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.2em;
+  font-size: 9px;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--ew-ink-3);
+  color: var(--text-4);
   margin: 16px 0 6px;
 }
 
@@ -647,17 +600,22 @@
   justify-content: space-between;
   gap: 12px;
   padding: 11px 12px;
+  min-height: 48px;
+  box-sizing: border-box;
   border: 1px solid var(--ew-line);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.08));
+  border-radius: 10px;
+  background: var(--surface-2);
   color: var(--ew-ink);
   cursor: pointer;
   text-align: left;
   transition: border-color 0.15s, background 0.15s, transform 0.15s;
 
   &:hover {
-    border-color: rgba(214, 163, 113, 0.45);
-    background: rgba(214, 163, 113, 0.08);
+    // Fix (post-consolidated-review Minor 6): same leftover pre-redesign amber as the
+    // ticker's aria-expanded ring above — replaced with the accent-soft token so the
+    // hover state actually reads as the theme's own accent, dark included.
+    border-color: var(--ew-acc);
+    background: var(--ew-acc-soft);
     transform: translateX(2px);
   }
 }
@@ -669,8 +627,8 @@
   gap: 3px;
 
   b {
-    font-family: var(--ew-serif);
-    font-size: 15px;
+    font-family: var(--ew-sans);
+    font-size: 13.5px;
     font-weight: 500;
     line-height: 1.05;
     letter-spacing: -0.01em;
@@ -682,7 +640,7 @@
   small {
     font-family: var(--ew-mono);
     font-size: 9px;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--ew-ink-3);
     white-space: nowrap;
@@ -693,18 +651,21 @@
 
 .ew-wp-wallet-val {
   flex: 0 0 auto;
-  font-family: var(--ew-serif);
-  font-size: 14px;
+  font-family: var(--ew-mono);
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 
+// P2-2 (post-review-visual): reworked from a 3-column grid (name | narrow bar |
+// values) to a flex column — name+values share a row on top, the progress bar
+// runs full-width underneath. Matches the design; the grid layout squeezed the
+// bar into a fixed 56px column that didn't read as a real progress indicator.
 .ew-wp-bullet {
-  display: grid;
-  grid-template-columns: 1fr 56px 80px;
-  align-items: center;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   padding: 10px 0;
   border-bottom: 1px solid var(--ew-line);
 
@@ -713,76 +674,66 @@
   }
 }
 
+.ew-wp-bullet-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .ew-wp-bn {
-  font-family: var(--ew-serif);
-  font-size: 15px;
+  font-family: var(--ew-sans);
+  font-size: 13px;
   line-height: 1.1;
   font-weight: 500;
   letter-spacing: -0.01em;
-
-  small {
-    display: block;
-    font-family: var(--ew-mono);
-    font-size: 9px;
-    color: var(--ew-ink-3);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    margin-top: 3px;
-    font-weight: 400;
-  }
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ew-wp-bar {
   position: relative;
-  height: 2px;
-  background: var(--ew-line-2);
-  border-radius: 1px;
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 999px;
   overflow: hidden;
 
   i {
     display: block;
     height: 100%;
     background: var(--ew-acc);
-    border-radius: 1px;
+    border-radius: 999px;
   }
 }
 
 .ew-wp-val {
-  text-align: right;
-  font-family: var(--ew-serif);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  flex: 0 0 auto;
+  font-family: var(--ew-mono);
+  font-size: 11.5px;
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
-
-  small {
-    display: block;
-    font-family: var(--ew-mono);
-    font-size: 9px;
-    color: var(--ew-ink-3);
-    letter-spacing: 0.1em;
-    margin-top: 2px;
-    font-weight: 400;
-  }
+  white-space: nowrap;
 }
 
 .ew-wp-cta {
   margin-top: 16px;
   width: 100%;
-  padding: 12px 16px;
-  border-radius: 99px;
-  background: transparent;
-  color: var(--ew-ink);
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ew-acc);
   border: 1px solid var(--ew-line-2);
-  font-family: var(--ew-mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-family: var(--ew-sans);
+  font-size: 13px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  box-sizing: border-box;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
   text-decoration: none;
   font-weight: 500;
@@ -803,42 +754,40 @@
 }
 
 // ── User chip ─────────────────────────────────────────────────────────────────
+// Same deal as `.ew-wallet-wrap`: the shared padding on `.ew-side` gives this
+// the identical 221px content box, so no `width`/`box-sizing` override is
+// needed to line it up with the wallet button above it.
 .ew-user-chip {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--ew-line);
-  border-radius: 14px;
-  background: var(--ew-panel-2);
-  cursor: pointer;
-  transition: border-color 0.15s;
+  padding: 8px 11px;
+  border-radius: 12px;
   position: relative;
-
-  &:hover {
-    border-color: var(--ew-line-2);
-  }
+  // The 3 icon buttons on the right are fixed-size; the name/email block is the
+  // only flexible part, so it must be allowed to shrink instead of pushing the
+  // chip wider than its container.
+  min-width: 0;
 }
 
 .ew-user-av {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, var(--ew-acc-2), var(--ew-acc) 70%);
+  background: var(--accent-soft);
   display: grid;
   place-items: center;
-  font-family: var(--ew-serif);
-  font-size: 18px;
-  font-style: italic;
-  font-weight: 500;
-  color: #1c1814;
-  flex: 0 0 34px;
+  font-family: var(--ew-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-deep);
+  flex: 0 0 30px;
   line-height: 1;
   // Belt-and-braces against the circle visually breaking: deriveInitials()
   // already caps output at 1-2 graphemes, but this keeps the CONTAINER safe
   // even if something unexpected ever slips through (e.g. a future caller
   // reusing this class with a raw, un-derived string).
-  max-width: 34px;
+  max-width: 30px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -851,8 +800,8 @@
 
   b {
     display: block;
-    font-family: var(--ew-serif);
-    font-size: 16px;
+    font-family: var(--ew-sans);
+    font-size: 13px;
     line-height: 1.1;
     font-weight: 500;
     letter-spacing: -0.01em;
@@ -864,10 +813,8 @@
   span {
     display: block;
     font-family: var(--ew-mono);
-    font-size: 10px;
-    color: var(--ew-ink-3);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    font-size: 9.5px;
+    color: var(--text-4);
     margin-top: 3px;
     white-space: nowrap;
     overflow: hidden;
@@ -875,24 +822,53 @@
   }
 }
 
+.ew-user-settings,
+.ew-user-theme,
 .ew-user-logout {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   border: 1px solid var(--ew-line-2);
   display: grid;
   place-items: center;
   color: var(--ew-ink-3);
-  flex: 0 0 30px;
+  flex: 0 0 34px;
   transition: color 0.12s, border-color 0.12s;
   background: transparent;
   cursor: pointer;
+  text-decoration: none;
 
   svg {
     width: 13px;
     height: 13px;
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
+  }
+}
+
+.ew-user-logout span {
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.ew-user-settings {
+  &:hover,
+  &[aria-current='page'] {
+    color: var(--ew-acc);
+    border-color: var(--ew-acc);
+  }
+}
+
+.ew-user-theme:hover {
+  color: var(--ew-acc);
+  border-color: var(--ew-acc);
+}
+
+.ew-user-logout {
   &:hover {
     color: var(--ew-bad);
     border-color: var(--ew-bad);
@@ -912,8 +888,7 @@
   }
 
   .ew-brand-name,
-  .ew-nav-section,
-  .ew-side-card,
+  .ew-nav-group-head,
   .ew-wallet-wrap {
     display: none;
   }
@@ -934,17 +909,16 @@
     }
   }
 
-  .ew-nav-num {
-    display: none;
-  }
-
   .ew-brand {
     justify-content: center;
     padding: 0;
   }
 
-  .ew-topbar {
-    padding: 12px 20px;
+  // Horizontal padding stays tied to `.ew-content`'s clamp (28px at this
+  // breakpoint) so the topbar/content columns keep matching here too; only the
+  // vertical padding and gap tighten for tablet.
+  .ew-topbar-inner {
+    padding: 12px clamp(28px, 3.6vw, 72px);
     gap: 10px;
   }
 
@@ -989,7 +963,7 @@
     overflow-x: auto;
   }
 
-  .ew-nav-section {
+  .ew-nav-group-head {
     display: none;
   }
 
@@ -1010,13 +984,7 @@
     }
   }
 
-  .ew-nav-num {
-    display: inline;
-    font-size: 10px;
-  }
-
   .ew-side-spacer,
-  .ew-side-card,
   .ew-wallet-wrap {
     display: none;
   }
@@ -1028,6 +996,12 @@
 
   .ew-content {
     padding: 22px 18px 40px;
+  }
+
+  // Match `.ew-content`'s 18px inset at this breakpoint — otherwise the topbar
+  // would inherit the 1024px rule's 28px and reintroduce the column mismatch.
+  .ew-topbar-inner {
+    padding: 12px 18px;
   }
 
   .ew-ticker {

@@ -1,0 +1,86 @@
+<div class="efd-head" mat-dialog-title>
+  <div>
+    <h2 class="efd-title">Filters</h2>
+    <p class="efd-subtitle">Refine what the ledger shows</p>
+  </div>
+  <button class="efd-close" type="button" mat-icon-button mat-dialog-close aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="efd-body" [formGroup]="form">
+  <div class="ew-field">
+    <label for="efd-card">Card</label>
+    <select id="efd-card" class="ew-select ew-select--boxed" formControlName="creditCardId">
+      <option value="">All cards</option>
+      @for (card of creditCards; track card.id) {
+        <option [value]="card.id">{{ card.name }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="ew-field">
+    <label for="efd-sort">Sort</label>
+    <select id="efd-sort" class="ew-select ew-select--boxed" formControlName="sortOrder">
+      <option value="DATE_DESC">Date · newest</option>
+      <option value="DATE_ASC">Date · oldest</option>
+      <option
+        value="VALUE_ASC"
+        [disabled]="isGroupedLayout()"
+        [title]="isGroupedLayout() ? 'Groups are always ordered by date — switch to Table to sort by value' : ''"
+      >
+        Value · lowest
+      </option>
+      <option
+        value="VALUE_DESC"
+        [disabled]="isGroupedLayout()"
+        [title]="isGroupedLayout() ? 'Groups are always ordered by date — switch to Table to sort by value' : ''"
+      >
+        Value · highest
+      </option>
+    </select>
+    @if (showValueSortHint()) {
+      <p class="efd-hint">Groups are ordered by date; value sort applies inside each day.</p>
+    }
+  </div>
+
+  <div class="efd-date-range">
+    <div class="ew-field">
+      <label for="efd-start">From</label>
+      <input id="efd-start" class="ew-input ew-input--boxed" type="date" formControlName="startDate" />
+    </div>
+    <div class="ew-field">
+      <label for="efd-end">To</label>
+      <input id="efd-end" class="ew-input ew-input--boxed" type="date" formControlName="endDate" />
+    </div>
+  </div>
+
+  <div class="efd-toggle-row">
+    <span class="efd-toggle-text">
+      <span class="efd-toggle-title">Show hidden items</span>
+      <span class="efd-toggle-sub">
+        Purchases that became an installment plan, or were 100% passed on via a share.
+      </span>
+    </span>
+    <button
+      class="efd-switch"
+      type="button"
+      role="switch"
+      [attr.aria-checked]="unhiddenValue()"
+      [class.efd-switch--on]="unhiddenValue()"
+      aria-label="Show hidden items"
+      (click)="toggleUnhidden()"
+    ><i></i></button>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions class="efd-actions" align="end">
+  <!-- P2-4 (post-epic-audit): design shows Cancel + "Apply filters" (~L802-806). This
+       dialog binds the page's LIVE filtersForm by reference (see ExpenseFiltersDialogData's
+       doc) — every edit already applies instantly, there's no draft state to discard. So
+       Cancel and Done both just close the dialog here; Cancel exists for the honest signal
+       ("I'm done looking, not committing anything new") and for keyboard/visual parity with
+       the design, not because it reverts anything real. -->
+  <button class="ew-btn ew-btn--ghost" type="button" (click)="close()">Cancel</button>
+  <button class="ew-btn ew-btn--primary" type="button" (click)="close()">Apply filters</button>
+</mat-dialog-actions>

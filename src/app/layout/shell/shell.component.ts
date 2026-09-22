@@ -7,7 +7,7 @@ import {
   computed,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { filter, interval, map, takeUntil } from 'rxjs';
 import { takeWhile } from 'rxjs/operators';
@@ -17,16 +17,21 @@ import {
   ExpenseCreateDialogData,
   ExpenseCreateDialogResult,
 } from '@features/expense/components/expense-create-dialog/expense-create-dialog.component';
+import { DESKTOP_DIALOG_MAX_WIDTH, DESKTOP_DIALOG_WIDTH } from '@shared/constants/dialog.constants';
 import { ExpenseService } from '@features/expense/services/expense.service';
 import { Wallet } from '@features/wallet/models/wallet';
 import { WalletService } from '@features/wallet/services/wallet.service';
 import { BulletService } from '@features/bullet/services/bullet.service';
+import { Bullet } from '@features/bullet/models/bullet';
 import { InstallmentService } from '@features/installment/services/installment.service';
-import { DecimalPipe } from '@angular/common';
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { formatBrl } from '@shared/utils/currency';
 import { AuthService } from '@core/auth/auth.service';
-import { PreferencesService } from '@core/services/preferences.service';
+import { NavGroupLabel, PreferencesService } from '@core/services/preferences.service';
+import { PendingReviewService } from '@features/pending-review/services/pending-review.service';
+import { PendingReviewDialogComponent } from '@features/pending-review/components/pending-review-dialog/pending-review-dialog.component';
+import { SyncService } from '@features/sync/services/sync.service';
+import { ToastService } from '@shared/services/toast.service';
 
 interface PopoverCoords {
   top: number;
@@ -38,12 +43,12 @@ interface TweaksPos {
   y: number;
 }
 
-/** Horizontal gap (px) between the Tools nav trigger and its flyout submenu. */
-const TOOLS_SUBMENU_GAP_PX = 8;
-
 /** Approximate rendered footprint (px) of the `.ew-tweaks` panel, used to keep it within viewport bounds. */
 const TWEAKS_PANEL_WIDTH_PX = 230;
 const TWEAKS_PANEL_HEIGHT_PX = 100;
+
+/** Must match `.ew-wallet-pop`'s `width` in shell.component.scss (P2-1: design's 344px). */
+const WALLET_POP_WIDTH_PX = 344;
 
 /** Same cooldown length as F-C3's `CheckEmailPage`/F-C4's `ConfirmEmailPage` resend actions. */
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -51,14 +56,78 @@ const RESEND_COOLDOWN_SECONDS = 60;
 interface NavEntry {
   readonly label: string;
   readonly route: string;
-  readonly num: string;
-  readonly exact?: boolean;
 }
+
+interface RenderedNavEntry extends NavEntry {
+  readonly badgeCount: number;
+}
+
+interface NavGroup {
+  readonly label: NavGroupLabel;
+  readonly items: readonly RenderedNavEntry[];
+  readonly open: boolean;
+  readonly holdsActive: boolean;
+  /**
+   * Row index for the active rail (bound to `.ew-nav-rail`'s `--rail-index` custom
+   * property; the `translateY(index * --nav-rail-step)` math lives in
+   * `styles.scss`, not here — D10 review fix, was a concatenated `[style.transform]`
+   * string), or `null` when no item in this group is active (rail hidden via opacity).
+   */
+  readonly railIndex: number | null;
+  /**
+   * P2-3 (post-epic-audit): shown in the group head only while `!open`, so collapsing a
+   * group never fully hides that it holds pending work — the design's `"4"` / `"4 · 2 new"`
+   * format. `null` when the group has no badge count to call out (plain `"4"`); a number
+   * when at least one item's badge (currently only Inbox) is non-zero — before this fix,
+   * collapsing MANAGER hid the Inbox badge entirely with no visible trace.
+   */
+  readonly closedCountLabel: string;
+}
+
+/** Static group→item route map (D4 regroup: BUDGET / LEDGER / MANAGER / EXTERNAL). */
+const NAV_GROUP_DEFS: readonly { label: NavGroupLabel; items: readonly NavEntry[] }[] = [
+  {
+    label: 'BUDGET',
+    items: [
+      { label: 'Wallets', route: '/wallets' },
+      { label: 'Bullets', route: '/bullets' },
+      { label: 'Extra budgets', route: '/extra-budgets' },
+      { label: 'Reserved budgets', route: '/reserved-budgets' },
+    ],
+  },
+  {
+    label: 'LEDGER',
+    items: [
+      { label: 'Expenses', route: '/expenses' },
+      { label: 'Subscriptions', route: '/subscriptions' },
+      { label: 'Installments', route: '/installments' },
+    ],
+  },
+  {
+    label: 'MANAGER',
+    items: [
+      { label: 'Credit cards', route: '/credit-cards' },
+      { label: 'Payments', route: '/payments' },
+      { label: 'Inbox', route: '/review-imports' },
+      { label: 'Tags', route: '/tags' },
+    ],
+  },
+  {
+    label: 'EXTERNAL',
+    items: [
+      { label: 'Payers', route: '/payers' },
+      { label: 'Shares', route: '/shares' },
+    ],
+  },
+];
+
+/** Standalone Settings entry — footer icon button next to the theme toggle (design), not part of any group. */
+const SETTINGS_NAV: NavEntry = { label: 'Settings', route: '/settings' };
 
 @Component({
   selector: 'app-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, BrlCurrencyPipe, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [BrlCurrencyPipe, RouterLink, RouterOutlet],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
 })
@@ -71,6 +140,9 @@ export class ShellComponent {
   private readonly bulletService = inject(BulletService);
   private readonly installmentService = inject(InstallmentService);
   private readonly authService = inject(AuthService);
+  private readonly pendingReviewService = inject(PendingReviewService);
+  private readonly syncService = inject(SyncService);
+  private readonly toast = inject(ToastService);
   protected readonly prefs = inject(PreferencesService);
 
   protected readonly selectedWallet = toSignal(this.walletService.selectedWallet$, {
@@ -80,11 +152,25 @@ export class ShellComponent {
 
   protected readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   protected readonly bulletsLoading = toSignal(this.bulletService.loading$, { initialValue: false });
+
+  /** Progress-bar percentage for a bullet's used/budget ratio, clamped to [0, 100] — a
+   *  bullet can be overspent (used > budget, a real scenario), which would otherwise push
+   *  the bar's `width.%` past 100. The container's `overflow: hidden` masked this visually,
+   *  but clamping here makes the 100% ceiling an explicit invariant instead of an accident. */
+  protected bulletProgressPct(bullet: Bullet): number {
+    if (bullet.budget <= 0) return 0;
+    const used = bullet.budget - bullet.remaining;
+    return Math.min(100, (used / bullet.budget) * 100);
+  }
   private readonly creditCards = toSignal(this.installmentService.creditCards$, { initialValue: [] });
 
   protected readonly walletPopOpen = signal(false);
   protected readonly walletPopCoords = signal<PopoverCoords>({ top: 0, left: 0 });
-  protected readonly userMenuOpen = signal(false);
+
+  /** Post-epic-audit P1-3: moved here from ExpensePage — the design puts the Sync
+   *  trigger in the topbar (global, next to the wallet ticker), not inside the
+   *  Expenses page panel head. */
+  protected readonly isSyncing = toSignal(this.syncService.syncing$, { initialValue: false });
 
   protected readonly tweaksPos = signal<TweaksPos>(
     (JSON.parse(localStorage.getItem('bm_tweaks_pos') ?? 'null') as TweaksPos | null)
@@ -145,33 +231,51 @@ export class ShellComponent {
 
   protected readonly currentRouteLabel = signal('Dashboard');
 
-  protected readonly workspaceNav: readonly NavEntry[] = [
-    { label: 'Dashboard', route: '/dashboard', num: '01', exact: true },
-    { label: 'Wallets',   route: '/wallets',   num: '02' },
-    { label: 'Bullets',   route: '/bullets',   num: '03' },
-    { label: 'Extra budgets', route: '/extra-budgets', num: '04' },
-    { label: 'Reserved budgets', route: '/reserved-budgets', num: '05' },
-  ];
+  protected readonly dashboardNav: NavEntry = { label: 'Dashboard', route: '/dashboard' };
+  protected readonly settingsNav: NavEntry = SETTINGS_NAV;
+  protected readonly settingsActive = computed(() => this.currentRouteLabel() === SETTINGS_NAV.label);
 
-  protected readonly activityNav: readonly NavEntry[] = [
-    { label: 'Expenses',      route: '/expenses',      num: '05' },
-    { label: 'Installments',  route: '/installments',  num: '06' },
-    { label: 'Payers',        route: '/payers',        num: '07' },
-    { label: 'Shares',        route: '/shares',        num: '08' },
-    { label: 'Credit cards',  route: '/credit-cards',  num: '09' },
-    { label: 'Subscriptions', route: '/subscriptions', num: '10' },
-    { label: 'Payments',      route: '/payments',      num: '11' },
-    { label: 'Review imports', route: '/review-imports', num: '12' },
-    { label: 'Settings',      route: '/settings',      num: '13' },
-  ];
+  /** Count of items in `PENDING_REVIEW` state, badged on the Inbox nav item — reuses the same
+   *  `pendingReviews$` list the dedicated `/review-imports` page and its modal already read from
+   *  (D4 acceptance criteria: "reuse how pending-review currently exposes its count"). */
+  protected readonly pendingReviewCount = toSignal(
+    this.pendingReviewService.pendingReviews$.pipe(map((items) => items.length)),
+    { initialValue: 0 },
+  );
 
-  protected readonly toolsNav: readonly NavEntry[] = [
-    { label: 'Tags', route: '/tags', num: '14' },
-  ];
+  /** Dashboard is a standalone top item (outside the 4 groups) — its own single-row rail. */
+  protected readonly dashboardActive = computed(() => this.currentRouteLabel() === this.dashboardNav.label);
 
-  protected readonly toolsMenuOpen = signal(false);
-  protected readonly toolsMenuCoords = signal<PopoverCoords>({ top: 0, left: 0 });
-  private toolsMenuCloseTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** Regrouped sidebar nav (D4): BUDGET / LEDGER / MANAGER / EXTERNAL, each independently
+   *  collapsible via `PreferencesService.closedNavGroups`. A group holding the active route is
+   *  always rendered open and cannot be collapsed (mirrors the design's `canToggle: !holdsActive`)
+   *  so navigating into a group never hides the very item you're on. */
+  protected readonly navGroups = computed<readonly NavGroup[]>(() => {
+    const activeLabel = this.currentRouteLabel();
+    const closed = this.prefs.closedNavGroups();
+    const pendingCount = this.pendingReviewCount();
+
+    return NAV_GROUP_DEFS.map((group) => {
+      const items: RenderedNavEntry[] = group.items.map((item) => ({
+        ...item,
+        badgeCount: item.route === '/review-imports' ? pendingCount : 0,
+      }));
+      const activeIndex = items.findIndex((item) => item.label === activeLabel);
+      const holdsActive = activeIndex >= 0;
+      const open = holdsActive || !closed[group.label];
+      const newCount = items.reduce((sum, item) => sum + item.badgeCount, 0);
+      const closedCountLabel = newCount > 0 ? `${items.length} · ${newCount} new` : `${items.length}`;
+
+      return {
+        label: group.label,
+        items,
+        open,
+        holdsActive,
+        railIndex: activeIndex >= 0 ? activeIndex : null,
+        closedCountLabel,
+      };
+    });
+  });
 
   /** Percentage of wallet budget already committed. */
   protected readonly utilizationRate = computed(() => {
@@ -188,10 +292,8 @@ export class ShellComponent {
   });
 
   constructor() {
-    // Apply persisted theme on boot
-    if (!this.prefs.darkTheme()) {
-      document.body.classList.add('ew-light');
-    }
+    // Theme/privacy boot logic lives in PreferencesService (applied as soon
+    // as it's constructed — injecting `prefs` above already triggered it).
 
     this.walletService.loadWallets();
 
@@ -221,26 +323,28 @@ export class ShellComponent {
       document.removeEventListener('click', closeOnClick);
       document.removeEventListener('keydown', closeOnEsc);
     });
-
-    // Close tools submenu on Escape (reuses the same keydown listener pattern)
-    const closeToolsOnEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') this.closeToolsMenu();
-    };
-    document.addEventListener('keydown', closeToolsOnEsc);
-    this.destroyRef.onDestroy(() => {
-      document.removeEventListener('keydown', closeToolsOnEsc);
-      this.clearToolsMenuCloseTimeout();
-    });
   }
 
+  /**
+   * P2-1 (post-epic-audit) / Major 4 (post-consolidated-review, revised after
+   * verification review restored the sidebar trigger): coords are anchored
+   * relative to the topbar (design: `top:48px; right:0` off the topbar's ticker).
+   * The popover always anchors to the topbar per design, regardless of which of
+   * the 3 wallet triggers (sidebar, topbar desktop, topbar mobile) opened it —
+   * so this reads the topbar's own rect directly instead of resolving it from
+   * `event.currentTarget`, which would give the wrong anchor when the sidebar
+   * button is the one clicked. `right` is computed from the viewport edge so the
+   * popover's fixed 344px width (see shell.component.scss `.ew-wallet-pop`) lines
+   * up with the topbar's own right edge, matching the design's `right:0` intent.
+   */
   protected toggleWalletPop(event: MouseEvent): void {
     event.stopPropagation();
     if (!this.walletPopOpen()) {
-      const btn = event.currentTarget as HTMLElement;
-      const rect = btn.getBoundingClientRect();
+      const topbar = (event.currentTarget as HTMLElement).closest('.ew-app')?.querySelector('.ew-topbar-inner');
+      const rect = (topbar as HTMLElement | null)?.getBoundingClientRect() ?? (event.currentTarget as HTMLElement).getBoundingClientRect();
       this.walletPopCoords.set({
-        top: rect.bottom - 8,
-        left: rect.right + 14,
+        top: rect.bottom + 12,
+        left: rect.right - WALLET_POP_WIDTH_PX,
       });
       // Ensure bullets are loaded when popover opens
       const walletId = this.selectedWallet()?.id ?? null;
@@ -255,33 +359,16 @@ export class ShellComponent {
     this.walletPopOpen.set(false);
   }
 
-  protected onToolsMenuEnter(event: Event): void {
-    this.clearToolsMenuCloseTimeout();
-    const trigger = event.currentTarget as HTMLElement;
-    const rect = trigger.getBoundingClientRect();
-    this.toolsMenuCoords.set({ top: rect.top, left: rect.right + TOOLS_SUBMENU_GAP_PX });
-    this.toolsMenuOpen.set(true);
+  /** Toggles one sidebar nav group open/closed — no-op for the group holding the active route
+   *  (the design's `canToggle: !holdsActive`; the template also disables the button so this
+   *  guard is defense-in-depth, not the only enforcement). */
+  protected toggleNavGroup(group: NavGroup): void {
+    if (group.holdsActive) return;
+    this.prefs.toggleNavGroup(group.label);
   }
 
-  protected cancelToolsMenuClose(): void {
-    this.clearToolsMenuCloseTimeout();
-  }
-
-  protected onToolsMenuLeave(): void {
-    this.clearToolsMenuCloseTimeout();
-    this.toolsMenuCloseTimeout = setTimeout(() => this.toolsMenuOpen.set(false), 150);
-  }
-
-  protected closeToolsMenu(): void {
-    this.clearToolsMenuCloseTimeout();
-    this.toolsMenuOpen.set(false);
-  }
-
-  private clearToolsMenuCloseTimeout(): void {
-    if (this.toolsMenuCloseTimeout !== null) {
-      clearTimeout(this.toolsMenuCloseTimeout);
-      this.toolsMenuCloseTimeout = null;
-    }
+  protected toggleSidebar(): void {
+    this.prefs.toggleSidebarHidden();
   }
 
   protected switchWallet(wallet: Wallet): void {
@@ -291,10 +378,6 @@ export class ShellComponent {
 
     this.walletService.selectWallet(wallet);
     this.walletPopOpen.set(false);
-  }
-
-  protected toggleUserMenu(): void {
-    this.userMenuOpen.update((v) => !v);
   }
 
   /** Whether the resend button is currently clickable — mirrors `CheckEmailPage.canResend`. */
@@ -373,6 +456,42 @@ export class ShellComponent {
     this.expenseService.loadByWalletId(walletId);
   }
 
+  /** Moved from ExpensePage (post-epic-audit P1-3). Ingests bank-SMS expenses, applies the
+   *  result to PendingReviewService (feeds the shell's own Inbox badge and the dedicated
+   *  /review-imports page), then opens the review dialog for confirmation. */
+  protected syncNow(): void {
+    if (this.isSyncing()) return;
+
+    this.syncService
+      .ingest()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.pendingReviewService.applySyncResult(result);
+          this.toast.show('Expenses imported');
+          this.openPendingReviewDialog();
+        },
+        error: () => undefined,
+      });
+  }
+
+  private openPendingReviewDialog(): void {
+    this.dialog
+      .open(PendingReviewDialogComponent, {
+        width: '60rem',
+        maxWidth: 'calc(100vw - 2rem)',
+      })
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        // Unconditional reload: Expense creation happens on confirm *inside* the modal,
+        // not at sync time, so a zero `created` count at sync time doesn't mean nothing
+        // needs reloading — items may have been confirmed during the dialog session.
+        const walletId = this.selectedWallet()?.id ?? null;
+        this.expenseService.loadByWalletId(walletId);
+      });
+  }
+
   protected openTransactionDialog(): void {
     const wallet = this.selectedWallet();
     if (!wallet) return;
@@ -390,6 +509,12 @@ export class ShellComponent {
 
     const data: ExpenseCreateDialogData = {
       walletDescription: wallet.description || 'Wallet',
+      // Same "WALLET {MONTH} · CYCLE {YYYY-MM}" derivation expense-page's
+      // currentWalletMonth()/currentCycle() computeds use (design ref: modalSub
+      // for the "new" dialog) — no shared computed here since Shell only opens
+      // this dialog from wallet, not a reactive signal chain like expense-page's.
+      walletMonth: (wallet.effectiveMonth ?? '').toUpperCase(),
+      cycle: wallet.startDate?.slice(0, 7) ?? '',
       bullets,
       creditCards,
     };
@@ -399,8 +524,8 @@ export class ShellComponent {
       ExpenseCreateDialogData,
       ExpenseCreateDialogResult
     >(ExpenseCreateDialogComponent, {
-      width: '30rem',
-      maxWidth: 'calc(100vw - 2rem)',
+      width: DESKTOP_DIALOG_WIDTH,
+      maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
       data,
     });
 
@@ -464,14 +589,21 @@ export class ShellComponent {
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.expenseService.loadByWalletId(walletId),
+        next: () => {
+          this.expenseService.loadByWalletId(walletId);
+          this.toast.show('Expense created');
+        },
         error: () => undefined,
       });
   }
 
   private syncRouteLabel(): void {
     const url = this.router.url.split('?')[0].split('#')[0];
-    const all = [...this.workspaceNav, ...this.activityNav, ...this.toolsNav];
+    const all: readonly NavEntry[] = [
+      this.dashboardNav,
+      ...NAV_GROUP_DEFS.flatMap((group) => group.items),
+      SETTINGS_NAV,
+    ];
     const match = all.find((n) => url.startsWith(n.route));
     this.currentRouteLabel.set(match?.label ?? 'Dashboard');
   }

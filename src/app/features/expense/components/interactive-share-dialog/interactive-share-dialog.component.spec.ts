@@ -112,6 +112,19 @@ describe('InteractiveShareDialogComponent', () => {
       expect(component['ownerAmount']()).toBe(99.99);
     });
 
+    it('isFullyPassedOn flags once the payer share covers the whole cost, and renders the warning (D9)', () => {
+      component['selectPayer']('payer-1');
+
+      component['form'].controls.amount.setValue(30);
+      expect(component['isFullyPassedOn']()).toBe(false);
+      expect(fixture.nativeElement.querySelector('.isd__warn')).toBeNull();
+
+      component['form'].controls.amount.setValue(100);
+      fixture.detectChanges();
+      expect(component['isFullyPassedOn']()).toBe(true);
+      expect(fixture.nativeElement.querySelector('.isd__warn')).toBeTruthy();
+    });
+
     it('rejects amount of 0, accepts within (0, cost], rejects above cost', () => {
       const amount = component['form'].controls.amount;
 

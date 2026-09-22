@@ -7,19 +7,29 @@
 
   &[mat-dialog-title] {
     margin: 0;
+    display: flex;
     padding: 26px 28px 18px;
+
+    // `[mat-dialog-title]` also carries Material's own global `.mat-mdc-dialog-title`
+    // class at the same (0,1,0) specificity as this component's base `display: flex` —
+    // see expense-filters-dialog.component.scss for the full race-condition writeup.
+    // Repeating `display: flex` here (0,2,0) wins unconditionally, and suppressing the
+    // injected `::before` baseline strut keeps this a clean 2-item flex row.
+    &::before {
+      content: none;
+    }
   }
 }
 
 .payment-dialog__title {
+  // Typographic audit: design modal header is serif 23px/1.15/-.015em.
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 34px;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   font-weight: 500;
   color: var(--ew-ink);
-  font-variation-settings: 'opsz' 32;
 
   em {
     font-style: italic;
@@ -29,12 +39,13 @@
 }
 
 .payment-dialog__subtitle {
+  // Typographic audit: design modal sub is mono 9.5px/.14em.
   margin: 8px 0 0;
   font-family: var(--ew-mono);
-  font-size: 11px;
+  font-size: 9.5px;
   color: var(--ew-ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
 }
 
 .payment-dialog__close {
@@ -58,6 +69,70 @@
 
 .payment-dialog__body {
   padding: 24px 28px;
+
+  // Typographic audit: design puts the modal field labels at mono 9px/.15em
+  // (the shared .ew-field base is 10px/.2em, kept for its 20+ out-of-scope
+  // consumers). Same local-override shape as .ecd-body in the create dialog.
+  .ew-field label {
+    margin-bottom: 7px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+  }
+}
+
+// P2-4 (post-epic-audit): "Remaining balance" banner (design ~L619-622).
+.payment-dialog__balance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+
+.payment-dialog__balance-label {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+}
+
+.payment-dialog__balance-value {
+  font-family: var(--ew-mono);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ew-acc-deep);
+  font-variant-numeric: tabular-nums;
+}
+
+// P2-4: value-shortcut chips (design ~L636-640).
+.payment-dialog__chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.payment-dialog__chip {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  &:hover {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+    background: var(--ew-acc-soft);
+  }
 }
 
 .payment-dialog__form {

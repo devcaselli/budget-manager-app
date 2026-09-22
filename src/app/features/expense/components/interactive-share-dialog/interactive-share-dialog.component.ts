@@ -74,6 +74,22 @@ type WizardStep = 0 | 1 | 2;
 
 const STEP_LABELS = ['Payer', 'Amount', 'Done'] as const;
 
+/**
+ * First letter of a payer name, upper-cased, for the design's initial-avatar disc.
+ *
+ * Uses the spread form rather than `name[0]`, so a name whose first character is outside the
+ * BMP (an emoji, some scripts) yields the whole code point instead of a broken half of a
+ * surrogate pair. Falls back to '?' for an empty/placeholder name — the same character the
+ * design's own `(s.splitPayer || '?')[0]` falls back to.
+ */
+function payerInitialOf(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed === '' || trimmed === '—') {
+    return '?';
+  }
+  return ([...trimmed][0] ?? '?').toUpperCase();
+}
+
 @Component({
   selector: 'app-interactive-share-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -128,6 +144,25 @@ export class InteractiveShareDialogComponent {
     Math.max(Number((this.data.expense.cost - (this.amountValue() || 0)).toFixed(2)), 0),
   );
 
+  /** Post-epic-audit P3-B2: design (line ~1213) offers 3 one-tap amount shortcuts on the
+   *  amount step — half, all, or a third of the expense cost — so the common split ratios
+   *  don't require typing/calculating by hand. Recomputed off `data.expense.cost`, which is
+   *  fixed for the dialog's lifetime (not a signal), so this is a plain readonly array, not
+   *  a `computed()`. */
+  protected readonly amountShortcuts: readonly { label: string; value: number }[] = [
+    { label: '50 / 50', value: this.round2(this.data.expense.cost / 2) },
+    { label: 'All of it', value: this.round2(this.data.expense.cost) },
+    { label: 'A third', value: this.round2(this.data.expense.cost / 3) },
+  ];
+
+  /** Mirrors the design's `splitFull` state: once the payer's share covers the whole cost,
+   *  the owner's remaining `ownerAmount()` hits 0 and `Expense.pay()`'s 100%-passed-on rule
+   *  (see the class doc above re: cent-exact debt) hides the expense from the active cycle —
+   *  surfaced here so the user isn't surprised when it vanishes from the ledger after submit. */
+  protected readonly isFullyPassedOn = computed(
+    () => this.amountValue() > 0 && this.ownerAmount() === 0,
+  );
+
   protected readonly selectedPayer = computed<Payer | null>(
     () => this.data.payers.find((payer) => payer.id === this.payerIdValue()) ?? null,
   );
@@ -142,6 +177,24 @@ export class InteractiveShareDialogComponent {
         return this.selectedPayer()?.name ?? '—';
     }
   });
+
+  /**
+   * D11: the design identifies a payer by an initial-avatar disc (a circle carrying the first
+   * letter of the name) in both step 1's list and step 2's confirmation chip, rather than a
+   * generic person glyph. Rendering is `aria-hidden` in the template — the full name always
+   * sits next to it, so the initial is decoration and must not be announced twice.
+   */
+  protected readonly payerInitial = computed(() => payerInitialOf(this.payerDisplayName()));
+
+  /**
+   * Per-row initial for step 1's payer list. A plain O(1) string call, not a signal: it is
+   * keyed by the row's own name rather than component state, and `data.payers` is a fixed
+   * readonly input that never changes for the life of the dialog, so there is nothing to
+   * memoize across change-detection runs.
+   */
+  protected payerInitialFor(name: string): string {
+    return payerInitialOf(name);
+  }
 
   protected readonly isSaving = toSignal(this.shareService.saving$, { initialValue: false });
   protected readonly isSavingPayer = toSignal(this.payerService.saving$, { initialValue: false });
@@ -188,6 +241,15 @@ export class InteractiveShareDialogComponent {
 
   protected goBackToPayer(): void {
     this.currentStep.set(0);
+  }
+
+  protected applyAmountShortcut(value: number): void {
+    this.form.controls.amount.setValue(value);
+    this.form.controls.amount.markAsTouched();
+  }
+
+  private round2(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 
   protected submit(): void {

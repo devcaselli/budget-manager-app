@@ -30,7 +30,7 @@
             <label [attr.for]="'prl-name-' + item.id">Name</label>
             <input
               [id]="'prl-name-' + item.id"
-              class="ew-input"
+              class="ew-input ew-input--boxed"
               type="text"
               [formControl]="nameControlFor(item)"
             />
@@ -53,7 +53,7 @@
               <label [attr.for]="'prl-installments-' + item.id">Installments</label>
               <input
                 [id]="'prl-installments-' + item.id"
-                class="ew-input"
+                class="ew-input ew-input--boxed"
                 type="number"
                 [min]="minInstallmentNumber"
                 [max]="maxInstallmentNumber"

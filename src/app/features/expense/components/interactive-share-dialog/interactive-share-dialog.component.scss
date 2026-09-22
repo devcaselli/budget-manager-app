@@ -7,19 +7,29 @@
 
   &[mat-dialog-title] {
     margin: 0;
+    display: flex;
     padding: 26px 28px 18px;
+
+    // `[mat-dialog-title]` also carries Material's own global `.mat-mdc-dialog-title`
+    // class at the same (0,1,0) specificity as this component's base `display: flex` —
+    // see expense-filters-dialog.component.scss for the full race-condition writeup.
+    // Repeating `display: flex` here (0,2,0) wins unconditionally, and suppressing the
+    // injected `::before` baseline strut keeps this a clean 2-item flex row.
+    &::before {
+      content: none;
+    }
   }
 }
 
 .isd__title {
+  // Typographic audit: design modal header is serif 23px/1.15/-.015em.
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 34px;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   font-weight: 500;
   color: var(--ew-ink);
-  font-variation-settings: 'opsz' 32;
 
   em {
     font-style: italic;
@@ -29,12 +39,13 @@
 }
 
 .isd__subtitle {
+  // Typographic audit: design modal sub is mono 9.5px/.14em.
   margin: 8px 0 0;
   font-family: var(--ew-mono);
-  font-size: 11px;
+  font-size: 9.5px;
   color: var(--ew-ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
 }
 
 .isd__close {
@@ -59,6 +70,14 @@
 .isd__body {
   padding: 24px 28px;
   min-width: min(26rem, calc(100vw - 4rem));
+
+  // Typographic audit: modal field labels are mono 9px/.15em in the design; the
+  // shared .ew-field base stays 10px/.2em for its out-of-scope consumers.
+  .ew-field label {
+    margin-bottom: 7px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+  }
 }
 
 .isd__error {
@@ -106,6 +125,16 @@
     color: var(--ew-ink);
   }
 
+  // D11: this local `.ew-btn` guarded every hover with `:not(:disabled)` but never styled
+  // the disabled state itself, so a disabled primary rendered at full accent with a
+  // pointer cursor — indistinguishable from an enabled one. Caught by screenshotting the
+  // real dialog; the DOM `disabled` property was correct all along, which is exactly what
+  // a property-only assertion would have (wrongly) passed on.
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
   mat-icon {
     font-size: 16px;
     width: 16px;
@@ -136,27 +165,34 @@
   padding: 0 28px 18px;
 }
 
+// D11: three independent segments (design: `flex:1;height:3px`, 6px apart), each filled
+// with the accent once its step is reached — replaces the single continuous track+fill.
 .isd__progress-track {
-  height: 4px;
-  border-radius: 99px;
-  background: var(--ew-line);
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.isd__progress-fill {
-  height: 100%;
-  background: var(--ew-acc);
+.isd__progress-seg {
+  flex: 1;
+  height: 3px;
   border-radius: 99px;
-  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--ew-line);
+  transition: background 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.is-filled {
+    background: var(--ew-acc);
+  }
 }
 
 .isd__progress-steps {
   display: flex;
   justify-content: space-between;
+  // D11: design's step caption scale is mono 9.5px at .12em (was 10px/.08em).
   margin-top: 8px;
   font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ew-ink-3);
 }
@@ -227,6 +263,30 @@
 
 // ── Payer list (step 0) ──────────────────────────────────────────────────
 
+// D11: initial-avatar disc (design: 32px in the step-1 list, 30px in the step-2 chip,
+// accent-soft ground with accent-deep ink). Both tokens are theme-scoped, so the disc
+// re-colours correctly in dark mode rather than carrying a baked light-mode colour.
+.isd__avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 999px;
+  background: var(--ew-acc-soft);
+  color: var(--ew-acc-deep);
+  display: inline-grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.isd__avatar--sm {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  font-size: 12px;
+}
+
 .isd__payer-list {
   display: grid;
   gap: 8px;
@@ -235,11 +295,15 @@
   padding: 0;
 }
 
+// D11: now a 3-item row (avatar · name · chevron). `space-between` would strand the avatar
+// against the left edge, so the NAME flexes instead (design: `flex:1` on the name) and the
+// gap does the spacing — keeping the disc tight against the label it belongs to.
 .isd__payer-option {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid var(--ew-line-2);
@@ -263,6 +327,13 @@
   }
 }
 
+// Takes the free space so the trailing chevron stays pinned right (design: `flex:1`).
+.isd__payer-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+}
+
 .isd__transient-form {
   display: grid;
   gap: 12px;
@@ -273,8 +344,9 @@
 .isd__payer-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  // D11: 10px to clear the initial-avatar disc that replaced the 16px person glyph.
+  gap: 10px;
+  font-size: 14.5px;
   color: var(--ew-ink-2);
 
   mat-icon {
@@ -294,6 +366,35 @@
   cursor: pointer;
 }
 
+// ── Amount shortcuts (step 1) ────────────────────────────────────────────
+// Design (line ~1213): 50/50, All of it, A third — one-tap fills for the amount field.
+
+.isd__shortcuts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.isd__shortcut-btn {
+  height: 36px;
+  padding: 0 13px;
+  border: 1px solid var(--ew-line-2);
+  background: var(--ew-panel);
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: var(--ew-sans);
+  font-size: 12.5px;
+  color: var(--ew-ink-2);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+
+  &:hover {
+    border-color: var(--ew-acc);
+    background: var(--ew-acc-soft);
+    color: var(--ew-acc-deep);
+  }
+}
+
 // ── Live preview (step 1) ────────────────────────────────────────────────
 
 .isd__preview {
@@ -301,7 +402,10 @@
   gap: 6px;
   padding: 14px 16px;
   border-radius: 12px;
-  background: var(--ew-line);
+  // D11: `--ew-line` is a BORDER-family token (it maps to `--line`); using it as a panel
+  // ground is semantically wrong and leaves the box the same value as the rules around it.
+  // The design's preview panel sits on the surface-2 ground — `--ew-bg-2` here.
+  background: var(--ew-bg-2);
   margin-top: 16px;
 }
 
@@ -319,6 +423,17 @@
 .isd__step--amount {
   display: grid;
   gap: 4px;
+}
+
+.isd__warn {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  color: var(--warn-text);
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 // ── Success state (step 2) ───────────────────────────────────────────────

@@ -1,23 +1,23 @@
 <div class="vdc-head" mat-dialog-title>
   <div>
-    <h2 class="vdc-title">Descartar <em>alterações?</em></h2>
-    <p class="vdc-subtitle">Você tem mudanças não salvas</p>
+    <h2 class="vdc-title">Discard <em>changes?</em></h2>
+    <p class="vdc-subtitle">You have unsaved changes</p>
   </div>
-  <button class="vdc-close" type="button" mat-icon-button (click)="cancel()" aria-label="Fechar">
+  <button class="vdc-close" type="button" mat-icon-button (click)="cancel()" aria-label="Close">
     <mat-icon>close</mat-icon>
   </button>
 </div>
 
 <mat-dialog-content class="vdc-body">
   <p class="vdc-message">
-    Suas alterações no formulário ainda não foram salvas. Se continuar, elas serão perdidas.
+    Your form changes have not been saved yet. If you continue, they will be lost.
   </p>
 </mat-dialog-content>
 
 <mat-dialog-actions class="vdc-actions" align="end">
-  <button mat-button type="button" (click)="cancel()">Continuar editando</button>
+  <button mat-button type="button" (click)="cancel()">Keep editing</button>
   <button mat-flat-button class="vdc-discard-btn" type="button" (click)="confirm()">
     <mat-icon aria-hidden="true">delete_outline</mat-icon>
-    Descartar alterações
+    Discard changes
   </button>
 </mat-dialog-actions>

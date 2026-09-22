@@ -3,142 +3,64 @@
   gap: 0;
 }
 
+// ── Page header (post-epic-audit P1-2) ──────────────────────────────────────
+// Expenses-only overrides of the shared .ew-page-head/.ew-eyebrow/.ew-page-title/
+// .ew-page-sub pattern (styles.scss) — the other 15 feature pages keep the shared
+// defaults untouched; only this screen was re-audited against the design.
+.ep-page-head {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ep-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--text-4);
+}
+
+.ep-page-title {
+  font-size: 58px;
+  // Design: 58px / line-height 1.02 / -.02em (shared base is 1 / -.025em, kept
+  // for the other 14 page titles).
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+
+  em {
+    font-style: italic;
+    color: var(--accent);
+    font-weight: 400;
+  }
+}
+
+.ep-page-sub {
+  max-width: 52ch;
+  color: var(--text-2);
+}
+
 .ep-panel-head-main {
   min-width: 220px;
-}
-
-.ep-sync-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--ew-line-2);
-  background: transparent;
-  color: var(--ew-ink-3);
-  font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-
-  mat-icon {
-    font-size: 16px;
-    width: 16px;
-    height: 16px;
-  }
-
-  &:hover:not(:disabled) {
-    color: var(--ew-acc);
-    border-color: var(--ew-acc);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.ep-sync-note {
-  padding: 0.6rem 0.9rem;
-  margin: 0 0 1rem;
-  border-radius: 0.6rem;
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 0.85rem;
-}
-
-.ep-filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  column-gap: 12px;
-  row-gap: 10px;
-  align-items: end;
-  padding: 14px 24px 16px;
-  border-bottom: 1px solid var(--ew-line-2);
-}
-
-.ep-filter-field {
-  display: grid;
-  gap: 6px;
-
-  label {
-    font-family: var(--ew-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ew-ink-3);
-    margin: 0;
-  }
-}
-
-.ep-filter-field--range {
-  min-width: 0;
-  grid-column: span 2;
-
-  @media (max-width: 480px) {
-    grid-column: span 1;
-  }
-}
-
-.ep-date-range {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.ep-date-field {
-  display: grid;
-  gap: 6px;
-
-  span {
-    font-family: var(--ew-mono);
-    font-size: 9px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ew-ink-3);
-  }
-}
-
-.ep-filters .ew-input,
-.ep-filters .ew-select {
-  font-family: var(--ew-sans);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0;
-  padding: 6px 0;
-}
-
-.ep-filter-field--checkbox {
-  label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-family: var(--ew-sans);
-    font-size: 13px;
-    font-weight: 500;
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--ew-ink);
-    cursor: pointer;
-  }
-
-  input[type='checkbox'] {
-    accent-color: var(--ew-ink);
-    cursor: pointer;
-  }
 }
 
 .ep-amount-cell {
   text-align: right;
 }
 
+// Design specifies the ledger amount in mono 15px (table) / 16px (grouped-day),
+// not the serif display face the shared .ew-table base applies to its last cell.
 .ep-amount {
   color: var(--ew-ink) !important;
-  font-family: var(--ew-serif);
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: -0.015em;
+  font-family: var(--ew-mono);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+// Design's ledger status pill is mono 9.5px/.16em; the shared .ew-pill base is
+// 10px/.18em, which stays correct for its other 6 consumers.
+.ep-status-pill {
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
 }
 
 .ep-amount-original {
@@ -180,9 +102,78 @@
 .ep-row-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 6px;
   padding-right: 26px !important;
   white-space: nowrap;
+}
+
+// ── P0-3: table column widths (grid-ish, via <colgroup>) ────────────────────
+// Loosely mirrors the design's fixed-width action/status columns while keeping
+// the semantic <table> markup (colgroup + col widths instead of CSS grid).
+.ep-table {
+  table-layout: fixed;
+
+  // ── Typographic audit (systematic pass) ───────────────────────────────────
+  // The shared .ew-table base (styles.scss) dresses the first/last cells in
+  // --ew-serif 18px/20px, which is right for the other 6 consumers (credit-card,
+  // extra-budget, payer, payment, tag, wallet-list) but NOT for the expense
+  // ledger: the design specifies the row name in sans 14.5px/500 and the amount
+  // in mono 15px. Same class of leak as the .ew-input/.ew-select hero-field bug
+  // — a shared display style inherited into a context that needs plain chrome.
+  // Overridden locally (base left untouched for its other consumers), matching
+  // the .ep-eyebrow/.ep-page-title local-override pattern used above.
+  th {
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+
+  // Only the name cell needs re-dressing here; the amount lives in .ep-amount
+  // (the trailing <td> is the actions column, which carries no text of its own).
+  td:first-child {
+    font-family: var(--ew-sans);
+    font-size: 14.5px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+}
+
+.ep-col-name { width: auto; }
+.ep-col-date { width: 104px; }
+.ep-col-bullet { width: 128px; }
+.ep-col-card { width: 96px; }
+.ep-col-status { width: 104px; }
+.ep-col-amount { width: 136px; }
+.ep-col-actions { width: 116px; }
+
+// ── P0-3: "Pay" text button + "⋯" overflow menu trigger ──────────────────────
+
+.ep-pay-btn {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--ew-line-2);
+  background: transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ew-acc);
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--ew-acc-soft);
+    border-color: var(--ew-acc);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.ep-menu-item--danger {
+  color: var(--ew-bad) !important;
 }
 
 .ep-icon-btn {
@@ -221,15 +212,6 @@
   }
 }
 
-.ep-field-error {
-  margin: 7px 0 0;
-  color: var(--ew-bad);
-  font-family: var(--ew-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .expense-tag-chips {
   display: flex;
   flex-wrap: wrap;
@@ -248,4 +230,678 @@
   background: rgba(214, 163, 113, 0.1);
   color: var(--ew-acc);
   border: 1px solid rgba(214, 163, 113, 0.2);
+}
+
+// .ew-sr-only and .ep-tabs-thumb live in the global src/styles.scss partial — the former
+// is a generic a11y primitive, the latter is reused sliding-thumb CSS (layout/status tabs
+// here, same technique as the shell's .ew-nav-rail). Extracted out of this component's
+// styleUrl to stay under the 8kB anyComponentStyle budget (angular.json).
+
+// ── D6: stat cards ─────────────────────────────────────────────────────────
+
+.ep-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 20px 0;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ep-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 16px 18px;
+  background: var(--ew-panel);
+  border: 1px solid var(--ew-line);
+  border-radius: 14px;
+}
+
+.ep-stat-label {
+  font-family: var(--ew-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ew-ink-3);
+}
+
+.ep-stat-value {
+  font-family: var(--ew-mono);
+  font-size: 22px;
+  color: var(--ew-ink);
+
+  &--warn { color: var(--warn-text); }
+  &--ok { color: var(--ok-text); }
+}
+
+.ep-stat-sub {
+  font-size: 12px;
+  color: var(--ew-ink-3);
+}
+
+.ep-stat-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ep-stat-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--ew-panel-2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.ep-stat-bar-fill {
+  height: 100%;
+  width: var(--bar-width, 0%);
+  background: var(--ok-text);
+  border-radius: 999px;
+  transition: width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ep-stat-bar-pct {
+  font-family: var(--ew-mono);
+  font-size: 11px;
+  color: var(--ew-ink-3);
+}
+
+// ── D6: import-pending banner ───────────────────────────────────────────────
+
+.ep-import-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-radius: 14px;
+  flex-wrap: wrap;
+}
+
+.ep-import-banner-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ep-import-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  // D10: was --warn-dot (2.60:1 light / 6.86:1 dark against this banner's
+  // --warn-bg — light fails the 3:1 UI-component minimum). --warn-text clears
+  // both (6.19:1 light / 9.01:1 dark) — see .ep-day-dot above for the matching
+  // fix on the grouped-by-day status dot.
+  background: var(--warn-text);
+}
+
+.ep-import-banner-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ew-ink);
+}
+
+.ep-import-banner-sub {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--ew-ink-3);
+}
+
+.ep-import-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ep-banner-btn {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  border: 1px solid transparent;
+
+  &--ghost {
+    background: transparent;
+    border-color: var(--warn-line);
+    color: var(--warn-text);
+
+    &:hover { background: var(--warn-bg-2); }
+  }
+
+  &--solid {
+    background: var(--warn-solid);
+    color: var(--on-solid);
+    font-weight: 500;
+
+    &:hover { background: var(--warn-solid-hover); }
+  }
+}
+
+// ── D6: layout tabs, status tabs (sliding thumb) ────────────────────────────
+
+.ew-panel-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ep-layout-tabs,
+.ep-status-tabs {
+  position: relative;
+  display: grid;
+  background: var(--ew-panel-2);
+  border-radius: 11px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.ep-layout-tabs {
+  grid-template-columns: repeat(2, minmax(72px, 1fr));
+  border-radius: 10px;
+}
+
+.ep-status-tabs {
+  grid-template-columns: repeat(3, minmax(62px, 1fr));
+}
+
+.ep-layout-tab,
+.ep-status-tab {
+  position: relative;
+  z-index: 1;
+  height: 34px;
+  padding: 0 13px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+  white-space: nowrap;
+  color: var(--ew-ink-3);
+  transition: color 0.2s ease;
+
+  &--active {
+    color: var(--ew-ink);
+    font-weight: 500;
+  }
+}
+
+.ep-status-tab {
+  height: 38px;
+  font-size: 13px;
+}
+
+// ── D6: toolbar (search + status tabs) ──────────────────────────────────────
+
+.ep-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px 16px;
+  flex-wrap: wrap;
+}
+
+.ep-search-field {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.ep-search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ew-ink-3);
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.ep-search-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px 0 36px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  border-radius: 11px;
+  font-size: 14px;
+  color: var(--ew-ink);
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: -1px;
+  }
+}
+
+// ── D9: "Filters" button — opens the filters modal that replaced D6's inline panel ────
+
+.ep-filters-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  border-radius: 11px;
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+
+  mat-icon {
+    font-size: 17px;
+    width: 17px;
+    height: 17px;
+  }
+
+  &:hover {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  &--active {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+}
+
+.ep-filters-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--ew-acc);
+  color: var(--ew-on-acc);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+// ── D6: filter chips ─────────────────────────────────────────────────────────
+
+.ep-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 24px 0;
+}
+
+.ep-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px 0 12px;
+  border: 1px solid var(--ew-line-2);
+  background: var(--ew-acc-soft);
+  // D10: was --ew-acc (3.61:1 against --ew-acc-soft in light mode, below AA at
+  // 12.5px) — --ew-acc-deep clears both palettes (5.06:1 light / 7.36:1 dark).
+  color: var(--ew-acc-deep);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12.5px;
+
+  &:hover {
+    background: var(--ew-acc-soft);
+    filter: brightness(0.96);
+  }
+}
+
+.ep-chip-x {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.ep-chip-clear-all {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ew-ink-3);
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 12.5px;
+
+  &:hover {
+    color: var(--ew-ink);
+  }
+}
+
+// ── D6: empty state ──────────────────────────────────────────────────────────
+
+.ep-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 56px 24px;
+  text-align: center;
+  border-top: 1px solid var(--ew-line);
+}
+
+.ep-empty-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--ew-panel-2);
+}
+
+.ep-empty-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ew-ink);
+}
+
+.ep-empty-sub {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ew-ink-3);
+  max-width: 36ch;
+}
+
+.ep-empty-clear-btn {
+  margin-top: 6px;
+  height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--ew-line-2);
+  background: var(--ew-panel);
+  border-radius: 11px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--ew-acc);
+
+  &:hover {
+    background: var(--ew-acc-soft);
+  }
+}
+
+// ── D6: grouped-by-day layout ─────────────────────────────────────────────────
+
+.ep-day-groups {
+  border-top: 1px solid var(--ew-line);
+}
+
+// Sticky below D5's sticky topbar (68px desktop, see shell.component.scss .ew-topbar) —
+// z-index 5 is well below the topbar's 40/58 so the topbar always wins on overlap.
+.ep-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 11px 18px;
+  background: var(--ew-panel-2);
+  border-bottom: 1px solid var(--ew-line-2);
+  position: sticky;
+  top: 68px;
+  z-index: 5;
+}
+
+.ep-day-label {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--ew-ink-2);
+}
+
+.ep-day-count {
+  font-size: 12px;
+  color: var(--ew-ink-3);
+}
+
+.ep-day-subtotal {
+  margin-left: auto;
+  font-family: var(--ew-mono);
+  font-size: 12.5px;
+  color: var(--ew-ink-2);
+}
+
+.ep-day-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--ew-line-2);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--ew-panel-2);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: -2px;
+  }
+}
+
+.ep-day-row-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ep-day-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  margin-top: 7px;
+  border-radius: 999px;
+  // D10: was --ok-dot/--warn-dot — both fail the 3:1 UI-component contrast
+  // minimum against this dot's actual background (--ew-panel/--ew-panel-2, the
+  // day-row surface): --ok-dot as low as 1.39:1 light / 2.34:1 dark, --warn-dot
+  // 2.52-2.99:1 light (dark was already fine at 6.2-6.9:1). Reused the existing
+  // --ok-text/--warn-text tokens instead of inventing new ones — same status
+  // colors already used as text elsewhere on this page, and both clear 3:1 with
+  // comfortable margin (5.03-9.03:1 across every surface/surface-2 combination
+  // in both themes — also the pairing used by .ep-import-dot below, so status
+  // color stays consistent across the whole page regardless of background).
+  background: var(--ok-text);
+
+  &--open {
+    background: var(--warn-text);
+  }
+}
+
+.ep-day-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ep-day-row-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.ep-day-row-name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--ew-ink);
+}
+
+.ep-day-badge {
+  font-family: var(--ew-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--ew-acc);
+  background: var(--ew-acc-soft);
+  border-radius: 999px;
+  padding: 3px 7px;
+  cursor: help;
+}
+
+.ep-day-row-meta {
+  font-family: var(--ew-mono);
+  font-size: 11.5px;
+  color: var(--ew-ink-3);
+}
+
+.ep-day-row-amount-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex: 0 0 auto;
+
+  .ep-amount {
+    font-size: 16px;
+  }
+}
+
+.ep-day-row-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+// ── P0-1: quick-add footer strip (replaces the old sidebar "New expense" panel) ─
+
+.ep-quick-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  background: var(--ew-panel-2);
+  border-top: 1px solid var(--ew-line);
+}
+
+// P0-5 fix: strip fields no longer inherit `.ew-input` (borderless dialog-field
+// style, serif italic placeholder) — real bordered/filled chrome per design.
+.ep-quick-add-name,
+.ep-quick-add-cost {
+  height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: var(--ew-sans);
+  font-style: normal;
+  color: var(--ew-ink);
+
+  &::placeholder {
+    color: var(--ew-ink-3);
+    font-style: normal;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 1px;
+  }
+}
+
+.ep-quick-add-name {
+  flex: 2;
+  min-width: 180px;
+}
+
+.ep-quick-add-cost {
+  flex: 0 0 120px;
+  font-family: var(--ew-mono);
+}
+
+.ep-quick-add-btn {
+  height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--ew-acc);
+  background: var(--ew-panel);
+  // --ew-acc-deep (not --ew-acc) for AA contrast on this plain surface — same
+  // rule as the --ew-acc-deep token doc above.
+  color: var(--ew-acc-deep);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--ew-acc);
+    color: var(--ew-on-acc);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.ep-quick-add-more {
+  height: 42px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ew-ink-3);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+
+  &:hover {
+    color: var(--ew-ink);
+  }
+}
+
+.ep-day-action-btn {
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--ew-line-2);
+  background: var(--ew-panel);
+  border-radius: 11px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--ew-acc);
+  font-weight: 500;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+  }
+
+  &--ghost {
+    color: var(--ew-ink-2);
+    font-weight: 400;
+  }
+
+  &--danger {
+    width: 44px;
+    padding: 0;
+    color: var(--ew-ink-3);
+
+    &:hover:not(:disabled) {
+      color: var(--ew-bad);
+      border-color: var(--ew-bad);
+    }
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--ew-acc-soft);
+    border-color: var(--ew-acc);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 }

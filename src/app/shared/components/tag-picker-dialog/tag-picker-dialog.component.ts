@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -49,6 +49,46 @@ export class TagPickerDialogComponent {
       this.formBuilder.nonNullable.control(this.data.selectedTagIds.includes(row.tag.id)),
     ),
   );
+
+  /** D11: the design's tags modal opens with a "Search tag" field above the list. */
+  protected readonly query = signal('');
+
+  /**
+   * D11: rows narrowed by the search box.
+   *
+   * Filtering is display-only — it never touches `selection`. Each row keeps its original
+   * `controlIndex`, so a row that scrolls out of the filter keeps its checked state and is
+   * still counted by `confirm()` (which iterates `rows`, not `visibleRows`). Typing in the
+   * box therefore cannot silently drop a selection the user already made — the bug this
+   * would invite if the FormArray were rebuilt per keystroke.
+   *
+   * A subtag match also pulls in its parent row, so a filtered result never renders an
+   * indented orphan with no visible parent (the 2-level hierarchy from P3-B3 stays legible).
+   *
+   * O(n) per keystroke over the tag list (n = 16 here); no sorting, no nested scans.
+   */
+  protected readonly visibleRows = computed<readonly TagPickerRow[]>(() => {
+    const term = this.query().trim().toLowerCase();
+    if (term === '') {
+      return this.rows;
+    }
+
+    const matched = this.rows.filter((row) => row.tag.name.toLowerCase().includes(term));
+    const keptIds = new Set(matched.map((row) => row.tag.id));
+
+    // Pull in the parent of any matched subtag, so indentation always has its anchor.
+    for (const row of matched) {
+      if (row.tag.parentId !== null) {
+        keptIds.add(row.tag.parentId);
+      }
+    }
+
+    return this.rows.filter((row) => keptIds.has(row.tag.id));
+  });
+
+  protected onQueryInput(event: Event): void {
+    this.query.set((event.target as HTMLInputElement).value);
+  }
 
   protected confirm(): void {
     const selectedIds = this.rows

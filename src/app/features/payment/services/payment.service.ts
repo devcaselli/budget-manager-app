@@ -73,7 +73,7 @@ export class PaymentService {
           return fetchAllPages((page) => this.findByWalletId(walletId, page, 100)).pipe(
             tap((payments) => this.paymentsSubject.next(payments)),
             catchError(() => {
-              this.errorSubject.next('Não foi possível carregar os pagamentos.');
+              this.errorSubject.next('Could not load the payments.');
               return EMPTY;
             }),
             finalize(() => this.loadingCounter.stop()),
@@ -104,7 +104,7 @@ export class PaymentService {
       .post<void>(this.payUrl, request.body, { params })
       .pipe(
         tap({
-          error: () => this.errorSubject.next('Não foi possível registrar o pagamento.'),
+          error: () => this.errorSubject.next('Could not record the payment.'),
         }),
         finalize(() => this.payingSubject.next(false)),
       )
@@ -179,15 +179,15 @@ export class PaymentService {
       const reason = (error.error as { reason?: string } | null)?.reason;
       switch (reason) {
         case 'SHARED_PAYMENT':
-          return 'Pagamentos compartilhados são revertidos pela tela de Share.';
+          return 'Shared payments are reverted from the Share screen.';
         case 'ALREADY_A_REVERSAL':
-          return 'Este pagamento já é uma reversão e não pode ser revertido novamente.';
+          return 'This payment is already a reversal and cannot be reverted again.';
         case 'ALREADY_REVERTED':
-          return 'Este pagamento já foi revertido anteriormente.';
+          return 'This payment has already been reverted.';
         case 'NO_BULLET':
-          return 'Este pagamento não está vinculado a um bullet e não pode ser revertido.';
+          return 'This payment is not linked to a bullet and cannot be reverted.';
       }
     }
-    return 'Não foi possível reverter o pagamento.';
+    return 'Could not revert the payment.';
   }
 }

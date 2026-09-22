@@ -86,12 +86,12 @@ export class ViewerEditFormComponent {
 
   /** Human-readable validator message for the template — only meaningful once `minCost()`
    * exceeds the DTO floor (i.e. some amount has actually been paid already); otherwise the
-   * generic "maior que zero" message covers it. */
+   * generic "greater than zero" message covers it. */
   protected readonly minCostMessage = computed(() => {
     const min = this.minCost();
     return min > 0.01
-      ? `O valor não pode ser menor que ${formatBrl(min)}, já pago nesta despesa.`
-      : 'Informe um valor maior que zero.';
+      ? `Cost cannot be lower than ${formatBrl(min)}, already paid on this expense.`
+      : 'Enter a cost greater than zero.';
   });
 
   constructor() {

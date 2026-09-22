@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject, catchError, EMPTY, finalize, Observable, of, ReplaySubject, tap } from 'rxjs';
 
 import { environment } from '@environments/environment';
-import { SyncIngestResult } from '@features/sync/models/sync';
+import { SyncIngestResult, SyncReport } from '@features/sync/models/sync';
 
 import { ConfirmPendingReviewsResult, PendingReview, PendingReviewPatchRequest } from '../models/pending-review';
 
@@ -16,8 +16,15 @@ export class PendingReviewService {
   private readonly loadingSubject = new BehaviorSubject(false);
   private readonly confirmingSubject = new BehaviorSubject(false);
   private readonly errorSubject = new BehaviorSubject<string | null>(null);
+  /** Post-epic-audit P3-1: the most recent `POST /sync/ingest` run's report (created/
+   *  skipped/fallback/errors counts), so the Expenses import banner can show a design-
+   *  matching "N entries skipped · M errors" second line. Session-only — there is no
+   *  backend endpoint to fetch a past report, so this is `null` until a sync happens in
+   *  the current session (page reload loses it, same as the design's ephemeral banner). */
+  private readonly lastSyncReportSubject = new BehaviorSubject<SyncReport | null>(null);
 
   readonly pendingReviews$ = this.pendingReviewsSubject.asObservable();
+  readonly lastSyncReport$ = this.lastSyncReportSubject.asObservable();
   readonly loading$ = this.loadingSubject.asObservable();
   /** True while a `confirm()` POST is in flight. Exists so the UI can disable the Confirm
    *  button for the duration — without it, nothing stops a second click (slow network,
@@ -148,6 +155,7 @@ export class PendingReviewService {
    */
   applySyncResult(result: SyncIngestResult): void {
     this.pendingReviewsSubject.next(result.pendingReviews);
+    this.lastSyncReportSubject.next(result.report);
   }
 
   private upsertLocal(updated: PendingReview): void {

@@ -102,7 +102,7 @@ describe('ViewerNotesSectionComponent', () => {
       setup(buildInstallmentDetail({ details: null }));
 
       const root = fixture.nativeElement as HTMLElement;
-      expect(root.querySelector('.vns__empty')?.textContent).toContain('Sem notas.');
+      expect(root.querySelector('.vns__empty')?.textContent).toContain('No notes.');
       expect(root.querySelector('.vns__edit-btn')).toBeNull();
       expect(root.querySelector('textarea')).toBeNull();
     });
@@ -130,7 +130,7 @@ describe('ViewerNotesSectionComponent', () => {
       setup(buildExpenseDetail({ details: null }));
 
       const root = fixture.nativeElement as HTMLElement;
-      expect(root.querySelector('.vns__empty')?.textContent).toContain('Sem notas.');
+      expect(root.querySelector('.vns__empty')?.textContent).toContain('No notes.');
     });
 
     it('clicking Edit renders a textarea seeded with the current details', () => {
@@ -271,14 +271,14 @@ describe('ViewerNotesSectionComponent', () => {
       component['startEdit']();
       fixture.componentRef.setInput(
         'saveError',
-        'Não foi possível salvar as alterações. Tente novamente.',
+        'Could not save the changes. Please try again.',
       );
       fixture.detectChanges();
 
       const alert = (fixture.nativeElement as HTMLElement).querySelector('.ew-alert[role="alert"]');
       expect(alert).not.toBeNull();
       expect(alert?.textContent).toContain(
-        'Não foi possível salvar as alterações. Tente novamente.',
+        'Could not save the changes. Please try again.',
       );
     });
 
@@ -292,7 +292,7 @@ describe('ViewerNotesSectionComponent', () => {
         'button[type="submit"]',
       ) as HTMLButtonElement;
       expect(saveButton.disabled).toBe(true);
-      expect(saveButton.textContent).toContain('Salvando...');
+      expect(saveButton.textContent).toContain('Saving...');
     });
   });
 

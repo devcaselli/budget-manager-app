@@ -1,0 +1,220 @@
+.efd-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--ew-line);
+
+  // `[mat-dialog-title]` also carries Material's own global `.mat-mdc-dialog-title`
+  // class (added by the `MatDialogTitle` directive's `hostAttrs`), which ships
+  // `display: block` at the same (0,1,0) specificity as our base `display: flex`
+  // above — a tie that Material's rule can win on injection order alone (its
+  // dialog-module styles are injected via JS, and can land after this component's
+  // styles depending on which lazy chunk first instantiates a dialog). Repeating
+  // `display: flex` inside this higher-specificity (0,2,0) compound selector makes
+  // the flex layout win unconditionally instead of depending on load order.
+  // Material's title also inserts a `::before` baseline strut (`inline-block;
+  // width:0; height:40px`) meant for its own block/inline layout — inside our flex
+  // row it becomes an invisible phantom flex item, and `justify-content:space-between`
+  // then splits its free space across 3 items instead of 2, dragging the title
+  // block away from the true left edge. Suppressing it keeps our 2-item row intact.
+  &[mat-dialog-title] {
+    display: flex;
+    margin: 0;
+    padding: 26px 28px 18px;
+
+    &::before {
+      content: none;
+    }
+  }
+}
+
+.efd-title {
+  margin: 0;
+  font-family: var(--ew-serif);
+  font-size: 23px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+  color: var(--ew-ink);
+  font-variation-settings: 'opsz' 32;
+}
+
+.efd-subtitle {
+  margin: 8px 0 0;
+  font-family: var(--ew-mono);
+  font-size: 9.5px;
+  color: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.efd-close {
+  flex: 0 0 34px;
+  color: var(--ew-ink-2);
+
+  &:hover {
+    color: var(--ew-ink);
+  }
+}
+
+.efd-body {
+  display: grid;
+  gap: 16px;
+  padding: 20px 22px;
+
+  // Typographic audit: modal field labels are mono 9px/.15em in the design; the
+  // shared .ew-field base stays 10px/.2em for its out-of-scope consumers.
+  .ew-field label {
+    margin-bottom: 7px;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+  }
+}
+
+.efd-date-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.efd-hint {
+  margin: 7px 0 0;
+  color: var(--ew-ink-3);
+  font-family: var(--ew-sans);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.efd-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--ew-line);
+  border-radius: 12px;
+  cursor: pointer;
+  min-height: 56px;
+  box-sizing: border-box;
+
+  &:hover {
+    border-color: var(--ew-line-2);
+  }
+}
+
+.efd-toggle-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.efd-toggle-title {
+  font-family: var(--ew-sans);
+  font-size: 14px;
+  color: var(--ew-ink);
+}
+
+.efd-toggle-sub {
+  font-family: var(--ew-sans);
+  font-size: 12.5px;
+  color: var(--ew-ink-3);
+  line-height: 1.4;
+}
+
+// ── Switch (role="switch" button — matches settings page's `.set-switch`) ─────
+.efd-switch {
+  flex: 0 0 auto;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 2px;
+  display: inline-flex;
+  align-items: center;
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 3px;
+    border-radius: 99px;
+  }
+
+  i {
+    width: 44px;
+    height: 26px;
+    background: var(--ew-line-2);
+    border-radius: 99px;
+    position: relative;
+    transition: background 0.2s;
+    display: block;
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--ew-ink-2);
+      transition: left 0.2s, background 0.2s;
+    }
+  }
+
+  &--on i {
+    background: var(--ew-acc);
+
+    &::after {
+      left: 22px;
+      background: var(--ew-on-acc);
+    }
+  }
+}
+
+.efd-actions {
+  gap: 10px;
+  padding: 18px 28px 24px;
+  border-top: 1px solid var(--ew-line);
+}
+
+// Same local `.ew-btn` block every other expense dialog defines (payment/delete/share) —
+// not yet extracted to a shared stylesheet, kept consistent with that existing convention
+// rather than introducing a new pattern in this one component.
+.ew-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  border: 1px solid var(--ew-line-2);
+  color: var(--ew-ink-2);
+  font-family: var(--ew-sans);
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ew-acc);
+    color: var(--ew-ink);
+  }
+
+  &--primary {
+    background: var(--ew-acc);
+    color: var(--ew-on-acc);
+    border-color: var(--ew-acc);
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background: var(--ew-acc-2);
+      border-color: var(--ew-acc-2);
+      color: var(--ew-on-acc);
+    }
+  }
+
+  // P2-4 (post-epic-audit): added alongside the new Cancel button — same modifier every
+  // other expense dialog's local `.ew-btn` block already defines.
+  &--ghost {
+    border-color: transparent;
+  }
+}

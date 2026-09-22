@@ -75,7 +75,7 @@ function titleOf(detail: OmegaViewerDetail): string {
     case 'SUBSCRIPTION':
       return detail.description;
     case 'RESERVED_BUDGET_MIGRATION':
-      return detail.description ?? `Migração · ${detail.bulletDescription}`;
+      return detail.description ?? `Migration · ${detail.bulletDescription}`;
   }
 }
 
@@ -310,6 +310,70 @@ export class OmegaViewerComponent {
       tagNameById: this.tagNameById(),
       creditCardNameById: this.creditCardNameById(),
     });
+  });
+
+  /**
+   * D11: the design's modal header is a title + mono caption pair (`Expense` / `CYCLE 2026-09`),
+   * not a bare title. The caption is the kind of record being viewed, which is the stable,
+   * always-available fact about this dialog — the design's literal "CYCLE 2026-09" is bound to
+   * the cycle the expense list was filtered by, and the viewer is reachable from contexts
+   * (page-flip through links, deep-link by ref) that carry no cycle, so keying the caption to
+   * `kind` is the honest equivalent rather than fabricating a cycle string.
+   *
+   * Falls back to a neutral label while the detail is still loading or errored, so the header
+   * never flashes an empty line.
+   */
+  protected readonly headerSubtitle = computed<string>(() => {
+    const detail = this.readyDetail();
+    if (!detail) {
+      return 'LOADING';
+    }
+
+    switch (detail.kind) {
+      case 'EXPENSE':
+        return 'EXPENSE';
+      case 'INSTALLMENT':
+        return 'INSTALLMENT';
+      case 'SUBSCRIPTION':
+        return 'SUBSCRIPTION';
+      case 'RESERVED_BUDGET_MIGRATION':
+        return 'RESERVED BUDGET MIGRATION';
+    }
+  });
+
+  /**
+   * D11: the design's details block leads with a name → large mono amount hierarchy
+   * (`font-size:26px`, JetBrains Mono) above the label/value rows, rather than flattening the
+   * primary amount into just another field-list row.
+   *
+   * The "primary" amount is per-kind, matching what the design's `curShown` shows:
+   *   - Expense       → open balance (`remaining`), the figure the cycle still owes.
+   *   - Installment   → the per-charge `installmentValue`.
+   *   - Migration     → the migrated `amount`.
+   *   - Subscription  → `null`. This kind carries no single amount field on its detail shape
+   *     at all (only `currency`/`state`), so there is nothing honest to show — the same
+   *     explicit per-kind guard used by `mapRemainingBadge`, not a `default:` that would
+   *     invent or coerce a number. The template omits the display entirely in that case.
+   *
+   * The amount stays in the field list as well: it is a distinct, labelled row there
+   * ("Open balance"/"Installment cost"), and the design keeps its detail rows intact too.
+   */
+  protected readonly headlineAmount = computed<string | null>(() => {
+    const detail = this.readyDetail();
+    if (!detail) {
+      return null;
+    }
+
+    switch (detail.kind) {
+      case 'EXPENSE':
+        return formatBrl(detail.remaining);
+      case 'INSTALLMENT':
+        return formatBrl(detail.installmentValue);
+      case 'RESERVED_BUDGET_MIGRATION':
+        return formatBrl(detail.amount);
+      case 'SUBSCRIPTION':
+        return null;
+    }
   });
 
   /** F-12: installments-remaining badge state — `0` (fully paid) and `null` (not
@@ -696,7 +760,7 @@ export class OmegaViewerComponent {
    *
    * The guard runs here, before `PaymentService.revert()` is ever called, rather than around
    * the post-success `retry()` — the reviewer's preferred fix (ii). A revert is a real backend
-   * write the instant the success callback runs; a "Descartar alterações?" prompt appearing
+   * write the instant the success callback runs; a "Discard changes?" prompt appearing
    * AFTER that write already persisted would leave the screen in an ambiguous state if the
    * user cancelled (stale trace vs. an edit the user chose to keep). Blocking before the
    * request goes out at all means the write and the discard decision can never race. */
@@ -853,13 +917,13 @@ export class OmegaViewerComponent {
         return this.formatMigrationNotReversibleMessage(body);
       }
     }
-    return 'Não foi possível desfazer a migration. Tente novamente.';
+    return 'Could not undo the migration. Please try again.';
   }
 
   private formatMigrationNotReversibleMessage(problem: MigrationNotReversibleProblem): string {
     return (
-      `Não foi possível desfazer — o bullet já gastou parte do valor migrado ` +
-      `(disponível: ${formatBrl(problem.remaining)}, necessário: ${formatBrl(problem.required)}).`
+      `Could not undo — the bullet has already spent part of the migrated amount ` +
+      `(available: ${formatBrl(problem.remaining)}, required: ${formatBrl(problem.required)}).`
     );
   }
 
@@ -879,10 +943,10 @@ export class OmegaViewerComponent {
     if (error instanceof HttpErrorResponse && error.status === 422) {
       const title = (error.error as { title?: string } | null)?.title;
       if (title === 'Expense cost below paid amount') {
-        return 'O valor não pode ser menor que o quanto já foi pago nesta despesa.';
+        return 'Cost cannot be lower than what has already been paid on this expense.';
       }
     }
-    return 'Não foi possível salvar as alterações. Tente novamente.';
+    return 'Could not save the changes. Please try again.';
   }
 
   private leaveEditMode(): void {

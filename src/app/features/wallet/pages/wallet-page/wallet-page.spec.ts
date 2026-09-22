@@ -26,6 +26,8 @@ class WalletServiceMock {
   selectWallet = vi.fn<(wallet: Wallet) => void>();
   create = vi.fn<(request: CreateWalletRequest) => Observable<Wallet>>();
   patch = vi.fn<(id: string, request: PatchWalletRequest) => Observable<Wallet>>();
+  reopen = vi.fn<(id: string) => Observable<Wallet>>();
+  promoteToProduction = vi.fn<(id: string) => Observable<Wallet>>();
 }
 
 const wallet: Wallet = {
@@ -241,6 +243,108 @@ describe('WalletPage', () => {
 
     const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
     expect(alert.textContent).toContain('Não foi possível atualizar a wallet.');
+    expect(service.loadWallets).not.toHaveBeenCalled();
+  });
+
+  it('should open the reopen dialog and reopen + reload wallets when confirmed', () => {
+    const closedWallet: Wallet = { ...wallet, closed: true };
+    dialog.open.mockReturnValue({
+      afterClosed: () => of(true),
+    } as unknown as MatDialogRef<unknown, boolean>);
+    service.reopen.mockReturnValue(of({ ...closedWallet, closed: false }));
+
+    const fixture = TestBed.createComponent(WalletPage);
+    service.walletsSubject.next([closedWallet]);
+    fixture.detectChanges();
+
+    const list = fixture.debugElement.query(By.directive(WalletListComponent))
+      .componentInstance as WalletListComponent;
+    list.walletReopen.emit(closedWallet);
+
+    expect(dialog.open).toHaveBeenCalled();
+    expect(service.reopen).toHaveBeenCalledWith(closedWallet.id);
+    expect(service.loadWallets).toHaveBeenCalled();
+  });
+
+  it('should not reopen the wallet when the reopen dialog is cancelled', () => {
+    const closedWallet: Wallet = { ...wallet, closed: true };
+    dialog.open.mockReturnValue({
+      afterClosed: () => of(false),
+    } as unknown as MatDialogRef<unknown, boolean>);
+
+    const fixture = TestBed.createComponent(WalletPage);
+    service.walletsSubject.next([closedWallet]);
+    fixture.detectChanges();
+
+    const list = fixture.debugElement.query(By.directive(WalletListComponent))
+      .componentInstance as WalletListComponent;
+    list.walletReopen.emit(closedWallet);
+
+    expect(dialog.open).toHaveBeenCalled();
+    expect(service.reopen).not.toHaveBeenCalled();
+    expect(service.loadWallets).not.toHaveBeenCalled();
+  });
+
+  it('should open the promote dialog and promote + reload wallets when confirmed', () => {
+    const previewWallet: Wallet = { ...wallet, state: 'PREVIEW' };
+    dialog.open.mockReturnValue({
+      afterClosed: () => of(true),
+    } as unknown as MatDialogRef<unknown, boolean>);
+    service.promoteToProduction.mockReturnValue(of({ ...previewWallet, state: 'PRODUCTION' }));
+
+    const fixture = TestBed.createComponent(WalletPage);
+    service.walletsSubject.next([previewWallet]);
+    fixture.detectChanges();
+
+    const list = fixture.debugElement.query(By.directive(WalletListComponent))
+      .componentInstance as WalletListComponent;
+    list.walletPromote.emit(previewWallet);
+
+    expect(dialog.open).toHaveBeenCalled();
+    expect(service.promoteToProduction).toHaveBeenCalledWith(previewWallet.id);
+    expect(service.loadWallets).toHaveBeenCalled();
+  });
+
+  it('should not promote the wallet when the promote dialog is cancelled', () => {
+    const previewWallet: Wallet = { ...wallet, state: 'PREVIEW' };
+    dialog.open.mockReturnValue({
+      afterClosed: () => of(false),
+    } as unknown as MatDialogRef<unknown, boolean>);
+
+    const fixture = TestBed.createComponent(WalletPage);
+    service.walletsSubject.next([previewWallet]);
+    fixture.detectChanges();
+
+    const list = fixture.debugElement.query(By.directive(WalletListComponent))
+      .componentInstance as WalletListComponent;
+    list.walletPromote.emit(previewWallet);
+
+    expect(dialog.open).toHaveBeenCalled();
+    expect(service.promoteToProduction).not.toHaveBeenCalled();
+    expect(service.loadWallets).not.toHaveBeenCalled();
+  });
+
+  it('should expose an error state when reopening a wallet fails', () => {
+    const closedWallet: Wallet = { ...wallet, closed: true };
+    dialog.open.mockReturnValue({
+      afterClosed: () => of(true),
+    } as unknown as MatDialogRef<unknown, boolean>);
+    service.reopen.mockImplementation(() => {
+      service.errorSubject.next('Não foi possível reabrir a wallet.');
+      return throwError(() => new Error('Server error'));
+    });
+
+    const fixture = TestBed.createComponent(WalletPage);
+    service.walletsSubject.next([closedWallet]);
+    fixture.detectChanges();
+
+    const list = fixture.debugElement.query(By.directive(WalletListComponent))
+      .componentInstance as WalletListComponent;
+    list.walletReopen.emit(closedWallet);
+    fixture.detectChanges();
+
+    const alert = fixture.nativeElement.querySelector('[role="alert"]') as HTMLElement;
+    expect(alert.textContent).toContain('Não foi possível reabrir a wallet.');
     expect(service.loadWallets).not.toHaveBeenCalled();
   });
 });

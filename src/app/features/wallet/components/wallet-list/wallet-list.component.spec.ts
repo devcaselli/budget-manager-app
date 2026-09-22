@@ -22,6 +22,18 @@ const reviewWallet: Wallet = {
   state: 'REVIEW',
 };
 
+const closedProductionWallet: Wallet = {
+  ...productionWallet,
+  id: 'wallet-3',
+  closed: true,
+};
+
+const previewWallet: Wallet = {
+  ...productionWallet,
+  id: 'wallet-4',
+  state: 'PREVIEW',
+};
+
 describe('WalletListComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -61,6 +73,76 @@ describe('WalletListComponent', () => {
     button.triggerEventHandler('click', new MouseEvent('click'));
 
     expect(emitted).toEqual(productionWallet);
+    expect(selected).toBeUndefined();
+  });
+
+  it('should show the "Reopen" button only for a closed PRODUCTION wallet', () => {
+    const fixture = TestBed.createComponent(WalletListComponent);
+    fixture.componentRef.setInput('wallets', [closedProductionWallet]);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.wl-reopen-btn');
+    expect(button).toBeTruthy();
+  });
+
+  it('should hide the "Reopen" button for an open PRODUCTION wallet', () => {
+    const fixture = TestBed.createComponent(WalletListComponent);
+    fixture.componentRef.setInput('wallets', [productionWallet]);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.wl-reopen-btn');
+    expect(button).toBeNull();
+  });
+
+  it('should emit walletReopen with the wallet and not trigger row selection', () => {
+    const fixture = TestBed.createComponent(WalletListComponent);
+    fixture.componentRef.setInput('wallets', [closedProductionWallet]);
+    fixture.detectChanges();
+
+    let emitted: Wallet | undefined;
+    let selected: Wallet | undefined;
+    fixture.componentInstance.walletReopen.subscribe((wallet) => (emitted = wallet));
+    fixture.componentInstance.walletSelect.subscribe((wallet) => (selected = wallet));
+
+    const button = fixture.debugElement.query(By.css('.wl-reopen-btn'));
+    button.triggerEventHandler('click', new MouseEvent('click'));
+
+    expect(emitted).toEqual(closedProductionWallet);
+    expect(selected).toBeUndefined();
+  });
+
+  it('should show the "Move to production" button only for a PREVIEW wallet', () => {
+    const fixture = TestBed.createComponent(WalletListComponent);
+    fixture.componentRef.setInput('wallets', [previewWallet]);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.wl-promote-btn');
+    expect(button).toBeTruthy();
+  });
+
+  it('should hide the "Move to production" button for a PRODUCTION wallet', () => {
+    const fixture = TestBed.createComponent(WalletListComponent);
+    fixture.componentRef.setInput('wallets', [productionWallet]);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('.wl-promote-btn');
+    expect(button).toBeNull();
+  });
+
+  it('should emit walletPromote with the wallet and not trigger row selection', () => {
+    const fixture = TestBed.createComponent(WalletListComponent);
+    fixture.componentRef.setInput('wallets', [previewWallet]);
+    fixture.detectChanges();
+
+    let emitted: Wallet | undefined;
+    let selected: Wallet | undefined;
+    fixture.componentInstance.walletPromote.subscribe((wallet) => (emitted = wallet));
+    fixture.componentInstance.walletSelect.subscribe((wallet) => (selected = wallet));
+
+    const button = fixture.debugElement.query(By.css('.wl-promote-btn'));
+    button.triggerEventHandler('click', new MouseEvent('click'));
+
+    expect(emitted).toEqual(previewWallet);
     expect(selected).toBeUndefined();
   });
 });

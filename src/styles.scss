@@ -4,69 +4,346 @@
 @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,300;1,6..72,400;1,6..72,500&family=Inter+Tight:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 // ─── Angular Material theme ──────────────────────────────────────────────────
+// Base palette is `$orange-palette` purely as a warm-hue seed for Material's
+// derived state-layer/ripple color-mixes (M3 has no hex-to-palette generator
+// in pure Sass) — the actual `--mat-sys-*` color tokens consumed by every
+// component are hard-pinned to D1's `--ew-*`/semantic tokens immediately
+// below, in both theme scopes, so the seed palette itself is never visible.
 html {
   height: 100%;
   @include mat.theme(
     (
       color: (
-        primary: mat.$azure-palette,
-        tertiary: mat.$blue-palette,
+        primary: mat.$orange-palette,
+        tertiary: mat.$orange-palette,
       ),
-      typography: Roboto,
+      typography: 'Inter Tight',
       density: 0,
     )
   );
 }
 
-// ─── Editorial Wealth Design Tokens ─────────────────────────────────────────
+// ─── Theme tokens (Redesign v1 — D1) ─────────────────────────────────────────
+// Source of truth: `Budget Redesign.dc.html` design file, ported verbatim.
+// Contract: light values live in bare `:root` (the design's own default);
+// dark values are gated under `[data-theme="dark"]` on `<html>`, applied by
+// `PreferencesService` on boot (see core/services/preferences.service.ts).
 :root {
-  --ew-bg:        #13110e;
-  --ew-bg-2:      #1a1714;
-  --ew-panel:     #1c1814;
-  --ew-panel-2:   #221d18;
-  --ew-line:      #2a241e;
-  --ew-line-2:    #3a3128;
-  --ew-ink:       #f5ede0;
-  --ew-ink-2:     #a89b88;
-  --ew-ink-3:     #7a6f5f;
-  --ew-acc:       #d6a371;
-  --ew-acc-2:     #e8be8f;
-  --ew-acc-soft:  rgba(214, 163, 113, 0.14);
-  --ew-teal:      #5fb6a5;
-  --ew-bad:       #d97a6c;
+  --bg:             #f5efe6;
+  --bg-blur:        rgba(245, 239, 230, .9);
+  --surface:        #fffaf2;
+  --surface-2:      #f0e6d8;
+  --surface-3:      #ebe1d4;
+  --surface-blur:   rgba(255, 250, 242, .94);
+  --line:           #ded0be;
+  --line-soft:      #ebe1d4;
+  --text:           #1f1a15;
+  --text-2:         #6d6257;
+  --text-3:         #6d6257;
+  // D10 contrast fix: was #857566 (4.27:1 on --surface, 4.10:1 on --bg, 4.28:1 on
+  // --surface-2, 4.09:1 on --surface-3 — all below the 4.5:1 AA text minimum; this
+  // token was ported verbatim from the design in D1 and never contrast-checked).
+  // Darkened until it clears AA against every background it's actually used on
+  // (34 call sites app-wide, mostly 9-12px labels/sub-captions): 6.06:1 / 5.51:1 /
+  // 5.10:1 / 4.87:1 respectively.
+  // Reviewed by Victor: this makes --text-4 *darker* than --text-2/--text-3
+  // (#6d6257) in light mode — a real hierarchy inversion, not mere convergence.
+  // Kept as-is, not reverted (the old value failed AA on all 4 surfaces above).
+  // Accepted and documented: light mode effectively has 2 usable text tiers
+  // (--text, --text-2/--text-3 sharing one value), not 4 — --text-4 being the
+  // darkest "tertiary" tone is a known, intentional consequence of the AA fix,
+  // not a bug to chase further.
+  --text-4:         #6a5e52;
+  --accent:         #a86935;
+  --accent-deep:    #8a5429;
+  --accent-fg:      #e0b382;
+  --accent-soft:    #f3e6d7;
+  --accent-soft-2:  #ead8c4;
+  --accent-line:    #c9b79f;
+  --primary-bg:       #8a5429;
+  --primary-bg-hover: #6f4320;
+  --toast-bg:       #1f1a15;
+  // Fix (post-consolidated-review Critical 1): the toast surface never inverts
+  // between themes (`--toast-bg` is dark in both light `#1f1a15` and dark
+  // `#22383f`), but `.mdc-snackbar__label` was reading `--surface`, which DOES
+  // invert — light 16.61:1 (fine by accident), dark 1.27:1 (invisible). The
+  // design fixes the label color at white regardless of theme; this token
+  // captures that intent explicitly instead of borrowing an inverting token.
+  --toast-fg:       #fff;
+  // Fix (post-consolidated-review Minor 6): text/icon color for solid warn/danger-filled
+  // surfaces (e.g. the day-row delete/pay action buttons) — both `--warn-solid` values
+  // (#7a4a24 light / #8a6b3a dark) are dark enough that white clears AA in both themes,
+  // so this is a fixed value like --toast-fg, not an inverting one. NOTE: ~11 delete-
+  // confirmation dialogs across the app hardcode this exact same `#fff !important` pairing
+  // against `--ew-bad`; only the 2 sites this review flagged were migrated to this token —
+  // consolidating the rest is future cleanup, not in this fix's scope.
+  --on-solid:       #fff;
+  --disabled:       #c9b79f;
+  --warn-text:      #8a5429;
+  --warn-bg:        #f6e9d6;
+  --warn-bg-2:      #eedcc3;
+  --warn-line:      #dcc4a4;
+  --warn-dot:       #c98244;
+  --warn-solid:     #7a4a24;
+  --warn-solid-hover: #613a1b;
+  --ok-text:        #1f6c5f;
+  --ok-bg:          #dfede9;
+  --ok-dot:         #a9cdc4;
+  --danger:         #b84c42;
+  --danger-solid:   #b84c42;
+  --danger-bg:      #f7e5e1;
+  --danger-text:    #8f382f;
+  --scrim:          rgba(31, 26, 21, .45);
+  // D10: on-primary text for filled/primary-colored surfaces where the existing
+  // --surface / --text pairing can't clear AA (see dark [data-theme] block for the
+  // gap this closes — light mode's own on-primary pairing, --surface on
+  // --primary-bg, already passes at 5.98:1 and keeps using --surface).
+  --on-primary-strong: var(--surface);
+  color-scheme: light;
+
+  // Legacy `--ew-*` alias layer — 60+ existing templates/styles still
+  // reference these names directly (D2+ migrates consumers off them
+  // incrementally; keeping the alias means D1 is a pure token-contract
+  // migration with zero visual regression on every screen this epic
+  // doesn't touch yet).
+  --ew-bg:        var(--bg);
+  --ew-bg-2:      var(--surface-2);
+  --ew-panel:     var(--surface);
+  --ew-panel-2:   var(--surface-2);
+  --ew-line:      var(--line);
+  --ew-line-2:    var(--accent-line);
+  --ew-ink:       var(--text);
+  --ew-ink-2:     var(--text-2);
+  --ew-ink-3:     var(--text-4);
+  --ew-acc:       var(--accent);
+  --ew-acc-2:     var(--accent-fg);
+  --ew-acc-soft:  var(--accent-soft);
+  // D10: darker accent tone for small text sitting directly on --bg/--surface (not
+  // on a filled accent surface — see --ew-on-acc below for that case). --ew-acc
+  // itself is 3.88:1 on --bg in light mode, under the 4.5:1 AA text minimum for
+  // anything below the ~24px large-text threshold (eyebrow labels, nav index
+  // numbers, filter-chip labels all sit well under that). --accent-deep already
+  // existed as a D1 token and clears both palettes: 5.06:1 light / 7.36:1 dark
+  // against --accent-soft (chip bg), 5.43:1 light / 10.77:1 dark against --bg.
+  --ew-acc-deep:  var(--accent-deep);
+  // D10 contrast fix: was #277f71 (4.21:1 against --bg in light mode, below the
+  // 4.5:1 AA text minimum — used at 11px in the topbar wallet-utilization ticker,
+  // D5). Darkened to clear AA with margin: 5.01:1 on --bg, 5.51:1 on --surface.
+  // Dark value (#5fb6a5, defined in the [data-theme="dark"] block) was already
+  // fine at 6.47-7.35:1, untouched.
+  --ew-teal:      #237266;
+  --ew-bad:       var(--danger);
   --ew-serif:     'Newsreader', Georgia, serif;
   --ew-sans:      'Inter Tight', system-ui, sans-serif;
   --ew-mono:      'JetBrains Mono', ui-monospace, monospace;
+
+  // D9 code review Minor-2 (D10 update: light value fixed below).
+  // Text/icons drawn on top of `var(--ew-acc)` fills (filled accent surfaces —
+  // filter-count badge, tag/filters dialog swatches).
+  // Contrast: 7.50:1 against dark `--accent` (#6fb3c4) — well past AA, unchanged.
+  // D10: light value was #1c1814, 3.98:1 against light `--accent` (#a86935) — under
+  // the 4.5:1 AA text minimum, the gap D9 flagged and explicitly deferred here.
+  // Darkened to pure black: 4.74:1, clears AA with a small margin while staying in
+  // the same "near-black ink" family as the value it replaces.
+  --ew-on-acc:    #000000;
+
+  // Material system tokens (Redesign v1 — D2) — pin `mat.theme()`'s M3
+  // `--mat-sys-*` color roots to the D1 semantic tokens above. Every
+  // component-level `--mat-*` token (dialog, button, icon, ripple,
+  // state-layer, etc.) reads through `var(--mat-sys-*, fallback)`, so this
+  // single override layer re-themes every Material component that isn't
+  // explicitly pinned further below.
+  // `on-primary` pins to `--surface` (light: near-white, contrast 5.98:1
+  // against `--primary-bg`) rather than `--accent-fg`, which is a *lighter
+  // accent tint* token (used for text/icon accents on a plain surface, not
+  // as an "on-filled-color" pairing) — `--accent`/`--accent-fg` measures
+  // 2.31:1 (light) / 1.43:1 (dark), well under WCAG AA.
+  // D10: dark-mode `--primary-bg`/`--surface` only reached 3.17:1 — no existing
+  // D1 token cleared 4.5:1 there (closest was `--text` at 4.25:1). Closed via the
+  // new `--on-primary-strong` token (see `:root` above) instead of changing
+  // `--primary-bg` itself, to avoid a wider visual ripple across every filled-
+  // button/primary surface. Light mode is unaffected — `--on-primary-strong`
+  // resolves to `--surface` there too, same 5.98:1 as before.
+  --mat-sys-primary:                 var(--primary-bg);
+  --mat-sys-on-primary:               var(--on-primary-strong);
+  --mat-sys-primary-container:        var(--accent-soft);
+  --mat-sys-on-primary-container:     var(--accent-deep);
+  --mat-sys-secondary-container:      var(--accent-soft-2);
+  --mat-sys-on-secondary-container:   var(--text);
+  --mat-sys-surface:                  var(--surface);
+  --mat-sys-surface-container:        var(--surface-2);
+  --mat-sys-surface-container-low:    var(--surface);
+  --mat-sys-surface-container-lowest: var(--surface);
+  --mat-sys-surface-container-high:   var(--surface-3);
+  --mat-sys-surface-container-highest: var(--surface-3);
+  --mat-sys-surface-bright:           var(--surface);
+  --mat-sys-surface-dim:              var(--surface-2);
+  --mat-sys-surface-variant:          var(--surface-2);
+  --mat-sys-on-surface:               var(--text);
+  --mat-sys-on-surface-variant:       var(--text-2);
+  --mat-sys-outline:                  var(--line);
+  --mat-sys-outline-variant:          var(--line-soft);
+  --mat-sys-error:                    var(--danger);
+  --mat-sys-on-error:                 var(--surface);
+  --mat-sys-error-container:          var(--danger-bg);
+  --mat-sys-on-error-container:       var(--danger-text);
+
+  // Component-level Material tokens (Redesign v1 — D2) — explicit pins for
+  // the 3 Material modules actually used in the app (dialog, button, icon)
+  // per the epic's acceptance criteria, on top of the `--mat-sys-*` layer
+  // above (belt-and-suspenders: correct even if a future Material upgrade
+  // stops threading a given component token through its `--mat-sys-*`
+  // fallback). Same `on-primary`/contrast rationale as above.
+  --mat-dialog-container-color:        var(--surface);
+  --mat-dialog-subhead-color:          var(--text);
+  --mat-dialog-supporting-text-color:  var(--text-2);
+
+  --mat-button-filled-container-color:    var(--primary-bg);
+  --mat-button-filled-label-text-color:   var(--on-primary-strong);
+  --mat-button-outlined-label-text-color: var(--accent);
+  --mat-button-outlined-outline-color:    var(--line);
+  --mat-button-protected-container-color: var(--surface);
+  --mat-button-protected-label-text-color: var(--accent);
+  --mat-button-text-label-text-color:     var(--accent);
+  --mat-button-tonal-container-color:     var(--accent-soft-2);
+  --mat-button-tonal-label-text-color:    var(--text);
+
+  --mat-icon-color:               var(--text-2);
+  --mat-icon-button-icon-color:   var(--text-2);
+  --mat-icon-button-state-layer-color: var(--text-2);
 }
 
-body.ew-light {
-  --ew-bg:        #f5efe6;
-  --ew-bg-2:      #ebe1d4;
-  --ew-panel:     #fffaf2;
-  --ew-panel-2:   #f0e6d8;
-  --ew-line:      #ded0be;
-  --ew-line-2:    #c9b79f;
-  --ew-ink:       #1f1a15;
-  --ew-ink-2:     #6d6257;
-  --ew-ink-3:     #998978;
-  --ew-acc:       #a86935;
-  --ew-acc-2:     #c98244;
-  --ew-acc-soft:  rgba(168, 105, 53, 0.14);
-  --ew-teal:      #277f71;
-  --ew-bad:       #b84c42;
-  color-scheme: light;
+[data-theme='dark'] {
+  --bg:             #0f1a1e;
+  --bg-blur:        rgba(15, 26, 30, .9);
+  --surface:        #16262c;
+  --surface-2:      #1b2e34;
+  --surface-3:      #22383f;
+  --surface-blur:   rgba(22, 38, 44, .95);
+  --line:           #2c4249;
+  --line-soft:      #24383f;
+  --text:           #e8f0f1;
+  --text-2:         #bacbd0;
+  --text-3:         #93a9b0;
+  // D10 contrast fix: was #7c939a (4.82:1 on --surface, passing, but 4.37:1 on
+  // --surface-2 and 3.81:1 on --surface-3 — below 4.5:1 AA). Lightened to clear
+  // AA on every surface this token is actually painted on: 6.48:1 / 5.71:1 /
+  // 5.17:1 / 4.51:1 against bg/surface/surface-2/surface-3 respectively.
+  --text-4:         #8ca0a6;
+  --accent:         #6fb3c4;
+  --accent-deep:    #9bd3e0;
+  --accent-fg:      #9bd3e0;
+  --accent-soft:    #1d3a43;
+  --accent-soft-2:  #24454f;
+  --accent-line:    #37606b;
+  --primary-bg:       #2e7a8c;
+  --primary-bg-hover: #3a8a9d;
+  --toast-bg:       #22383f;
+  // See `:root` block above — same fixed-white rationale, dark was the broken case.
+  --toast-fg:       #fff;
+  --on-solid:       #fff;
+  --disabled:       #3a5158;
+  --warn-text:      #e3c08a;
+  --warn-bg:        #2a2317;
+  --warn-bg-2:      #332b1d;
+  --warn-line:      #4b3f27;
+  --warn-dot:       #c4a882;
+  --warn-solid:     #8a6b3a;
+  --warn-solid-hover: #a0803f;
+  --ok-text:        #7fc7a9;
+  --ok-bg:          #15302a;
+  --ok-dot:         #3e6b60;
+  --danger:         #e28878;
+  --danger-solid:   #a9483b;
+  --danger-bg:      #3a211d;
+  --danger-text:    #f2b5aa;
+  --scrim:          rgba(4, 12, 15, .62);
+  // D10: closes the dark-mode on-primary gap (3.17:1 with --surface) — see the
+  // `--mat-sys-on-primary` comment in the `:root` block for the full rationale.
+  // White reaches 4.90:1 against dark `--primary-bg` (#2e7a8c).
+  --on-primary-strong: #ffffff;
+  color-scheme: dark;
+
+  // Legacy `--ew-*` alias layer — see the `:root` block above for rationale.
+  --ew-bg:        var(--bg);
+  --ew-bg-2:      var(--surface-2);
+  --ew-panel:     var(--surface);
+  --ew-panel-2:   var(--surface-2);
+  --ew-line:      var(--line);
+  --ew-line-2:    var(--accent-line);
+  --ew-ink:       var(--text);
+  --ew-ink-2:     var(--text-2);
+  --ew-ink-3:     var(--text-4);
+  --ew-acc:       var(--accent);
+  --ew-acc-2:     var(--accent-fg);
+  --ew-acc-soft:  var(--accent-soft);
+  // D10: see `:root` block above — same rationale, dark already passed (10.77:1
+  // on --bg, 7.36:1 on --accent-soft), no value change needed here.
+  --ew-acc-deep:  var(--accent-deep);
+  --ew-teal:      #5fb6a5;
+  --ew-bad:       var(--danger);
+  // D10: dark already passed at 7.50:1 against dark `--accent` — no value change,
+  // see `:root` block above for the light-mode fix and full rationale.
+  --ew-on-acc:    #1c1814;
+
+  // Material system tokens (Redesign v1 — D2) — see `:root` block above for
+  // rationale (incl. the `on-primary`/contrast note); same override set,
+  // resolved against this scope's dark values.
+  --mat-sys-primary:                 var(--primary-bg);
+  --mat-sys-on-primary:               var(--on-primary-strong);
+  --mat-sys-primary-container:        var(--accent-soft);
+  --mat-sys-on-primary-container:     var(--accent-deep);
+  --mat-sys-secondary-container:      var(--accent-soft-2);
+  --mat-sys-on-secondary-container:   var(--text);
+  --mat-sys-surface:                  var(--surface);
+  --mat-sys-surface-container:        var(--surface-2);
+  --mat-sys-surface-container-low:    var(--surface);
+  --mat-sys-surface-container-lowest: var(--surface);
+  --mat-sys-surface-container-high:   var(--surface-3);
+  --mat-sys-surface-container-highest: var(--surface-3);
+  --mat-sys-surface-bright:           var(--surface);
+  --mat-sys-surface-dim:              var(--surface-2);
+  --mat-sys-surface-variant:          var(--surface-2);
+  --mat-sys-on-surface:               var(--text);
+  --mat-sys-on-surface-variant:       var(--text-2);
+  --mat-sys-outline:                  var(--line);
+  --mat-sys-outline-variant:          var(--line-soft);
+  --mat-sys-error:                    var(--danger);
+  --mat-sys-on-error:                 var(--surface);
+  --mat-sys-error-container:          var(--danger-bg);
+  --mat-sys-on-error-container:       var(--danger-text);
+
+  // Component-level Material tokens (Redesign v1 — D2) — see `:root` block
+  // above for rationale.
+  --mat-dialog-container-color:        var(--surface);
+  --mat-dialog-subhead-color:          var(--text);
+  --mat-dialog-supporting-text-color:  var(--text-2);
+
+  --mat-button-filled-container-color:    var(--primary-bg);
+  --mat-button-filled-label-text-color:   var(--on-primary-strong);
+  --mat-button-outlined-label-text-color: var(--accent);
+  --mat-button-outlined-outline-color:    var(--line);
+  --mat-button-protected-container-color: var(--surface);
+  --mat-button-protected-label-text-color: var(--accent);
+  --mat-button-text-label-text-color:     var(--accent);
+  --mat-button-tonal-container-color:     var(--accent-soft-2);
+  --mat-button-tonal-label-text-color:    var(--text);
+
+  --mat-icon-color:               var(--text-2);
+  --mat-icon-button-icon-color:   var(--text-2);
+  --mat-icon-button-state-layer-color: var(--text-2);
 }
 
-body.ew-light::before {
-  background: radial-gradient(circle at 90% 0%, rgba(168, 105, 53, 0.08), transparent 55%);
+[data-theme='dark']::before {
+  background: radial-gradient(circle at 90% 0%, rgba(111, 179, 196, 0.08), transparent 55%);
 }
 
-body.ew-light .ew-side {
-  background: linear-gradient(180deg, #fff8ef, var(--ew-bg));
+[data-theme='dark'] .ew-side {
+  background: linear-gradient(180deg, var(--surface-2), var(--bg));
 }
 
-body.ew-light .ew-bigwallet {
-  background: linear-gradient(135deg, #fff8ef 0%, #efe3d4 100%);
+[data-theme='dark'] .ew-bigwallet {
+  background: linear-gradient(135deg, var(--surface-2) 0%, var(--surface) 100%);
 }
 
 // ─── Global reset & base ─────────────────────────────────────────────────────
@@ -81,7 +358,6 @@ body {
   margin: 0;
   height: 100%;
   min-height: 100%;
-  color-scheme: dark;
   background: var(--ew-bg);
   color: var(--ew-ink);
   font-family: var(--ew-sans);
@@ -90,15 +366,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-body.ew-light {
-  color-scheme: light;
-}
-
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at 90% 0%, rgba(214, 163, 113, 0.05), transparent 55%);
+  background: radial-gradient(circle at 90% 0%, rgba(168, 105, 53, 0.08), transparent 55%);
   pointer-events: none;
   z-index: 0;
 }
@@ -150,7 +422,9 @@ body.ew-privacy {
   font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--ew-acc);
+  // D10: was --ew-acc (3.88:1 on --bg in light mode, below AA at this size) —
+  // see --ew-acc-deep definition in the token block for full rationale.
+  color: var(--ew-acc-deep);
 }
 
 .ew-page-title {
@@ -402,7 +676,10 @@ body.ew-privacy {
   }
 
   .ew-tabs-on {
-    color: var(--ew-acc);
+    // D10: was --ew-acc (3.61:1 on --ew-bg-2 in light mode, below AA at this
+    // size — cheap fix bundled while closing the epic, same token/rationale
+    // used elsewhere in this file for small accent-colored text).
+    color: var(--ew-acc-deep);
     border-color: var(--ew-line-2);
     background: var(--ew-bg-2);
   }
@@ -474,8 +751,11 @@ body.ew-privacy {
 
   &--preview { color: var(--ew-acc); }
   &--prod    { color: var(--ew-teal); }
-  &--paid    { color: var(--ew-teal); }
-  &--open    { color: var(--ew-bad); }
+  // D-post-epic P1-1: was --ew-teal / --ew-bad (hardcoded teal, and --danger red)
+  // — design calls for the semantic warn/ok status tokens instead (already defined
+  // correctly for both themes, just unused here).
+  &--paid    { color: var(--ok-text); }
+  &--open    { color: var(--warn-text); }
   &--active  { color: var(--ew-teal); }
 }
 
@@ -533,7 +813,10 @@ body.ew-privacy {
   top: -26px;
   font-family: var(--ew-mono);
   font-size: 10px;
-  color: var(--ew-acc);
+  // D10: was --ew-acc (3.88:1 in light mode, below AA at 10px) — cheap fix
+  // bundled while closing the epic, same token/rationale used elsewhere in
+  // this file for small accent-colored text.
+  color: var(--ew-acc-deep);
   letter-spacing: 0.1em;
 }
 
@@ -774,15 +1057,68 @@ body.ew-privacy {
   outline: none;
   font-weight: 500;
   letter-spacing: -0.015em;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, outline-color 0.15s;
 
   &:focus { border-color: var(--ew-acc); }
+  // D10: the border-color-only change above is too subtle to satisfy WCAG 2.4.7
+  // (focus indicator) on its own — used across every D9 dialog's text/select
+  // fields (expense-create/-payment/-filters/-share dialogs, tag picker, pending-
+  // review). Adds a real focus ring on top, without disturbing the existing
+  // border-color affordance.
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
+  }
   &::placeholder { color: var(--ew-ink-3); font-style: italic; }
 
   option {
     background: var(--ew-panel);
     color: var(--ew-ink);
   }
+}
+
+// ── Boxed field variant — dialog/modal form fields ───────────────────────────
+// The `.ew-input`/`.ew-select` base above is the page-level "hero field" style:
+// borderless, underline-only, large serif. That is correct for page forms, but
+// the design's modal fields (`Budget Redesign.dc.html`, isNew section ~L520-560)
+// are fully-bordered boxes: 1px border, 11px radius, surface fill, and a
+// non-serif/non-italic value. Without this modifier a dialog silently inherits
+// the hero style — the same class of bug fixed for the Expenses quick-add in
+// 3bc9889. Opt dialog fields in via `.ew-input.ew-input--boxed`; the 25 other
+// `.ew-input` consumers keep the underline base untouched.
+.ew-input--boxed,
+.ew-select--boxed {
+  height: 46px;
+  padding: 0 13px;
+  border: 1px solid var(--ew-line);
+  border-bottom: 1px solid var(--ew-line);
+  border-radius: 11px;
+  background: var(--ew-panel);
+  font-family: var(--ew-sans);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: normal;
+
+  &:focus {
+    border-color: var(--ew-acc);
+  }
+
+  &::placeholder {
+    font-style: normal;
+  }
+}
+
+// Select needs its own padding + room for the native chevron.
+.ew-select--boxed {
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+// Money field: taller box, mono numerals — design uses 54px/22px JetBrains Mono.
+.ew-input--money {
+  height: 54px;
+  font-family: var(--ew-mono);
+  font-size: 22px;
 }
 
 .ew-row-form {
@@ -838,8 +1174,51 @@ body.ew-privacy {
 }
 
 .cdk-overlay-backdrop.cdk-overlay-backdrop-showing {
-  background: rgba(8, 7, 5, 0.7);
-  backdrop-filter: blur(8px);
+  // P2-4 (post-epic-audit): was hardcoded to rgba(8,7,5,.7) — a near-opaque black that
+  // read as a "dark theme leaking into light mode" bug behind every Material dialog
+  // (expense-create-dialog etc).
+  //
+  // Deliberate departure from the design mock (design/direction-c.html:930 uses a
+  // hardcoded rgba(8,7,5,.7) + blur(8px) with no theme awareness). We use the
+  // theme-aware `--scrim` token instead, consistent with the mobile drawer scrim
+  // (shell.component.scss), so the backdrop responds correctly to light/dark theme —
+  // fixing every CDK-backed dialog at once, not just this one.
+  background: var(--scrim);
+  backdrop-filter: blur(3px);
+}
+
+// P2-2 (post-epic-audit): `MatSnackBar` toast chrome, pinned to the design's tokens —
+// see `ToastService` for the `panelClass: 'ew-toast'` call site. Design specs
+// `position:fixed; bottom:28px; left:50%` with a 12px radius and a "Dismiss" action in
+// `--accent-fg`; `MatSnackBar`'s own `horizontalPosition: 'center'` / `verticalPosition:
+// 'bottom'` config handles the fixed centering, so only the surface/action colors and
+// radius need overriding here (same `!important` pattern `.mat-mdc-dialog-surface`
+// above already uses to win over Material's own inline CDK overlay styles).
+.ew-toast {
+  &.mat-mdc-snack-bar-container {
+    margin-bottom: 28px !important;
+
+    .mdc-snackbar__surface {
+      background: var(--toast-bg) !important;
+      border-radius: 12px !important;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    .mdc-snackbar__label {
+      color: var(--toast-fg) !important;
+      font-family: var(--ew-sans);
+      font-size: 13px;
+    }
+
+    .mat-mdc-snack-bar-action {
+      .mdc-button__label {
+        color: var(--accent-fg) !important;
+        font-family: var(--ew-sans);
+        font-size: 13px;
+        font-weight: 600;
+      }
+    }
+  }
 }
 
 .ew-btn-submit {
@@ -1424,4 +1803,406 @@ body.ew-privacy {
     width: auto !important;
     margin: 14px;
   }
+}
+
+// ── Sidebar (D4) ─────────────────────────────────────────────────────────────
+// `.ew-app`/`.ew-side*`/`.ew-brand*`/`.ew-nav*` live here instead of
+// `shell.component.scss` — that file was already over the `anyComponentStyle`
+// build budget (20.7KB / 20kB) before D4, so all sidebar regroup + rail +
+// collapse CSS added by D4 goes into this global `ew-*` partial instead.
+
+.ew-app {
+  display: grid;
+  grid-template-columns: 258px 1fr;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+  // Desktop collapse-to-0px: the grid column and `.ew-side`'s own width both
+  // animate together so the main content reflows smoothly instead of jump-cutting.
+  transition: grid-template-columns 0.24s ease;
+
+  &--sidebar-hidden {
+    grid-template-columns: 0px 1fr;
+  }
+}
+
+.ew-side {
+  border-right: 1px solid var(--ew-line);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 258px;
+  overflow: hidden;
+  background: var(--ew-panel);
+  transition: width 0.24s ease, border-color 0.24s ease;
+  // The sidebar itself owns the horizontal inset, so EVERY direct child
+  // (`.ew-side-inner`, `.ew-wallet-wrap`, `.ew-user-chip`) resolves its width
+  // against one identical content box — 258 - 2*18 - 1px border = 221px.
+  // Previously only `.ew-side-inner` was padded, which left the footer children
+  // (wallet button + user chip) flush against the sidebar edge and made
+  // "align their widths" unachievable without hardcoding per-element widths.
+  padding: 0 18px;
+  // `width` above is the BORDER box: without this the 1px `border-right` was
+  // added on top of 258px, overflowing `.ew-side` by exactly 1px.
+  box-sizing: border-box;
+
+  &--hidden {
+    width: 0px;
+    border-right-color: transparent;
+    padding: 0;
+  }
+}
+
+.ew-side-inner {
+  padding: 24px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1;
+  // `min-width` here used to be 258px — larger than the 221px content box it
+  // actually gets — which forced a permanent 1px horizontal overflow on
+  // `.ew-side`. The anti-reflow guard it was there for now comes from
+  // `min-width: 0` + `white-space` handling on the nav items themselves.
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.ew-side-collapse {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--ew-ink-3);
+  font-size: 12px;
+  line-height: 1;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--ew-line-2);
+    color: var(--ew-ink);
+  }
+}
+
+// Post-epic-audit P3-6: moved from a `position:fixed` button floating outside the
+// topbar to a real in-topbar control, left of the breadcrumb — matches the design's
+// 36px hamburger trigger (3 bars, shown only while the sidebar is collapsed).
+// Collapse-alignment fix: this button is rendered only while the sidebar is
+// hidden. As a normal flex child of `.ew-topbar-inner` it CONSUMED LAYOUT WIDTH
+// (36px button + 14px flex gap = 50px), shoving the breadcrumb — and every
+// control after it — 50px right the moment the sidebar collapsed, while
+// `.ew-content` below stayed put. That 50px swing, not the sidebar track
+// itself, is what made the topbar and the page content visibly disagree.
+//
+// Taking it out of flow (absolute, anchored to the `position:relative` on
+// `.ew-topbar-inner`) keeps the topbar's flex row byte-identical in both
+// states, so the breadcrumb holds the same x as the page title either way.
+// It sits in the left gutter — the padding is >= 28px at every breakpoint and
+// the sidebar rail is gone in this state, so there is room and nothing to
+// overlap.
+.ew-side-expand {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border: 1px solid var(--ew-line);
+  background: var(--ew-panel);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--ew-line-2);
+    background: var(--ew-panel-2);
+  }
+}
+
+.ew-side-expand-bar {
+  width: 14px;
+  height: 1.5px;
+  background: var(--ew-ink);
+  display: block;
+
+  &--short {
+    width: 9px;
+  }
+}
+
+.ew-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+// Post-epic-audit P1-5: was a 36px circle with a radial-gradient fill and an
+// italic 24px mark — design wants a solid 34px square, radius 10px, plain
+// --primary-bg fill, upright (non-italic) 19px mark.
+.ew-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--primary-bg);
+  display: grid;
+  place-items: center;
+  font-family: var(--ew-serif);
+  font-size: 19px;
+  font-weight: 500;
+  color: #fff;
+  line-height: 1;
+  flex: 0 0 34px;
+}
+
+.ew-brand-name {
+  font-family: var(--ew-serif);
+  // Typographic audit: design specifies 19px / -.01em (was 22px / -.015em).
+  font-size: 19px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-weight: 500;
+
+  span {
+    display: block;
+    font-family: var(--ew-mono);
+    font-size: 9px;
+    color: var(--ew-ink-3);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+}
+
+// ── Navigation (D4 regroup: BUDGET / LEDGER / MANAGER / EXTERNAL) ────────────
+.ew-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 12px;
+}
+
+.ew-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ew-nav-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  font-family: var(--ew-mono);
+  // Typographic audit: design specifies 9px for the sidebar group eyebrow.
+  font-size: 9px;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  padding: 18px 8px 6px;
+  color: var(--ew-ink-3);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: var(--ew-ink);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+.ew-nav-group-chev {
+  margin-left: auto;
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  transition: transform 0.18s ease;
+
+  &--closed {
+    transform: rotate(-90deg);
+  }
+}
+
+// P2-3 (post-epic-audit): item count shown in a closed group's head, e.g. "4" or
+// "4 · 2 new" when the group holds pending badges (currently just Inbox). Sits between
+// the label and the chevron — .ew-nav-group-chev keeps its own `margin-left: auto`, so
+// this needs no positioning of its own beyond normal flex flow.
+.ew-nav-group-count {
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ew-ink-3);
+  white-space: nowrap;
+}
+
+// Wraps one contiguous run of nav items (the standalone Dashboard row, or one
+// open group's items) so the animated rail — an absolutely-positioned sibling
+// — can slide across just that run using each item's fixed 46px row height.
+.ew-nav-item-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  // Rail row step (44px item height + 2px gap) — read by .ew-nav-rail's
+  // transform below. Scoped here (the rail's positioning parent) rather than
+  // :root since it's meaningless outside this component's nav rows.
+  --nav-rail-step: 46px;
+}
+
+// D10 review fix (m2): position driven by a --rail-index custom property
+// (bound via [style.--rail-index], a numeric per-instance value — never a
+// concatenated [style] string) instead of a computed `translateY(...)` string
+// built in the template. Same technique .ep-tabs-thumb already uses below.
+.ew-nav-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--ew-acc-soft);
+  box-shadow: inset 2px 0 0 var(--ew-acc);
+  transform: translateY(calc(var(--rail-index, 0) * var(--nav-rail-step)));
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 0;
+
+  &--hidden {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ew-nav-rail {
+    transition: none;
+  }
+}
+
+// D10: global reduced-motion floor. The rail (above) and tab-thumb (below) already
+// had their own explicit opt-outs; this catches everything else animated across
+// D1-D9's surface that didn't (notably the interactive-share-dialog's 3-step wizard
+// — its step-in keyframe and progress-bar width transition, `interactive-share-
+// dialog.component.scss`) without having to hunt down and touch every component
+// file individually (CSS-budget-conscious: one global rule vs. N component edits).
+// `!important` is deliberate here — this is a user OS-level accessibility
+// preference, not a design opinion a component's own specificity should be able to
+// override.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// D10 review note: this rule, and the `:focus-visible` ring added to
+// `.ew-input`/`.ew-select` below, aren't meaningfully assertable in jsdom
+// (no real paint/media-query evaluation) — same limitation D5 already
+// documented for `position: sticky`/`backdrop-filter` on the topbar.
+// Verified instead via `ng build` (compiles clean, budget-checked) and manual
+// review of the CSS diff.
+
+// Generic sliding thumb for animated tab groups (layout/status tabs on the Expenses page,
+// D6) — same technique as .ew-nav-rail above, but width-based (index/count) instead of a
+// fixed per-row height. Position/width driven by --thumb-index / --thumb-count custom
+// properties bound via [style.--thumb-*] (numeric, unavoidable per-instance values) — never
+// a concatenated [style] string.
+.ep-tabs-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--thumb-count, 1));
+  transform: translateX(calc(var(--thumb-index, 0) * 100%));
+  background: var(--ew-panel);
+  border-radius: 9px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+  z-index: 0;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Generic screen-reader-only utility (visually hidden, still announced) — used by the
+// Expenses page's filter chips (D6) and available for reuse elsewhere.
+.ew-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ew-nav-item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 44px;
+  padding: 0 10px;
+  color: var(--ew-ink-2);
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: 10px;
+  transition: color 0.2s ease, font-weight 0.2s ease;
+
+  &:hover {
+    color: var(--ew-ink);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ew-acc);
+    outline-offset: 2px;
+  }
+
+  &--active {
+    color: var(--ew-ink);
+    font-weight: 500;
+  }
+}
+
+.ew-nav-badge {
+  margin-left: auto;
+  font-family: var(--ew-mono);
+  font-size: 10px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border: 1px solid var(--warn-line);
+  border-radius: 999px;
+  padding: 1px 7px;
+  line-height: 1.5;
 }

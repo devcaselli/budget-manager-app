@@ -1,16 +1,24 @@
 import { Injectable, signal } from '@angular/core';
 
-/** Browser localStorage when available (guards non-browser/test environments without it). */
-const storage: Storage | null =
-  typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
+/**
+ * Resolves `localStorage` when available (guards non-browser/test environments
+ * without it). Deliberately NOT cached at module scope — this module can be
+ * imported before a test environment installs its storage stub (e.g. Vitest's
+ * `vi.stubGlobal`), and a stale `null` snapshot would silently disable
+ * persistence for the rest of the suite.
+ */
+function getStorage(): Storage | null {
+  return typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
     ? localStorage
     : null;
+}
 
 function readStored(key: string): string | null {
-  return storage?.getItem(key) ?? null;
+  return getStorage()?.getItem(key) ?? null;
 }
 
 function writeStored(key: string, value: string | null): void {
+  const storage = getStorage();
   if (!storage) return;
   if (value === null) {
     storage.removeItem(key);
@@ -19,35 +27,110 @@ function writeStored(key: string, value: string | null): void {
   }
 }
 
-function bodyHasClass(className: string): boolean {
-  return typeof document !== 'undefined' && !!document.body?.classList.contains(className);
+/** Sidebar nav-group labels that can be individually collapsed (D4). */
+export type NavGroupLabel = 'BUDGET' | 'LEDGER' | 'MANAGER' | 'EXTERNAL';
+
+/**
+ * Parses the `bm_nav_closed` JSON blob into a label→closed map. Malformed or
+ * missing storage collapses to `{}` (all groups open by default) — mirrors
+ * the design's own `budget.navClosed` fallback (`JSON.parse(saved) || {}`).
+ */
+function readClosedNavGroups(): Partial<Record<NavGroupLabel, boolean>> {
+  const raw = readStored('bm_nav_closed');
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Partial<Record<NavGroupLabel, boolean>>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Resolves the boot-time theme per the design's own fallback chain:
+ * 1. explicit `bm_theme` in localStorage ('dark' | 'light')
+ * 2. OS preference via `prefers-color-scheme`
+ * 3. 'light' — the design's own default, used when neither of the above
+ *    resolves the question definitively (no stored value, no matchMedia
+ *    support, or an SSR/test environment without `window`).
+ */
+function resolveInitialTheme(): 'dark' | 'light' {
+  const stored = readStored('bm_theme');
+  if (stored === 'dark' || stored === 'light') return stored;
+
+  if (typeof matchMedia === 'function') {
+    return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  return 'light';
 }
 
 /**
  * Shared user preferences — persisted in localStorage, reactive via signals.
  * Single source of truth for Shell + Settings page.
+ *
+ * Also owns the app's theme/privacy boot logic: applying the `[data-theme]`
+ * attribute on `<html>` and the `.ew-privacy` class on `<body>` as soon as
+ * this service is constructed (it's `providedIn: 'root'`, so the first
+ * injection anywhere — e.g. from `ShellComponent`, the app's root layout —
+ * triggers it before any theme-dependent view renders).
  */
 @Injectable({ providedIn: 'root' })
 export class PreferencesService {
-  readonly darkTheme = signal(readStored('bm_theme') !== 'light');
-  readonly privacyMode = signal(bodyHasClass('ew-privacy'));
+  readonly darkTheme = signal(resolveInitialTheme() === 'dark');
+  readonly privacyMode = signal(readStored('bm_privacy') === 'on');
   readonly centeredLayout = signal(readStored('bm_layout') === 'centered');
   readonly showTweaks = signal(readStored('bm_tweaks') !== 'hidden');
   readonly featureFlags = signal(readStored('bm_flags') === 'on');
   /** Wallet to auto-select on load/refresh; null when none is starred. */
   readonly favoriteWalletId = signal<string | null>(readStored('bm_favorite_wallet'));
+  /**
+   * P2-4 (post-epic-audit): whether `expense-create-dialog`'s "Remember the selected
+   * card" toggle is on — distinct from that same dialog's `keepOpen` control, which
+   * only carries the card forward across "Keep adding after saving" resets within one
+   * dialog session. This preference instead persists the last-used credit card ID
+   * across dialog OPENINGS (new session, new page load), same `bm_*`-prefixed
+   * localStorage pattern as `favoriteWalletId` above.
+   */
+  readonly rememberCard = signal(readStored('bm_remember_card') === 'on');
+  /** Credit card ID to pre-fill when `rememberCard` is on; null when none saved yet. */
+  readonly rememberedCreditCardId = signal<string | null>(readStored('bm_remembered_credit_card_id'));
+  /** Sidebar nav groups collapsed by the user (D4) — label → true when closed. */
+  readonly closedNavGroups = signal<Partial<Record<NavGroupLabel, boolean>>>(readClosedNavGroups());
+  /** Desktop sidebar collapsed to 0px width (D4) — distinct from per-group collapse above. */
+  readonly sidebarHidden = signal(readStored('bm_sidebar_hidden') === 'on');
+
+  constructor() {
+    this.applyTheme(this.darkTheme());
+    this.applyPrivacy(this.privacyMode());
+  }
 
   toggleDarkTheme(): void {
     const next = !this.darkTheme();
     this.darkTheme.set(next);
-    if (typeof document !== 'undefined') document.body?.classList.toggle('ew-light', !next);
+    this.applyTheme(next);
     writeStored('bm_theme', next ? 'dark' : 'light');
   }
 
   togglePrivacy(): void {
     const next = !this.privacyMode();
     this.privacyMode.set(next);
-    if (typeof document !== 'undefined') document.body?.classList.toggle('ew-privacy', next);
+    this.applyPrivacy(next);
+    writeStored('bm_privacy', next ? 'on' : 'off');
+  }
+
+  private applyTheme(dark: boolean): void {
+    if (typeof document === 'undefined') return;
+    if (dark) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  }
+
+  private applyPrivacy(active: boolean): void {
+    if (typeof document === 'undefined') return;
+    document.body?.classList.toggle('ew-privacy', active);
   }
 
   toggleCenteredLayout(): void {
@@ -73,5 +156,46 @@ export class PreferencesService {
     const next = this.favoriteWalletId() === walletId ? null : walletId;
     this.favoriteWalletId.set(next);
     writeStored('bm_favorite_wallet', next);
+  }
+
+  /** Toggles the "Remember the selected card" preference (P2-4). Turning it off does
+   *  NOT clear the last-remembered card ID — turning it back on later restores the
+   *  same card, mirroring how `favoriteWalletId` above only clears on explicit re-toggle. */
+  toggleRememberCard(): void {
+    const next = !this.rememberCard();
+    this.rememberCard.set(next);
+    writeStored('bm_remember_card', next ? 'on' : 'off');
+  }
+
+  /** Called by `expense-create-dialog` on submit, only while `rememberCard` is on. */
+  setRememberedCreditCardId(creditCardId: string | null): void {
+    this.rememberedCreditCardId.set(creditCardId);
+    writeStored('bm_remembered_credit_card_id', creditCardId);
+  }
+
+  /**
+   * Toggles one sidebar nav group's collapsed state. Callers must not invoke
+   * this for the group currently holding the active route (mirrors the
+   * design's `canToggle: !holdsActive` — enforced in the template via
+   * `[disabled]`, not re-checked here, since the service has no route
+   * awareness of its own).
+   */
+  toggleNavGroup(label: NavGroupLabel): void {
+    const current = this.closedNavGroups();
+    const next = { ...current };
+    if (next[label]) {
+      delete next[label];
+    } else {
+      next[label] = true;
+    }
+    this.closedNavGroups.set(next);
+    writeStored('bm_nav_closed', JSON.stringify(next));
+  }
+
+  /** Toggles the desktop sidebar between its full width and fully hidden (0px). */
+  toggleSidebarHidden(): void {
+    const next = !this.sidebarHidden();
+    this.sidebarHidden.set(next);
+    writeStored('bm_sidebar_hidden', next ? 'on' : 'off');
   }
 }

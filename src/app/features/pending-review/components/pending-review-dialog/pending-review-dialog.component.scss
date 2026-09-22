@@ -4,20 +4,33 @@
   justify-content: space-between;
   gap: 14px;
   border-bottom: 1px solid var(--ew-line);
-  margin: 0;
-  padding: 26px 28px 18px;
   cursor: move;
+
+  // `[mat-dialog-title]` also carries Material's own global `.mat-mdc-dialog-title`
+  // class at the same (0,1,0) specificity as this component's base `display: flex` —
+  // see expense-filters-dialog.component.scss for the full race-condition writeup.
+  // Repeating `display: flex` here (0,2,0) wins unconditionally, and suppressing the
+  // injected `::before` baseline strut keeps this a clean 2-item flex row.
+  &[mat-dialog-title] {
+    display: flex;
+    margin: 0;
+    padding: 26px 28px 18px;
+
+    &::before {
+      content: none;
+    }
+  }
 }
 
 .prd__title {
+  // Typographic audit: design modal header is serif 23px/1.15/-.015em.
   margin: 0;
   font-family: var(--ew-serif);
-  font-size: 34px;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  font-size: 23px;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   font-weight: 500;
   color: var(--ew-ink);
-  font-variation-settings: 'opsz' 32;
 
   em {
     font-style: italic;

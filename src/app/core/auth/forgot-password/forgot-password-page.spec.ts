@@ -163,7 +163,7 @@ describe('ForgotPasswordPage', () => {
   });
 
   describe('anti-enumeration discipline — every other error folds into the generic message', () => {
-    const nonLeakingCodes: ReadonlyArray<AuthError['code']> = [
+    const nonLeakingCodes: readonly AuthError['code'][] = [
       'UNKNOWN',
       'INVALID_CREDENTIALS',
       'INVALID_OR_EXPIRED_TOKEN',

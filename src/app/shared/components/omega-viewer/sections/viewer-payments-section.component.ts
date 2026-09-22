@@ -62,6 +62,7 @@ function paymentsOf(detail: OmegaViewerDetail): readonly OmegaViewerPayment[] {
     case 'INSTALLMENT':
       return detail.payments;
     case 'SUBSCRIPTION':
+      return [];
     // A migration is not a payment-bearing kind (see the class doc's honest-guard note) — the
     // shell also never renders this section for it (showPaymentsSection()/RBM-F14).
     case 'RESERVED_BUDGET_MIGRATION':

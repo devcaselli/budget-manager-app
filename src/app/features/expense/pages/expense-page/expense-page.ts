@@ -1,18 +1,25 @@
 import {
+  AfterViewChecked,
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   computed,
   effect,
   inject,
   signal,
   untracked,
+  viewChild,
+  viewChildren,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
-import { catchError, of } from 'rxjs';
+import { MatMenuModule } from '@angular/material/menu';
+import { catchError, map, of, takeUntil } from 'rxjs';
 
 import { BrlCurrencyPipe } from '@shared/pipes/brl-currency.pipe';
 import { BrDatePipe } from '@shared/pipes/br-date.pipe';
@@ -33,7 +40,6 @@ import { Payer } from '@features/payer/models/payer';
 import { Share } from '@features/share/models/share';
 import { ShareService } from '@features/share/services/share.service';
 import { TagService } from '@features/tag/services/tag.service';
-import { SyncService } from '@features/sync/services/sync.service';
 import { PendingReviewService } from '@features/pending-review/services/pending-review.service';
 import { PendingReviewDialogComponent } from '@features/pending-review/components/pending-review-dialog/pending-review-dialog.component';
 import {
@@ -42,7 +48,14 @@ import {
   TagPickerDialogResult,
 } from '@shared/components/tag-picker-dialog/tag-picker-dialog.component';
 import { OmegaViewerLauncher } from '@shared/components/omega-viewer/omega-viewer-launcher';
+import { DESKTOP_DIALOG_MAX_WIDTH, DESKTOP_DIALOG_WIDTH } from '@shared/constants/dialog.constants';
+import { ToastService } from '@shared/services/toast.service';
 
+import {
+  ExpenseCreateDialogComponent,
+  ExpenseCreateDialogData,
+  ExpenseCreateDialogResult,
+} from '../../components/expense-create-dialog/expense-create-dialog.component';
 import {
   ExpenseDeleteDialogComponent,
   ExpenseDeleteDialogData,
@@ -56,6 +69,10 @@ import {
   InteractiveShareDialogData,
   InteractiveShareDialogResult,
 } from '../../components/interactive-share-dialog/interactive-share-dialog.component';
+import {
+  ExpenseFiltersDialogComponent,
+  ExpenseFiltersDialogData,
+} from '../../components/expense-filters-dialog/expense-filters-dialog.component';
 import { ExpenseService } from '../../services/expense.service';
 
 interface ExpenseListItem {
@@ -85,15 +102,38 @@ interface BulletOption {
   readonly remaining: string;
 }
 
+/** Desktop-only ledger layout toggle (D6). Mobile-forced grouped layout is D8, out of scope. */
+type LedgerLayout = 'ledger' | 'grouped';
+
+interface ExpenseDayGroup {
+  readonly date: string;
+  readonly items: readonly ExpenseListItem[];
+  readonly subtotal: number;
+}
+
+interface FilterChip {
+  readonly id: string;
+  readonly label: string;
+  readonly clear: () => void;
+}
+
 @Component({
   selector: 'app-expense-page',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [BrDatePipe, BrlCurrencyPipe, MatIconModule, ReactiveFormsModule],
+  imports: [
+    BrDatePipe,
+    BrlCurrencyPipe,
+    MatDividerModule,
+    MatIconModule,
+    MatMenuModule,
+    ReactiveFormsModule,
+  ],
   templateUrl: './expense-page.html',
   styleUrl: './expense-page.scss',
 })
-export class ExpensePage {
+export class ExpensePage implements AfterViewChecked {
   private readonly destroyRef = inject(DestroyRef);
+  private readonly liveAnnouncer = inject(LiveAnnouncer);
   private readonly dialog = inject(MatDialog);
   private readonly formBuilder = inject(FormBuilder);
   private readonly bulletService = inject(BulletService);
@@ -103,9 +143,9 @@ export class ExpensePage {
   private readonly installmentService = inject(InstallmentService);
   private readonly shareService = inject(ShareService);
   private readonly tagService = inject(TagService);
-  private readonly syncService = inject(SyncService);
   private readonly pendingReviewService = inject(PendingReviewService);
   private readonly omegaViewerLauncher = inject(OmegaViewerLauncher);
+  private readonly toast = inject(ToastService);
 
   private readonly bullets = toSignal(this.bulletService.bullets$, { initialValue: [] });
   private readonly expenses = toSignal(this.expenseService.expenses$, { initialValue: [] });
@@ -132,10 +172,14 @@ export class ExpensePage {
   protected readonly paymentErrorMessage = toSignal(this.paymentService.error$, {
     initialValue: null,
   });
-  protected readonly isSyncing = toSignal(this.syncService.syncing$, { initialValue: false });
-  protected readonly syncErrorMessage = toSignal(this.syncService.error$, { initialValue: null });
-  protected readonly syncResultMessage = signal<string | null>(null);
   protected readonly hasCreditCards = computed(() => this.creditCards().length > 0);
+  /** Post-epic-audit P1-2: `CYCLE {{ YYYY-MM }} · WALLET {{ MONTH }}` eyebrow — the YYYY-MM
+   *  cycle code is sliced from the wallet's ISO `startDate`, the month name reuses the
+   *  same `effectiveMonth` field the shell's topbar ticker already displays. */
+  protected readonly currentCycle = computed(() => this.selectedWallet()?.startDate?.slice(0, 7) ?? '');
+  protected readonly currentWalletMonth = computed(
+    () => (this.selectedWallet()?.effectiveMonth ?? '').toUpperCase(),
+  );
   protected readonly createExpenseBlockerMessage = computed(() => {
     if (!this.wallet()) {
       return 'Selecione uma wallet para cadastrar uma expense.';
@@ -216,6 +260,12 @@ export class ExpensePage {
     () => new Map(this.bullets().map((bullet) => [bullet.id, bullet])),
   );
 
+  // Hoisted out of expenseItems so filterChips (the active-card chip label) can reuse the
+  // same O(1) lookup instead of a fresh .find() over creditCards() on every recompute.
+  private readonly creditCardNameById = computed<ReadonlyMap<string, string>>(
+    () => new Map(this.creditCards().map((card) => [card.id, card.name])),
+  );
+
   private readonly activeExpenseSharesBySourceId = computed<ReadonlyMap<string, Share[]>>(() => {
     const map = new Map<string, Share[]>();
     for (const share of this.shares()) {
@@ -231,7 +281,7 @@ export class ExpensePage {
   });
 
   protected readonly expenseItems = computed<readonly ExpenseListItem[]>(() => {
-    const creditCardNameById = new Map(this.creditCards().map((card) => [card.id, card.name]));
+    const creditCardNameById = this.creditCardNameById();
     const tagMap = this.tagMap();
     const paymentByExpenseId = this.paymentByExpenseId();
     const bulletById = this.bulletById();
@@ -296,6 +346,175 @@ export class ExpensePage {
     this.expenses().reduce((acc, e) => acc + Number(e.remaining), 0),
   );
 
+  // ── D6: stat cards, toolbar, ledger/grouped layout ──────────────────────
+
+  protected readonly totalPaid = computed(() => Math.max(this.totalCost() - this.totalOpen(), 0));
+
+  protected readonly openCount = computed(
+    () => this.expenseItems().filter((item) => item.statusLabel === 'OPEN').length,
+  );
+
+  /** CSS custom-property percentage for the paid-vs-open bar — a bar-width % is the one
+   *  derived value the "no [style] concatenation" rule allows, bound via [style.--bar-width.%]
+   *  rather than a full inline style object. */
+  protected readonly paidPercent = computed(() => {
+    const total = this.totalCost();
+    return total > 0 ? Math.min(Math.round((this.totalPaid() / total) * 100), 100) : 0;
+  });
+
+  /** Reuses the same `pendingReviews$` list the Shell's Inbox badge and the dedicated
+   *  `/review-imports` page already read from — no new data source. */
+  protected readonly pendingReviewCount = toSignal(
+    this.pendingReviewService.pendingReviews$.pipe(map((items) => items.length)),
+    { initialValue: 0 },
+  );
+  protected readonly hasPendingImports = computed(() => this.pendingReviewCount() > 0);
+  protected readonly importBannerDismissed = signal(false);
+  protected readonly showImportBanner = computed(
+    () => this.hasPendingImports() && !this.importBannerDismissed(),
+  );
+
+  /** Post-epic-audit P3-1: second banner line the design shows below the title
+   *  ("22 entries skipped · 0 errors") — sourced from the most recent sync run's
+   *  report (`SyncReport.skipped`/`errors`), session-only (see PendingReviewService
+   *  doc). `null` until a sync has run this session, in which case the banner shows
+   *  only the title line, same as before this fix. */
+  protected readonly lastSyncReport = toSignal(this.pendingReviewService.lastSyncReport$, {
+    initialValue: null,
+  });
+
+  protected readonly layout = signal<LedgerLayout>('ledger');
+  protected readonly isGroupedLayout = computed(() => this.layout() === 'grouped');
+
+  private static readonly STATUS_TABS: readonly ExpensePaymentStatus[] = ['ALL', 'OPEN', 'PAID'];
+  protected readonly statusTabIndex = computed(() =>
+    Math.max(ExpensePage.STATUS_TABS.indexOf(this.filtersValue().paymentStatus ?? 'ALL'), 0),
+  );
+
+  /** Buckets filtered items by purchaseDate in one O(n) pass, then sorts the resulting
+   *  group keys O(g log g) — never .find()/.filter() per item, per the epic's ban on
+   *  reintroducing O(n·m) lookups (same pattern as the card/bullet/payment/share Maps
+   *  above). Subtotal is accumulated during the same bucketing pass, not a second scan. */
+  protected readonly dayGroups = computed<readonly ExpenseDayGroup[]>(() => {
+    const byDate = new Map<string, ExpenseListItem[]>();
+    for (const item of this.filteredExpenseItems()) {
+      const bucket = byDate.get(item.purchaseDate);
+      if (bucket) {
+        bucket.push(item);
+      } else {
+        byDate.set(item.purchaseDate, [item]);
+      }
+    }
+
+    const sortOrder = this.filtersValue().sortOrder ?? 'DATE_DESC';
+    const dates = [...byDate.keys()].sort((a, b) =>
+      sortOrder === 'DATE_ASC' ? a.localeCompare(b) : b.localeCompare(a),
+    );
+
+    return dates.map((date) => {
+      const items = byDate.get(date) ?? [];
+      const subtotal = items.reduce(
+        (acc, item) => acc + (item.statusLabel === 'OPEN' ? item.remaining : item.cost),
+        0,
+      );
+      return { date, items, subtotal };
+    });
+  });
+
+  protected readonly filterChips = computed<readonly FilterChip[]>(() => {
+    const value = this.filtersValue();
+    const chips: FilterChip[] = [];
+
+    if (value.creditCardId) {
+      const cardName = this.creditCardNameById().get(value.creditCardId);
+      chips.push({
+        id: 'card',
+        label: `Card · ${cardName ?? value.creditCardId}`,
+        clear: () => this.filtersForm.controls.creditCardId.setValue(''),
+      });
+    }
+    if (value.sortOrder && value.sortOrder !== 'DATE_DESC') {
+      chips.push({
+        id: 'sort',
+        label: `Sort · ${value.sortOrder.toLowerCase().replace('_', ' ')}`,
+        clear: () => this.filtersForm.controls.sortOrder.setValue('DATE_DESC'),
+      });
+    }
+    if (value.paymentStatus && value.paymentStatus !== 'ALL') {
+      chips.push({
+        id: 'status',
+        label: `Status · ${value.paymentStatus.toLowerCase()}`,
+        clear: () => this.filtersForm.controls.paymentStatus.setValue('ALL'),
+      });
+    }
+    if (value.startDate) {
+      chips.push({
+        id: 'startDate',
+        label: `From · ${value.startDate}`,
+        clear: () => this.filtersForm.controls.startDate.setValue(''),
+      });
+    }
+    if (value.endDate) {
+      chips.push({
+        id: 'endDate',
+        label: `To · ${value.endDate}`,
+        clear: () => this.filtersForm.controls.endDate.setValue(''),
+      });
+    }
+    if (value.unhidden) {
+      chips.push({
+        id: 'unhidden',
+        label: 'Hidden items shown',
+        clear: () => this.filtersForm.controls.unhidden.setValue(false),
+      });
+    }
+    if (value.search?.trim()) {
+      chips.push({
+        id: 'search',
+        label: `Search · ${value.search.trim()}`,
+        clear: () => this.filtersForm.controls.search.setValue(''),
+      });
+    }
+
+    return chips;
+  });
+
+  // ── Focus management on chip removal (a11y) ─────────────────────────────
+  // Removing a chip re-renders the chips row; without an explicit focus target the
+  // browser drops focus to <body>, silently stranding keyboard/screen-reader users.
+  // chipButtons()/searchInput() are read imperatively inside chipRemoved(), never as a
+  // reactive computed() dependency — they're DOM refs, not state to derive from.
+  private readonly chipButtons = viewChildren<ElementRef<HTMLButtonElement>>('chipButton');
+  private readonly clearAllButton = viewChild<ElementRef<HTMLButtonElement>>('clearAllButton');
+  private readonly searchInputRef = viewChild<ElementRef<HTMLInputElement>>('searchInput');
+  private pendingChipFocus = false;
+
+  protected chipRemoved(label: string): void {
+    this.pendingChipFocus = true;
+    this.liveAnnouncer.announce(`Removed filter ${label}`, 'polite');
+  }
+
+  /** Runs after the chip row's DOM has settled following a removal (see chipRemoved()):
+   *  focuses the next remaining chip, else "Clear all", else the search input once the row
+   *  is empty. AfterViewChecked (not a computed/effect) because this is an imperative DOM
+   *  side effect keyed to a one-shot flag, not a value to keep in sync every CD cycle. */
+  ngAfterViewChecked(): void {
+    if (!this.pendingChipFocus) return;
+    this.pendingChipFocus = false;
+
+    const nextChip = this.chipButtons()[0]?.nativeElement;
+    if (nextChip) {
+      nextChip.focus();
+      return;
+    }
+    const clearAll = this.clearAllButton()?.nativeElement;
+    if (clearAll) {
+      clearAll.focus();
+      return;
+    }
+    this.searchInputRef()?.nativeElement.focus();
+  }
+
   constructor() {
     // Wallet switch: reloads everything scoped to the wallet and resets the create-expense
     // form. Reads `unhiddenFilter()` with `untracked()` — it needs the *current* value of the
@@ -336,6 +555,21 @@ export class ExpensePage {
       this.reloadWalletPayers(walletId);
     });
 
+    // P0-5 fix (post-consolidated-review): the quick-add strip has no credit-card
+    // selector, but `form.creditCardId` is Validators.required — left at its default
+    // '', the form was PERMANENTLY invalid, so canSubmitExpense() never went true and
+    // the "Add" button stayed disabled even with a valid name + cost typed in. Defaults
+    // the control to the wallet's first available card, and re-defaults it whenever the
+    // currently-selected card disappears from the list (e.g. wallet switch) — never
+    // overwrites a still-valid user/dialog selection.
+    effect(() => {
+      const cards = this.creditCards();
+      const current = untracked(() => this.form.controls.creditCardId.value);
+      if (cards.length === 0) return;
+      if (current && cards.some((card) => card.id === current)) return;
+      this.form.controls.creditCardId.setValue(cards[0].id);
+    });
+
     this.tagService.loadAll();
   }
 
@@ -352,6 +586,30 @@ export class ExpensePage {
         catchError(() => of([])),
       )
       .subscribe((payers) => this.walletPayers.set(payers));
+  }
+
+  protected setLayout(layout: LedgerLayout): void {
+    this.layout.set(layout);
+  }
+
+  protected setStatusTab(status: ExpensePaymentStatus): void {
+    this.filtersForm.controls.paymentStatus.setValue(status);
+  }
+
+  protected dismissImportBanner(): void {
+    this.importBannerDismissed.set(true);
+  }
+
+  protected clearAllFilters(): void {
+    this.filtersForm.patchValue({
+      creditCardId: '',
+      sortOrder: 'DATE_DESC',
+      paymentStatus: 'ALL',
+      startDate: '',
+      endDate: '',
+      unhidden: false,
+      search: '',
+    });
   }
 
   protected toggleInstallment(): void {
@@ -392,7 +650,95 @@ export class ExpensePage {
           : {}),
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: () => this.resetForm(), error: () => undefined });
+      .subscribe({
+        next: () => {
+          this.resetForm();
+          this.toast.show('Expense created');
+        },
+        error: () => undefined,
+      });
+  }
+
+  /** P0-1: "More options →" in the quick-add footer strip opens the same full
+   *  expense-create-dialog the shell's "+ New transaction" topbar action uses — it already
+   *  covers every field the old sidebar panel had (name, cost, date, credit card,
+   *  installments) plus bullet selection and keep-open/keep-card conveniences the sidebar
+   *  panel never had. On success, resets this page's own quick-add form the same way
+   *  createExpense() does, and reloads the ledger. */
+  protected openCreateDialog(): void {
+    const wallet = this.selectedWallet();
+    if (!wallet) return;
+
+    const data: ExpenseCreateDialogData = {
+      walletDescription: wallet.description || 'Wallet',
+      walletMonth: this.currentWalletMonth(),
+      cycle: this.currentCycle(),
+      bullets: this.bulletOptions(),
+      creditCards: this.creditCards().map((c) => ({ id: c.id, name: c.name })),
+    };
+
+    const dialogRef = this.dialog.open<
+      ExpenseCreateDialogComponent,
+      ExpenseCreateDialogData,
+      ExpenseCreateDialogResult
+    >(ExpenseCreateDialogComponent, {
+      width: DESKTOP_DIALOG_WIDTH,
+      maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
+      data,
+    });
+
+    dialogRef.componentInstance.submitted
+      .pipe(takeUntil(dialogRef.afterClosed()), takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => this.createExpenseFromDialog(wallet.id, result));
+
+    dialogRef
+      .afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        if (result) this.createExpenseFromDialog(wallet.id, result);
+      });
+  }
+
+  private createExpenseFromDialog(walletId: string, expense: ExpenseCreateDialogResult): void {
+    this.expenseService
+      .create({
+        name: expense.name,
+        cost: expense.cost,
+        purchaseDate: expense.purchaseDate,
+        walletId,
+        creditCardId: expense.creditCardId,
+        ...(expense.bulletId ? { bulletId: expense.bulletId } : {}),
+        ...(expense.installment && expense.installmentNumber
+          ? { installment: true, installmentNumber: expense.installmentNumber }
+          : {}),
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.expenseService.loadByWalletId(walletId);
+          this.toast.show('Expense created');
+        },
+        error: () => undefined,
+      });
+  }
+
+  /** D9: replaces the inline filters panel with the desktop 544px modal. Passes the live
+   *  `filtersForm` by reference (not a copy) — see `ExpenseFiltersDialogData` for why the
+   *  dialog needs no "apply"/"cancel" distinction: every edit inside it already updates
+   *  `filteredExpenseItems()` instantly, exactly like the panel it replaces did. */
+  protected openFiltersDialog(): void {
+    this.dialog.open<ExpenseFiltersDialogComponent, ExpenseFiltersDialogData>(
+      ExpenseFiltersDialogComponent,
+      {
+        width: DESKTOP_DIALOG_WIDTH,
+        maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
+        data: {
+          form: this.filtersForm,
+          creditCards: this.creditCards(),
+          isGroupedLayout: this.isGroupedLayout,
+        },
+      },
+    );
   }
 
   protected openPaymentDialog(expense: ExpenseListItem): void {
@@ -405,8 +751,8 @@ export class ExpensePage {
         { expense: ExpenseListItem; bullets: readonly BulletOption[] },
         ExpensePaymentDialogResult
       >(ExpensePaymentDialogComponent, {
-        width: '32rem',
-        maxWidth: 'calc(100vw - 2rem)',
+        width: DESKTOP_DIALOG_WIDTH,
+        maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
         data: { expense, bullets: this.bulletOptions() },
       })
       .afterClosed()
@@ -426,8 +772,8 @@ export class ExpensePage {
       .open<InteractiveShareDialogComponent, InteractiveShareDialogData, InteractiveShareDialogResult>(
         InteractiveShareDialogComponent,
         {
-          width: '32rem',
-          maxWidth: 'calc(100vw - 2rem)',
+          width: DESKTOP_DIALOG_WIDTH,
+          maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
           data: {
             walletId: wallet.id,
             expense: { id: expense.id, name: expense.name, cost: expense.cost, currency: 'BRL' },
@@ -450,35 +796,16 @@ export class ExpensePage {
           this.paymentService.loadByWalletId(id);
           this.shareService.loadAll();
           this.reloadWalletPayers(id);
+          this.toast.show('Split created');
         }
       });
   }
 
-  protected syncNow(): void {
-    if (this.isSyncing()) return;
-
-    this.syncResultMessage.set(null);
-    this.syncService
-      .ingest()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (result) => {
-          const { report } = result;
-          // `report.fallback` is always 0 in the staging-only flow (card resolution moved
-          // to confirm time — backend commit 38cab7e) and `created` now means "staged for
-          // review", not "Expense created" (that happens on confirm inside the dialog that
-          // opens next) — omitted/reworded here so the summary doesn't imply either.
-          this.syncResultMessage.set(
-            `${report.created} staged for review, ${report.skipped} skipped, ${report.errors} errors`,
-          );
-          this.pendingReviewService.applySyncResult(result);
-          this.openPendingReviewDialog();
-        },
-        error: () => undefined,
-      });
-  }
-
-  private openPendingReviewDialog(): void {
+  // Post-epic-audit P1-3: syncNow() moved to ShellComponent — the design puts the Sync
+  // trigger in the topbar (global, next to the wallet ticker), not in this page's panel
+  // head. openPendingReviewDialog() stays here: it's also called directly from the
+  // import-pending banner's "Review" button, independent of the sync flow.
+  protected openPendingReviewDialog(): void {
     this.dialog
       .open(PendingReviewDialogComponent, {
         width: '60rem',
@@ -505,7 +832,7 @@ export class ExpensePage {
     this.dialog
       .open<TagPickerDialogComponent, TagPickerDialogData, TagPickerDialogResult>(
         TagPickerDialogComponent,
-        { width: '26rem', maxWidth: 'calc(100vw - 2rem)', data },
+        { width: DESKTOP_DIALOG_WIDTH, maxWidth: DESKTOP_DIALOG_MAX_WIDTH, data },
       )
       .afterClosed()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -536,8 +863,13 @@ export class ExpensePage {
       .open<ExpenseDeleteDialogComponent, ExpenseDeleteDialogData, boolean>(
         ExpenseDeleteDialogComponent,
         {
-          width: '32rem',
-          maxWidth: 'calc(100vw - 2rem)',
+          width: DESKTOP_DIALOG_WIDTH,
+          maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
+          // Review D9-Major-2: the only destructive/irreversible dialog in this epic —
+          // Escape/backdrop-click are disabled so a stray keypress or misclick can't delete
+          // an expense unattended. Every other dialog keeps Material's close-on-Escape
+          // default (see dialog.constants.ts for the full baseline rationale).
+          disableClose: true,
           data: { expenseName: expense.name, cost: expense.cost },
         },
       )
@@ -552,7 +884,7 @@ export class ExpensePage {
     this.expenseService
       .delete(id)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({ next: () => undefined, error: () => undefined });
+      .subscribe({ next: () => this.toast.show('Expense deleted'), error: () => undefined });
   }
 
   private payExpense(walletId: string, expenseId: string, payment: ExpensePaymentDialogResult): void {
@@ -572,6 +904,7 @@ export class ExpensePage {
           this.bulletService.loadByWalletId(id);
           this.expenseService.loadByWalletId(id);
           this.paymentService.loadByWalletId(id);
+          this.toast.show('Payment recorded');
         },
         error: () => undefined,
       });
@@ -580,11 +913,29 @@ export class ExpensePage {
   private resetForm(): void {
     this.form.controls.installmentCharges.clearValidators();
     this.form.controls.installmentCharges.updateValueAndValidity();
+    // P0-5 fix: re-defaults to the wallet's first card (same default the creditCards()
+    // effect applies) rather than '' — otherwise every successful quick-add would
+    // re-disable the "Add" button until something else changed creditCards().
+    //
+    // Bug fix (infinite request loop on /expenses): `resetForm()` is called from inside
+    // the wallet-switch effect() below. A signal read inside an effect() is tracked
+    // wherever in the call stack it happens — this line used to read `this.creditCards()`
+    // directly (no untracked()), which silently made it a second dependency of that effect.
+    // `installmentService.loadByWalletId()` (called earlier in that same effect run) fetches
+    // credit cards asynchronously and always pushes a NEW array reference on response (see
+    // InstallmentService.loadCreditCards()), even when the wallet/content is unchanged. That
+    // reference change re-triggered the wallet-switch effect, which called loadByWalletId()
+    // again, fetched again, changed the reference again — an infinite request loop, once per
+    // HTTP round-trip (confirmed live: 266 requests in 4s). Wrapping the read in `untracked()`
+    // reads the *current* value without subscribing this effect to future changes, matching
+    // the same pattern already used for `unhiddenFilter`/`selectedWallet` elsewhere in this
+    // constructor.
+    const creditCardId = untracked(() => this.creditCards()[0]?.id ?? '');
     this.form.reset({
       name: '',
       cost: 0,
       purchaseDate: this.today(),
-      creditCardId: '',
+      creditCardId,
       isInstallment: false,
       installmentCharges: 0,
     });
